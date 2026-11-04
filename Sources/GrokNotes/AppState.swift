@@ -65,6 +65,7 @@ final class AppState: ObservableObject {
     let store = MeetingStore()
     let usage = UsageLedger()
     let tagCatalog = TagCatalog()
+    let templateCatalog = TemplateCatalog()
     private let calendar = CalendarService()
     private var session: RecordingSession?
     private var detectorTimer: Timer?
@@ -459,14 +460,15 @@ final class AppState: ObservableObject {
         m.mode = m.hasNamedRemoteSpeaker ? .named : (s.hasSystemAudio ? .meThem : .micOnly)
 
         if !m.utterances.isEmpty || !m.userNotes.isEmpty {
+            m.templateID = meeting(id)?.templateID ?? m.templateID
             do {
-                m.enhancedNotes = try await NotesGenerator.enhancedNotes(for: m, myName: myName, client: client.tracking(.notes, m), model: model)
+                try await writeNotes(into: &m, client: client)
             } catch {
                 banner = "Grok could not write the notes: \(error.localizedDescription)"
             }
         }
-        if !m.utterances.isEmpty {
-            m.topics = try? await NotesGenerator.topics(for: m, myName: myName, client: client.tracking(.topics, m), model: model)
+        if !m.utterances.isEmpty, (m.topics ?? []).isEmpty {
+            m.topics = try? await topics(for: m, client: client)
         }
 
         // Keep edits made while processing ran.
@@ -476,6 +478,7 @@ final class AppState: ObservableObject {
             m.autoTitle = current.autoTitle
             m.tags = current.tags
             m.pinned = current.pinned
+            m.templateID = current.templateID
             for (key, info) in current.speakers where info.attribution == .manual { m.speakers[key] = info }
         }
         if m.autoTitle, let notes = m.enhancedNotes, let title = NotesGenerator.title(fromNotes: notes) {
@@ -511,19 +514,24 @@ final class AppState: ObservableObject {
     // MARK: Notes and questions
 
     func regenerateNotes(_ id: UUID) async {
-        guard let m = meeting(id), !processing.contains(id) else { return }
+        guard var m = meeting(id), !processing.contains(id) else { return }
+        var gotTopics = false
         do {
             let client = try XAIClient.fromSettings()
             processing.insert(id)
             defer { processing.remove(id) }
-            let notes = try await NotesGenerator.enhancedNotes(for: m, myName: Prefs.myName, client: client.tracking(.notes, m), model: Prefs.model)
-            update(id) { $0.enhancedNotes = notes }
+            gotTopics = try await writeNotes(into: &m, client: client)
+            update(id) {
+                $0.enhancedNotes = m.enhancedNotes
+                $0.notesTemplateID = m.notesTemplateID
+                if gotTopics { $0.topics = m.topics }
+            }
             save(id)
         } catch {
             banner = error.localizedDescription
             return
         }
-        await findTopics(id)
+        if !gotTopics { await findTopics(id) }
     }
 
     func findTopics(_ id: UUID) async {
@@ -532,7 +540,7 @@ final class AppState: ObservableObject {
         defer { findingTopics.remove(id) }
         do {
             let client = try XAIClient.fromSettings()
-            let topics = try await NotesGenerator.topics(for: m, myName: Prefs.myName, client: client.tracking(.topics, m), model: Prefs.model)
+            let topics = try await self.topics(for: m, client: client)
             update(id) { $0.topics = topics }
             save(id)
         } catch {

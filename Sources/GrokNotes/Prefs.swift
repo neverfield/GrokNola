@@ -16,6 +16,7 @@ enum Prefs {
     static var googleDriveSubfolder: String? { nonEmpty(defaults.string(forKey: "googleDriveSubfolder")) }
     static var autoTag: Bool { defaults.object(forKey: "autoTag") as? Bool ?? true }
     static var dynamicTags: Bool { defaults.object(forKey: "dynamicTags") as? Bool ?? true }
+    static var defaultTemplateID: String { nonEmpty(defaults.string(forKey: "defaultTemplate")) ?? SummaryTemplate.generalID }
 
     /// Names confirmed in past meetings. Used as transcription key terms and naming candidates.
     static var knownPeople: [String] {

@@ -61,8 +61,15 @@ struct NotesTab: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button(enhanced == nil ? "Write notes" : "Regenerate") { Task { await state.regenerateNotes(meetingID) } }
-                .disabled(processing)
+            if enhanced != nil, let pending = state.pendingTemplate(for: meetingID) {
+                Button("Regenerate with \(pending.name)") { Task { await state.regenerateNotes(meetingID) } }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(processing)
+                    .help("These notes were written with another template")
+            } else {
+                Button(enhanced == nil ? "Write notes" : "Regenerate") { Task { await state.regenerateNotes(meetingID) } }
+                    .disabled(processing)
+            }
             Button("Copy Markdown") { state.copyMarkdown(meetingID) }
             Button("Show in Finder") { state.revealInFinder(meetingID) }
         }

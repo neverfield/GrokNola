@@ -82,6 +82,10 @@ struct Meeting: Codable, Identifiable {
     var topics: [String]?
     var tags: [String]?
     var pinned: Bool?
+    /// The chosen summary template. Nil uses the default from Settings.
+    var templateID: String?
+    /// The template the current enhanced notes were written with.
+    var notesTemplateID: String?
 }
 
 struct TalkStat: Hashable {

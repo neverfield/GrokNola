@@ -3,16 +3,40 @@ import Foundation
 enum NotesGenerator {
     private static let maxTranscriptCharacters = 300_000
 
-    static func enhancedNotes(for meeting: Meeting, myName: String, client: XAIClient, model: String) async throws -> String {
+    struct Notes {
+        var markdown: String
+        /// Normalized themes from the notes call, or nil when Grok left out the Topics line.
+        var topics: [String]?
+    }
+
+    /// Writes the notes with `template` and, in the same request, the meeting's topics.
+    static func enhancedNotes(
+        for meeting: Meeting,
+        template: SummaryTemplate,
+        topicVocabulary: [String],
+        myName: String,
+        client: XAIClient,
+        model: String
+    ) async throws -> Notes {
+        let sections = template.sections.enumerated().map { "\($0.offset + 1). ## \($0.element)" }.joined(separator: "\n")
+        let instructions = template.instructions.trimmingCharacters(in: .whitespacesAndNewlines)
         let system = """
         You are Grok Notes, an expert meeting note-taker. Turn the transcript and the user's rough notes into clean, skimmable Markdown.
 
+        Meeting type: \(template.name)
+        \(instructions.isEmpty ? "Write balanced, skimmable notes." : instructions)
+
         Format:
         - First line: "# " and a short, specific title (8 words or fewer).
-        - "## Summary": 2 to 4 sentences.
-        - The user's rough notes are the backbone. Keep every point they wrote, in their order, and add specifics from the transcript under each. Then add other important topics.
-        - Use "## " topic headings with short "- " bullets.
-        - "## Decisions" and "## Action items" (as "- [ ] Owner: task, due date if stated"). Leave out a section that would be empty.
+        - Then use exactly these "## " sections, in this order, with these headings:
+        \(sections.isEmpty ? "1. ## Summary\n2. ## Key points\n3. ## Action items" : sections)
+        - Leave out a section that would be empty. Do not add other "## " sections; use "### " subheadings inside a section when it helps.
+        - Short "- " bullets. Write action items, next steps, and follow-ups as "- [ ] Owner: task, due date if stated".
+        - The user's rough notes are the backbone. Keep every point they wrote, in their order, placed in the section where it fits, and add specifics from the transcript under each.
+
+        Topics:
+        - After the notes, end with exactly one final plain line: "Topics: Theme One; Theme Two; Theme Three".
+        \(Topics.rules(template: template, vocabulary: topicVocabulary))
 
         Rules:
         - Attribute statements and owners by name only when the transcript label is a real name. "Them" is an unidentified remote participant; write "the other side" or "someone" instead.
@@ -31,12 +55,15 @@ enum NotesGenerator {
         \(meeting.userNotes.isEmpty ? "(none)" : meeting.userNotes)
 
         Transcript:
-        \(String(meeting.transcript(myName: myName).prefix(maxTranscriptCharacters)))
+        \(String(meeting.transcript(myName: myName).prefix(maxTranscriptCharacters)))\(Topics.vocabularyBlock(topicVocabulary))
         """
-        return try await client.chat(model: model, messages: [
+        let reply = try await client.chat(model: model, messages: [
             .init(role: "system", content: system),
             .init(role: "user", content: user),
         ])
+        let split = Topics.splitTopicsLine(from: reply)
+        let topics = split.topics.map { Topics.normalize($0, vocabulary: topicVocabulary) }
+        return Notes(markdown: split.notes, topics: topics?.isEmpty == true ? nil : topics)
     }
 
     static func answer(_ question: String, about meeting: Meeting, myName: String, client: XAIClient, model: String) async throws -> String {
@@ -62,8 +89,15 @@ enum NotesGenerator {
         return try await client.chat(model: model, messages: messages)
     }
 
-    /// 3 to 6 short topic phrases. Reads the notes when there are some, otherwise the transcript.
-    static func topics(for meeting: Meeting, myName: String, client: XAIClient, model: String) async throws -> [String] {
+    /// 3 to 5 themes, for meetings whose notes came without topics. Reads the notes when there are some, otherwise the transcript.
+    static func topics(
+        for meeting: Meeting,
+        template: SummaryTemplate,
+        topicVocabulary: [String],
+        myName: String,
+        client: XAIClient,
+        model: String
+    ) async throws -> [String] {
         let source: String
         if let notes = meeting.enhancedNotes, !notes.isEmpty {
             source = "Meeting notes:\n\(notes)"
@@ -72,23 +106,20 @@ enum NotesGenerator {
         }
         let reply = try await client.chat(model: model, messages: [
             .init(role: "system", content: """
-            List the 3 to 6 main topics of this meeting, most discussed first. \
-            Each topic is a short noun phrase of 2 to 5 words in sentence case. \
-            Output one topic per line and nothing else: no numbering, bullets, or punctuation at the end.
+            You name the themes of a meeting (meeting type: \(template.name)).
+            \(Topics.rules(template: template, vocabulary: topicVocabulary))
+            Reply with one line and nothing else: "Topics: Theme One; Theme Two; Theme Three".
             """),
-            .init(role: "user", content: "Meeting: \(meeting.title)\n\n\(source)"),
+            .init(role: "user", content: "Meeting: \(meeting.title)\(Topics.vocabularyBlock(topicVocabulary))\n\n\(source)"),
         ])
-        return parseTopics(reply)
+        return parseTopics(reply, vocabulary: topicVocabulary)
     }
 
-    static func parseTopics(_ reply: String) -> [String] {
-        let lines = reply.split(whereSeparator: \.isNewline).map { line -> String in
-            let t = Citations.strip(String(line))
-                .replacingOccurrences(of: #"^\s*(?:[-*•#]+|\d{1,2}[.)])\s*"#, with: "", options: .regularExpression)
-            return t.trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: ".;,\"*")))
-        }
-        var seen = Set<String>()
-        return Array(lines.filter { !$0.isEmpty && $0.count <= 60 && seen.insert($0.lowercased()).inserted }.prefix(6))
+    /// Reads a "Topics:" line, or one topic per line when Grok skipped the label.
+    static func parseTopics(_ reply: String, vocabulary: [String] = []) -> [String] {
+        let lines = reply.split(whereSeparator: \.isNewline).map(String.init)
+        let raw = lines.compactMap(Topics.topicsList(in:)).last ?? lines
+        return Topics.normalize(raw, vocabulary: vocabulary)
     }
 
     static func title(fromNotes notes: String) -> String? {

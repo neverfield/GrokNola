@@ -41,10 +41,13 @@ struct MeetingDetailView: View {
                 .navigationTitle("")
                 .toolbar {
                     ToolbarItem(placement: .principal) {
-                        TextField("Title", text: state.titleBinding(meetingID))
-                            .textFieldStyle(.plain)
-                            .font(GrokTypography.meetingTitle())
-                            .frame(minWidth: 200, maxWidth: 420)
+                        HStack(spacing: GrokSpacing.sm) {
+                            TextField("Title", text: state.titleBinding(meetingID))
+                                .textFieldStyle(.plain)
+                                .font(GrokTypography.meetingTitle())
+                                .frame(minWidth: 200, maxWidth: 420)
+                            TemplatePickerMenu(meetingID: meetingID)
+                        }
                     }
                     ToolbarItemGroup(placement: .automatic) {
                         if state.recordingID == meetingID {
