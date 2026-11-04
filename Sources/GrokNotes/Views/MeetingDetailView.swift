@@ -62,7 +62,7 @@ struct MeetingDetailView: View {
                         } label: {
                             Label("Meeting info", systemImage: "info.circle")
                         }
-                        .help("Speakers, attendees, and attribution")
+                        .help("Tags, speakers, attendees, and attribution")
                     }
                 }
                 .inspector(isPresented: $showInspector) {
@@ -93,6 +93,10 @@ struct MeetingInspectorView: View {
                             Text(ended.formatted(date: .abbreviated, time: .shortened))
                         }
                     }
+                }
+
+                Section("Tags") {
+                    MeetingTagsEditor(meetingID: meetingID)
                 }
 
                 Section("Attribution") {

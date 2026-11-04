@@ -78,8 +78,10 @@ struct Meeting: Codable, Identifiable {
     var speakers: [String: SpeakerInfo] = [:]
     var mode: AttributionMode = .detecting
     var chat: [ChatMessage] = []
-    /// Optional so meetings saved before topics existed still decode.
+    // Added after the first release: keep these Optional so older meeting.json files still decode.
     var topics: [String]?
+    var tags: [String]?
+    var pinned: Bool?
 }
 
 struct TalkStat: Hashable {
@@ -93,6 +95,13 @@ struct TalkStat: Hashable {
 
 extension Meeting {
     static let meKey = "me"
+
+    var tagList: [String] { tags ?? [] }
+    var isPinned: Bool { pinned ?? false }
+
+    func hasTag(_ name: String) -> Bool {
+        tagList.contains { $0.caseInsensitiveCompare(name) == .orderedSame }
+    }
 
     func displayName(for key: String, myName: String) -> String {
         if let name = speakers[key]?.name, !name.isEmpty { return name }
@@ -126,6 +135,7 @@ extension Meeting {
         if let appName { out += " · \(appName)" }
         out += "_\n\n"
         if !attendees.isEmpty { out += "**Attendees:** \(attendees.joined(separator: ", "))\n\n" }
+        if !tagList.isEmpty { out += "**Tags:** \(tagList.joined(separator: ", "))\n\n" }
         if !utterances.isEmpty {
             out += "## Call summary\n\n"
             out += "- Duration: \(Meeting.durationLabel(duration))\n"

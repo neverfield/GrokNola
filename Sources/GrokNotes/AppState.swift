@@ -64,6 +64,7 @@ final class AppState: ObservableObject {
 
     let store = MeetingStore()
     let usage = UsageLedger()
+    let tagCatalog = TagCatalog()
     private let calendar = CalendarService()
     private var session: RecordingSession?
     private var detectorTimer: Timer?
@@ -71,6 +72,7 @@ final class AppState: ObservableObject {
 
     init() {
         meetings = store.loadAll()
+        tagCatalog.reconcile(with: meetings)
         selectedID = meetings.first?.id
         libraryChat = Self.loadLibraryChat()
         refreshPermissions()
@@ -472,6 +474,8 @@ final class AppState: ObservableObject {
             m.userNotes = current.userNotes
             m.title = current.title
             m.autoTitle = current.autoTitle
+            m.tags = current.tags
+            m.pinned = current.pinned
             for (key, info) in current.speakers where info.attribution == .manual { m.speakers[key] = info }
         }
         if m.autoTitle, let notes = m.enhancedNotes, let title = NotesGenerator.title(fromNotes: notes) {
@@ -486,6 +490,10 @@ final class AppState: ObservableObject {
 
         update(id) { $0 = m }
         save(id)
+
+        if Prefs.autoTag, m.enhancedNotes != nil {
+            await applySuggestedTags(id, client: client)
+        }
     }
 
     private func batchSegments(_ client: XAIClient, wav: WAVWriter, language: String, keyterms: [String]) async -> [STTStream.Segment]? {

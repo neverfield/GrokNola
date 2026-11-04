@@ -49,6 +49,8 @@ struct SettingsView: View {
                 }
             }
 
+            TagSettingsSection()
+
             Section("Privacy") {
                 Toggle("Keep audio recordings after notes are written", isOn: $keepAudio)
                 Button("Show data folder") { NSWorkspace.shared.open(state.store.root) }
