@@ -34,6 +34,13 @@ private final class RecordingSession {
     }
 }
 
+/// A request to show the transcript of a meeting at a time, set by clicking a citation.
+struct TranscriptFocus: Equatable {
+    var meetingID: UUID
+    var seconds: Double
+    var token = UUID()
+}
+
 @MainActor
 final class AppState: ObservableObject {
     @Published var meetings: [Meeting] = []
@@ -41,6 +48,8 @@ final class AppState: ObservableObject {
     @Published private(set) var recordingID: UUID?
     @Published private(set) var processing: Set<UUID> = []
     @Published private(set) var asking: Set<UUID> = []
+    @Published private(set) var findingTopics: Set<UUID> = []
+    @Published var transcriptFocus: TranscriptFocus?
     @Published var liveMe = ""
     @Published var liveThem = ""
     @Published private(set) var elapsed: TimeInterval = 0
@@ -454,6 +463,9 @@ final class AppState: ObservableObject {
                 banner = "Grok could not write the notes: \(error.localizedDescription)"
             }
         }
+        if !m.utterances.isEmpty {
+            m.topics = try? await NotesGenerator.topics(for: m, myName: myName, client: client.tracking(.topics, m), model: model)
+        }
 
         // Keep edits made while processing ran.
         if let current = meeting(id) {
@@ -501,7 +513,27 @@ final class AppState: ObservableObject {
             save(id)
         } catch {
             banner = error.localizedDescription
+            return
         }
+        await findTopics(id)
+    }
+
+    func findTopics(_ id: UUID) async {
+        guard let m = meeting(id), !m.utterances.isEmpty, !findingTopics.contains(id) else { return }
+        findingTopics.insert(id)
+        defer { findingTopics.remove(id) }
+        do {
+            let client = try XAIClient.fromSettings()
+            let topics = try await NotesGenerator.topics(for: m, myName: Prefs.myName, client: client.tracking(.topics, m), model: Prefs.model)
+            update(id) { $0.topics = topics }
+            save(id)
+        } catch {
+            banner = "Grok could not find the topics: \(error.localizedDescription)"
+        }
+    }
+
+    func focusTranscript(_ id: UUID, at seconds: Double) {
+        transcriptFocus = TranscriptFocus(meetingID: id, seconds: seconds)
     }
 
     func ask(_ id: UUID, _ question: String) async {

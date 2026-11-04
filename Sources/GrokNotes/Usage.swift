@@ -4,6 +4,7 @@ enum UsageKind: String, Codable, CaseIterable {
     case liveTranscription
     case batchTranscription
     case notes
+    case topics
     case speakerNames
     case vision
     case ask
@@ -15,6 +16,7 @@ enum UsageKind: String, Codable, CaseIterable {
         case .liveTranscription: return "Live transcription"
         case .batchTranscription: return "Full-recording transcription"
         case .notes: return "Notes"
+        case .topics: return "Topics"
         case .speakerNames: return "Speaker names (transcript)"
         case .vision: return "Speaker names (snapshots)"
         case .ask: return "Ask Grok (one meeting)"

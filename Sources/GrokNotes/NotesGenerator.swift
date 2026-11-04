@@ -17,6 +17,7 @@ enum NotesGenerator {
         Rules:
         - Attribute statements and owners by name only when the transcript label is a real name. "Them" is an unidentified remote participant; write "the other side" or "someone" instead.
         - Use only facts from the transcript and the notes. Never invent names, numbers, or dates.
+        - Cite sources: end each factual bullet and action item with the timestamps of the transcript lines it relies on, copied exactly from the line prefixes, each in its own brackets, for example "- Budget is capped at $50k [12:04] [15:30]". Use 1 to 3 timestamps per bullet. Do not cite in the title or headings. Skip the citation when a point comes only from the user's rough notes. Never invent a timestamp.
         - Output Markdown only.
         """
         let user = """
@@ -41,7 +42,8 @@ enum NotesGenerator {
     static func answer(_ question: String, about meeting: Meeting, myName: String, client: XAIClient, model: String) async throws -> String {
         var messages: [XAIClient.Message] = [
             .init(role: "system", content: """
-            You answer questions about one meeting using its transcript and notes. Cite timestamps like [12:04] when useful. \
+            You answer questions about one meeting using its transcript and notes. Cite timestamps copied from transcript lines, \
+            each in its own brackets like [12:04], when useful. \
             If the meeting does not contain the answer, say so. "Them" is an unidentified remote participant.
             """),
             .init(role: "user", content: """
@@ -60,9 +62,38 @@ enum NotesGenerator {
         return try await client.chat(model: model, messages: messages)
     }
 
+    /// 3 to 6 short topic phrases. Reads the notes when there are some, otherwise the transcript.
+    static func topics(for meeting: Meeting, myName: String, client: XAIClient, model: String) async throws -> [String] {
+        let source: String
+        if let notes = meeting.enhancedNotes, !notes.isEmpty {
+            source = "Meeting notes:\n\(notes)"
+        } else {
+            source = "Transcript:\n\(String(meeting.transcript(myName: myName).prefix(maxTranscriptCharacters)))"
+        }
+        let reply = try await client.chat(model: model, messages: [
+            .init(role: "system", content: """
+            List the 3 to 6 main topics of this meeting, most discussed first. \
+            Each topic is a short noun phrase of 2 to 5 words in sentence case. \
+            Output one topic per line and nothing else: no numbering, bullets, or punctuation at the end.
+            """),
+            .init(role: "user", content: "Meeting: \(meeting.title)\n\n\(source)"),
+        ])
+        return parseTopics(reply)
+    }
+
+    static func parseTopics(_ reply: String) -> [String] {
+        let lines = reply.split(whereSeparator: \.isNewline).map { line -> String in
+            let t = Citations.strip(String(line))
+                .replacingOccurrences(of: #"^\s*(?:[-*•#]+|\d{1,2}[.)])\s*"#, with: "", options: .regularExpression)
+            return t.trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: ".;,\"*")))
+        }
+        var seen = Set<String>()
+        return Array(lines.filter { !$0.isEmpty && $0.count <= 60 && seen.insert($0.lowercased()).inserted }.prefix(6))
+    }
+
     static func title(fromNotes notes: String) -> String? {
         guard let line = notes.split(separator: "\n").first(where: { $0.hasPrefix("# ") }) else { return nil }
-        let title = line.dropFirst(2).trimmingCharacters(in: .whitespaces)
+        let title = Citations.strip(String(line.dropFirst(2)))
         return title.isEmpty ? nil : title
     }
 }

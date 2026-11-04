@@ -17,15 +17,26 @@ struct NotesTab: View {
                 Divider()
             }
 
+            let showSummary = !recording && !(meeting?.utterances.isEmpty ?? true)
             if let enhanced, !recording, !showMyNotes {
                 ScrollView {
-                    MarkdownView(markdown: enhanced)
-                        .padding(GrokSpacing.contentInset)
-                        .frame(maxWidth: 680, alignment: .leading)
-                        .frame(maxWidth: .infinity, alignment: .center)
+                    VStack(alignment: .leading, spacing: GrokSpacing.lg) {
+                        if showSummary { CallSummaryCard(meetingID: meetingID) }
+                        MarkdownView(markdown: enhanced, citationMeetingID: meetingID)
+                    }
+                    .padding(GrokSpacing.contentInset)
+                    .frame(maxWidth: 680, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .center)
                 }
                 .background(Color(nsColor: .textBackgroundColor))
             } else {
+                if showSummary, enhanced == nil {
+                    CallSummaryCard(meetingID: meetingID)
+                        .padding([.horizontal, .top], GrokSpacing.contentInset)
+                        .frame(maxWidth: 680, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .background(GrokColors.notesSurface)
+                }
                 notesEditor(meeting: meeting, recording: recording)
             }
         }
@@ -103,11 +114,18 @@ private func mergedBlocks(from utterances: [Utterance]) -> [TranscriptBlock] {
     return blocks
 }
 
+/// The last block that starts at or before `seconds`. Citations are whole seconds, so allow up to one second of rounding.
+private func blockID(containing seconds: Double, in blocks: [TranscriptBlock]) -> UUID? {
+    (blocks.last { $0.start < seconds + 1 } ?? blocks.first)?.id
+}
+
 struct TranscriptTab: View {
     @EnvironmentObject private var state: AppState
     let meetingID: UUID
     @State private var stickToBottom = true
     @State private var scrollToLiveRequest = 0
+    @State private var highlightedBlock: UUID?
+    @State private var highlightTask: Task<Void, Never>?
 
     var body: some View {
         let utterances = state.meeting(meetingID)?.utterances ?? []
@@ -124,7 +142,7 @@ struct TranscriptTab: View {
                                 .padding(GrokSpacing.contentInset)
                         }
                         ForEach(blocks) { block in
-                            TranscriptBlockView(meetingID: meetingID, block: block)
+                            TranscriptBlockView(meetingID: meetingID, block: block, highlighted: highlightedBlock == block.id)
                                 .id(block.id)
                         }
                         if recording {
@@ -149,7 +167,14 @@ struct TranscriptTab: View {
                 .onChange(of: state.liveMe) { _, _ in scrollIfStuck(proxy) }
                 .onChange(of: state.liveThem) { _, _ in scrollIfStuck(proxy) }
                 .onAppear {
-                    if recording { proxy.scrollTo("live", anchor: .bottom) }
+                    if state.transcriptFocus?.meetingID == meetingID {
+                        focus(blocks: blocks, proxy: proxy)
+                    } else if recording {
+                        proxy.scrollTo("live", anchor: .bottom)
+                    }
+                }
+                .onChange(of: state.transcriptFocus) { _, focus in
+                    if focus?.meetingID == meetingID { self.focus(blocks: blocks, proxy: proxy) }
                 }
                 .onChange(of: scrollToLiveRequest) {
                     withAnimation(.easeOut(duration: 0.2)) {
@@ -171,6 +196,26 @@ struct TranscriptTab: View {
         }
     }
 
+    /// Scrolls to the block that contains the requested time and highlights it briefly.
+    private func focus(blocks: [TranscriptBlock], proxy: ScrollViewProxy) {
+        guard let request = state.transcriptFocus, request.meetingID == meetingID else { return }
+        state.transcriptFocus = nil
+        guard let target = blockID(containing: request.seconds, in: blocks) else { return }
+        stickToBottom = false
+        highlightTask?.cancel()
+        highlightTask = Task { @MainActor in
+            // Let a freshly shown tab lay out before scrolling.
+            try? await Task.sleep(for: .milliseconds(60))
+            withAnimation(.easeInOut(duration: 0.25)) {
+                proxy.scrollTo(target, anchor: .center)
+                highlightedBlock = target
+            }
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeOut(duration: 0.4)) { highlightedBlock = nil }
+        }
+    }
+
     private func scrollIfStuck(_ proxy: ScrollViewProxy) {
         guard state.recordingID == meetingID, stickToBottom else { return }
         withAnimation(.easeOut(duration: 0.15)) {
@@ -183,6 +228,7 @@ private struct TranscriptBlockView: View {
     @EnvironmentObject private var state: AppState
     let meetingID: UUID
     let block: TranscriptBlock
+    var highlighted = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: GrokSpacing.xs) {
@@ -201,6 +247,12 @@ private struct TranscriptBlockView: View {
             }
             .padding(.leading, 2)
         }
+        .padding(GrokSpacing.sm)
+        .background(
+            Color.accentColor.opacity(highlighted ? 0.16 : 0),
+            in: RoundedRectangle(cornerRadius: 8)
+        )
+        .padding(-GrokSpacing.sm)
     }
 }
 
@@ -273,7 +325,7 @@ struct AskTab: View {
                             Text(message.role == "user" ? "You" : "Grok")
                                 .font(GrokTypography.captionMuted().weight(.semibold))
                                 .foregroundStyle(.secondary)
-                            MarkdownView(markdown: message.content)
+                            MarkdownView(markdown: message.content, citationMeetingID: message.role == "assistant" ? meetingID : nil)
                         }
                     }
                     if busy { ProgressView().controlSize(.small) }
@@ -304,6 +356,8 @@ struct AskTab: View {
 /// Renders the subset of Markdown that Grok's notes use: headings, bullets, checkboxes, and inline styles.
 struct MarkdownView: View {
     let markdown: String
+    /// When set, `[mm:ss]` citations link to this meeting's transcript.
+    var citationMeetingID: UUID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: GrokSpacing.sm) {
@@ -344,6 +398,15 @@ struct MarkdownView: View {
     }
 
     private func inline(_ text: String) -> Text {
-        Text((try? AttributedString(markdown: text)) ?? AttributedString(text))
+        let source = citationMeetingID.map { Citations.linkify(text, meetingID: $0) } ?? text
+        var attributed = (try? AttributedString(markdown: source)) ?? AttributedString(text)
+        if citationMeetingID != nil {
+            let citations = attributed.runs.filter { $0.link.map { Citations.target(from: $0) != nil } ?? false }.map(\.range)
+            for range in citations {
+                attributed[range].font = GrokTypography.citation()
+                attributed[range].baselineOffset = 2
+            }
+        }
+        return Text(attributed)
     }
 }

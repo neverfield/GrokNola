@@ -30,6 +30,14 @@ struct MeetingDetailView: View {
                     case .ask: AskTab(meetingID: meetingID)
                     }
                 }
+                .environment(\.openURL, OpenURLAction { url in
+                    guard let target = Citations.target(from: url) else { return .systemAction }
+                    state.focusTranscript(target.meetingID, at: target.seconds)
+                    return .handled
+                })
+                .onChange(of: state.transcriptFocus) { _, focus in
+                    if focus?.meetingID == meetingID { tab = .transcript }
+                }
                 .navigationTitle("")
                 .toolbar {
                     ToolbarItem(placement: .principal) {

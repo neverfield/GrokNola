@@ -25,6 +25,7 @@ enum GrokTypography {
     static func placeholder() -> Font { .title3.weight(.regular) }
     static func emptyStateTitle() -> Font { .largeTitle.weight(.semibold) }
     static func emptyStateBody() -> Font { .body }
+    static func citation() -> Font { .caption2.monospacedDigit() }
 }
 
 // MARK: - Semantic colors (system)
