@@ -7,6 +7,7 @@ enum UsageKind: String, Codable, CaseIterable {
     case speakerNames
     case vision
     case ask
+    case library
     case other
 
     var label: String {
@@ -16,7 +17,8 @@ enum UsageKind: String, Codable, CaseIterable {
         case .notes: return "Notes"
         case .speakerNames: return "Speaker names (transcript)"
         case .vision: return "Speaker names (snapshots)"
-        case .ask: return "Ask Grok"
+        case .ask: return "Ask Grok (one meeting)"
+        case .library: return "Ask across notes"
         case .other: return "Other"
         }
     }

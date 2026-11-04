@@ -45,6 +45,15 @@ the microphone alone is diarized and the main voice is labeled as you.
 The active-speaker patterns in `Sources/GrokNotes/Speakers/ActiveSpeakerMonitor.swift`
 are heuristics. Meeting apps change their labels, so add a pattern there if names stop appearing.
 
+## Ask across notes
+
+**Ask across notes** at the top of the sidebar (Command-K) is one chat over every meeting.
+Grok ranks meetings by keywords, names, and recency, picks the most relevant ones from a
+compact index, then answers from their notes and transcripts. Each answer links to its
+source meetings; click a link to open the meeting. The search field above the meeting list
+filters by title, notes, people, and transcript text. The chat history is saved in
+`~/Library/Application Support/GrokNotes/library-chat.json`.
+
 ## Cost
 
 **Meeting > Usage & Cost** (Shift-Command-U, or the menu bar) shows xAI spend for today,

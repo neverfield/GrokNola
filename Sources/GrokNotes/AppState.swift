@@ -48,6 +48,10 @@ final class AppState: ObservableObject {
     @Published var banner: String?
     @Published private(set) var streamStatus: String?
     @Published private(set) var permissions = Permissions()
+    /// True while the detail pane shows the chat across all notes instead of a meeting.
+    @Published var showLibraryChat = false
+    @Published private(set) var libraryChat: [ChatMessage] = []
+    @Published private(set) var libraryAsking = false
 
     let store = MeetingStore()
     let usage = UsageLedger()
@@ -59,6 +63,7 @@ final class AppState: ObservableObject {
     init() {
         meetings = store.loadAll()
         selectedID = meetings.first?.id
+        libraryChat = Self.loadLibraryChat()
         refreshPermissions()
         detectorTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.detectMeeting() }
@@ -512,6 +517,58 @@ final class AppState: ObservableObject {
             update(id) { $0.chat.append(ChatMessage(role: "assistant", content: "Error: \(error.localizedDescription)")) }
         }
         save(id)
+    }
+
+    // MARK: Ask across notes
+
+    func openLibraryChat() {
+        showLibraryChat = true
+        selectedID = nil
+    }
+
+    func openMeeting(_ id: UUID) {
+        guard meeting(id) != nil else { return }
+        showLibraryChat = false
+        selectedID = id
+    }
+
+    func askLibrary(_ question: String) async {
+        guard !libraryAsking else { return }
+        let history = libraryChat
+        libraryChat.append(ChatMessage(role: "user", content: question))
+        libraryAsking = true
+        defer {
+            libraryAsking = false
+            saveLibraryChat()
+        }
+        do {
+            let client = try XAIClient.fromSettings().tracking(.library)
+            let answer = try await LibraryAsk.answer(
+                question, history: history, meetings: meetings, myName: Prefs.myName, client: client, model: Prefs.model
+            )
+            libraryChat.append(ChatMessage(role: "assistant", content: answer))
+        } catch {
+            libraryChat.append(ChatMessage(role: "assistant", content: "Error: \(error.localizedDescription)"))
+        }
+    }
+
+    func clearLibraryChat() {
+        libraryChat = []
+        saveLibraryChat()
+    }
+
+    private static var libraryChatURL: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("GrokNotes/library-chat.json")
+    }
+
+    private static func loadLibraryChat() -> [ChatMessage] {
+        guard let data = try? Data(contentsOf: libraryChatURL) else { return [] }
+        return (try? JSONDecoder().decode([ChatMessage].self, from: data)) ?? []
+    }
+
+    private func saveLibraryChat() {
+        try? JSONEncoder().encode(libraryChat).write(to: Self.libraryChatURL, options: .atomic)
     }
 
     func copyMarkdown(_ id: UUID) {

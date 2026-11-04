@@ -2,12 +2,15 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var state: AppState
+    @State private var searchText = ""
 
     var body: some View {
         NavigationSplitView {
             sidebar
         } detail: {
-            if let id = state.selectedID, state.meeting(id) != nil {
+            if state.showLibraryChat {
+                LibraryChatView()
+            } else if let id = state.selectedID, state.meeting(id) != nil {
                 MeetingDetailView(meetingID: id).id(id)
             } else {
                 EmptyStateView()
@@ -29,10 +32,39 @@ struct ContentView: View {
             }
         }
         .onAppear { state.refreshPermissions() }
+        .onChange(of: state.selectedID) {
+            if state.selectedID != nil { state.showLibraryChat = false }
+        }
+    }
+
+    private var filteredMeetings: [Meeting] {
+        let query = searchText.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !query.isEmpty else { return state.meetings }
+        return state.meetings.filter { m in
+            m.title.lowercased().contains(query)
+                || (m.enhancedNotes ?? m.userNotes).lowercased().contains(query)
+                || m.attendees.contains { $0.lowercased().contains(query) }
+                || m.speakers.values.contains { ($0.name ?? "").lowercased().contains(query) }
+                || m.utterances.contains { $0.text.lowercased().contains(query) }
+        }
     }
 
     private var sidebar: some View {
         List(selection: $state.selectedID) {
+            Section {
+                Button {
+                    state.openLibraryChat()
+                } label: {
+                    Label("Ask across notes", systemImage: "sparkle.magnifyingglass")
+                        .fontWeight(state.showLibraryChat ? .semibold : .regular)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.vertical, GrokSpacing.xs)
+                .listRowBackground(state.showLibraryChat ? Color.accentColor.opacity(0.15) : Color.clear)
+                .help("Ask Grok about all your meetings (Command-K)")
+            }
             if state.meetings.isEmpty {
                 ContentUnavailableView {
                     Label("No meetings yet", systemImage: "note.text")
@@ -40,8 +72,13 @@ struct ContentView: View {
                     Text("Start notes when a call begins. Your rough notes guide what Grok writes.")
                 }
                 .listRowBackground(Color.clear)
+            } else if filteredMeetings.isEmpty {
+                Text("No meetings match “\(searchText)”.")
+                    .foregroundStyle(.secondary)
+                    .listRowBackground(Color.clear)
             } else {
-                ForEach(state.meetings) { meeting in
+                Section("Meetings") {
+                ForEach(filteredMeetings) { meeting in
                     MeetingRow(meeting: meeting)
                         .tag(meeting.id)
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
@@ -58,8 +95,10 @@ struct ContentView: View {
                                 .disabled(state.recordingID == meeting.id)
                         }
                 }
+                }
             }
         }
+        .searchable(text: $searchText, placement: .sidebar, prompt: "Search meetings")
         .navigationSplitViewColumnWidth(min: 220, ideal: 260)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {

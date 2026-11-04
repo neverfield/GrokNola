@@ -14,6 +14,12 @@ struct XAIClient {
     /// What requests from this client are for, so usage is logged against the right meeting and feature.
     var usageContext: UsageContext?
 
+    func tracking(_ kind: UsageKind) -> XAIClient {
+        var copy = self
+        copy.usageContext = UsageContext(kind: kind, meetingID: nil, meetingTitle: nil)
+        return copy
+    }
+
     func tracking(_ kind: UsageKind, _ meeting: Meeting) -> XAIClient {
         var copy = self
         copy.usageContext = UsageContext(kind: kind, meetingID: meeting.id, meetingTitle: meeting.title)
