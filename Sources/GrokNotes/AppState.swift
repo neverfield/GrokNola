@@ -41,6 +41,12 @@ struct TranscriptFocus: Equatable {
     var token = UUID()
 }
 
+enum DetailRoute: Equatable {
+    case home
+    case library
+    case meeting(UUID)
+}
+
 @MainActor
 final class AppState: ObservableObject {
     @Published var meetings: [Meeting] = []
@@ -74,7 +80,6 @@ final class AppState: ObservableObject {
     init() {
         meetings = store.loadAll()
         tagCatalog.reconcile(with: meetings)
-        selectedID = meetings.first?.id
         libraryChat = Self.loadLibraryChat()
         refreshPermissions()
         detectorTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
@@ -134,7 +139,7 @@ final class AppState: ObservableObject {
         guard id != recordingID else { return }
         meetings.removeAll { $0.id == id }
         store.delete(id)
-        if selectedID == id { selectedID = meetings.first?.id }
+        if selectedID == id { selectedID = nil }
     }
 
     func save(_ id: UUID) {
@@ -565,6 +570,20 @@ final class AppState: ObservableObject {
             update(id) { $0.chat.append(ChatMessage(role: "assistant", content: "Error: \(error.localizedDescription)")) }
         }
         save(id)
+    }
+
+    // MARK: Navigation
+
+    /// What the detail pane shows. Home is the default when nothing else is open.
+    var route: DetailRoute {
+        if showLibraryChat { return .library }
+        if let selectedID, meeting(selectedID) != nil { return .meeting(selectedID) }
+        return .home
+    }
+
+    func openHome() {
+        showLibraryChat = false
+        selectedID = nil
     }
 
     // MARK: Ask across notes
