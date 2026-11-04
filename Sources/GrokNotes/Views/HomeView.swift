@@ -5,6 +5,7 @@ struct HomeView: View {
     @EnvironmentObject private var state: AppState
     @EnvironmentObject private var usage: UsageLedger
     @EnvironmentObject private var catalog: TagCatalog
+    @EnvironmentObject private var clips: ClipPlayer
     @AppStorage("homeTrendDays") private var trendDays = 7
     @State private var question = ""
     @State private var listing: MeetingListing?
@@ -44,7 +45,15 @@ struct HomeView: View {
             .frame(maxWidth: .infinity)
         }
         .navigationTitle("Home")
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            NowPlayingBar(showsMeetingTitle: true)
+        }
+        .animation(.easeOut(duration: 0.2), value: clips.nowPlaying)
         .environment(\.openURL, OpenURLAction { url in
+            if let target = Citations.playTarget(from: url) {
+                state.toggleClip(target.meetingID, at: target.seconds)
+                return .handled
+            }
             if let target = Citations.target(from: url) {
                 state.openTranscript(target.meetingID, at: target.seconds)
                 return .handled
@@ -541,17 +550,15 @@ private struct ActionItemRow: View {
 
 /// One line of notes with working `[mm:ss]` citations.
 private struct HomeMarkdownText: View {
+    @EnvironmentObject private var state: AppState
     let text: String
     let meetingID: UUID
     var owner: String?
 
     var body: some View {
-        var attributed = (try? AttributedString(markdown: Citations.linkify(text, meetingID: meetingID))) ?? AttributedString(text)
-        let citations = attributed.runs.filter { $0.link.map { Citations.target(from: $0) != nil } ?? false }.map(\.range)
-        for range in citations {
-            attributed[range].font = GrokTypography.citation()
-            attributed[range].baselineOffset = 2
-        }
+        let source = Citations.linkify(text, meetingID: meetingID, playable: state.canPlayClips(meetingID))
+        var attributed = (try? AttributedString(markdown: source)) ?? AttributedString(text)
+        Citations.style(&attributed)
         if let owner {
             var name = AttributedString("\(owner): ")
             name.font = .body.weight(.semibold)

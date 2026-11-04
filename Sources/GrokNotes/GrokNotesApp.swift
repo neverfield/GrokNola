@@ -11,6 +11,7 @@ struct GrokNotesApp: App {
                 .environmentObject(state.usage)
                 .environmentObject(state.tagCatalog)
                 .environmentObject(state.templateCatalog)
+                .environmentObject(state.clips)
                 .frame(minWidth: 900, minHeight: 600)
         }
         .commands {

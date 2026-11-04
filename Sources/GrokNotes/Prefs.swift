@@ -10,6 +10,11 @@ enum Prefs {
     static var language: String { defaults.string(forKey: "language") ?? "en" }
     static var echoCancellation: Bool { defaults.object(forKey: "echoCancellation") as? Bool ?? true }
     static var keepAudio: Bool { defaults.object(forKey: "keepAudio") as? Bool ?? false }
+    /// Days to keep audio recordings. Nil keeps them until the meeting is deleted.
+    static var audioRetentionDays: Int? {
+        let days = defaults.integer(forKey: "audioRetentionDays")
+        return days > 0 ? days : nil
+    }
     static var inferNames: Bool { defaults.object(forKey: "inferNames") as? Bool ?? true }
     static var useSnapshots: Bool { defaults.object(forKey: "useSnapshots") as? Bool ?? true }
     static var exportToGoogleDrive: Bool { defaults.object(forKey: "exportToGoogleDrive") as? Bool ?? false }

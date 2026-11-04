@@ -7,6 +7,7 @@ struct SettingsView: View {
     @AppStorage("language") private var language = "en"
     @AppStorage("echoCancellation") private var echoCancellation = true
     @AppStorage("keepAudio") private var keepAudio = false
+    @AppStorage("audioRetentionDays") private var audioRetentionDays = 0
     @AppStorage("inferNames") private var inferNames = true
     @AppStorage("useSnapshots") private var useSnapshots = true
     @AppStorage("exportToGoogleDrive") private var exportToGoogleDrive = false
@@ -55,6 +56,15 @@ struct SettingsView: View {
 
             Section("Privacy") {
                 Toggle("Keep audio recordings after notes are written", isOn: $keepAudio)
+                Picker("Delete kept audio after", selection: $audioRetentionDays) {
+                    Text("Never").tag(0)
+                    Text("7 days").tag(7)
+                    Text("30 days").tag(30)
+                    Text("90 days").tag(90)
+                }
+                Text("Kept audio lets you play clips from citations and the transcript. Old recordings are removed when Grok Notes opens.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Button("Show data folder") { NSWorkspace.shared.open(state.store.root) }
                 Text("Everything stays on this Mac. Audio and text are sent only to the xAI API.")
                     .font(.caption)

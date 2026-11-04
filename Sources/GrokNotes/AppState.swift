@@ -50,7 +50,11 @@ enum DetailRoute: Equatable {
 @MainActor
 final class AppState: ObservableObject {
     @Published var meetings: [Meeting] = []
-    @Published var selectedID: UUID?
+    @Published var selectedID: UUID? {
+        didSet {
+            if let playing = clips.nowPlaying?.meetingID, playing != selectedID, selectedID != nil { clips.stop() }
+        }
+    }
     @Published private(set) var recordingID: UUID?
     @Published private(set) var processing: Set<UUID> = []
     @Published private(set) var asking: Set<UUID> = []
@@ -72,13 +76,16 @@ final class AppState: ObservableObject {
     let usage = UsageLedger()
     let tagCatalog = TagCatalog()
     let templateCatalog = TemplateCatalog()
+    let clips: ClipPlayer
     private let calendar = CalendarService()
     private var session: RecordingSession?
     private var detectorTimer: Timer?
     private var saveTasks: [UUID: Task<Void, Never>] = [:]
 
     init() {
+        clips = ClipPlayer(root: store.root)
         meetings = store.loadAll()
+        deleteExpiredAudio()
         tagCatalog.reconcile(with: meetings)
         libraryChat = Self.loadLibraryChat()
         refreshPermissions()
@@ -137,8 +144,10 @@ final class AppState: ObservableObject {
 
     func delete(_ id: UUID) {
         guard id != recordingID else { return }
+        if clips.nowPlaying?.meetingID == id { clips.stop() }
         meetings.removeAll { $0.id == id }
         store.delete(id)
+        clips.invalidate(id)
         if selectedID == id { selectedID = nil }
     }
 
@@ -211,6 +220,7 @@ final class AppState: ObservableObject {
 
     func startMeeting() async {
         guard session == nil else { return }
+        clips.stop()
         guard let apiKey = XAIClient.storedAPIKey() else {
             banner = "Add your xAI API key in Settings (Command-comma) first."
             return
@@ -349,6 +359,10 @@ final class AppState: ObservableObject {
         update(s.meetingID) { m in
             m.endedAt = Date()
             if m.appName == nil { m.appName = s.snapshotter?.app?.name }
+            var offsets: [String: Double] = [:]
+            offsets[AudioSource.mic.rawValue] = s.micWAV?.startOffset
+            offsets[AudioSource.system.rawValue] = s.systemWAV?.startOffset
+            m.audioOffsets = offsets.isEmpty ? nil : offsets
         }
         save(s.meetingID)
 
@@ -498,6 +512,7 @@ final class AppState: ObservableObject {
 
         update(id) { $0 = m }
         save(id)
+        clips.invalidate(id)
 
         if Prefs.autoTag, m.enhancedNotes != nil {
             await applySuggestedTags(id, client: client)
@@ -557,6 +572,34 @@ final class AppState: ObservableObject {
         transcriptFocus = TranscriptFocus(meetingID: id, seconds: seconds)
     }
 
+    // MARK: Audio clips
+
+    /// Whether clips can play for a meeting: its audio was kept and it is not being recorded.
+    func canPlayClips(_ id: UUID) -> Bool {
+        recordingID != id && clips.hasAudio(id)
+    }
+
+    /// Plays the audio around a time, or stops it when that clip is already playing.
+    func toggleClip(_ id: UUID, at seconds: Double, until end: Double? = nil) {
+        guard recordingID != id, let m = meeting(id) else { return }
+        if !clips.toggle(m, at: seconds, until: end) {
+            banner = "The audio for this meeting is no longer on this Mac."
+        }
+    }
+
+    /// Removes kept recordings older than the retention set in Settings.
+    private func deleteExpiredAudio() {
+        guard let days = Prefs.audioRetentionDays else { return }
+        let cutoff = Date().addingTimeInterval(-Double(days) * 86_400)
+        for m in meetings where (m.endedAt ?? m.startedAt) < cutoff {
+            let dir = store.root.appendingPathComponent(m.id.uuidString, isDirectory: true)
+            for source in [AudioSource.mic, .system] {
+                try? FileManager.default.removeItem(at: dir.appendingPathComponent("\(source.rawValue).wav"))
+            }
+        }
+        clips.invalidate()
+    }
+
     func ask(_ id: UUID, _ question: String) async {
         guard let m = meeting(id) else { return }
         update(id) { $0.chat.append(ChatMessage(role: "user", content: question)) }
@@ -589,6 +632,7 @@ final class AppState: ObservableObject {
     // MARK: Ask across notes
 
     func openLibraryChat() {
+        clips.stop()
         showLibraryChat = true
         selectedID = nil
     }

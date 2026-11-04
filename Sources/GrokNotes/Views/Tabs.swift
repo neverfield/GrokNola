@@ -22,7 +22,11 @@ struct NotesTab: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: GrokSpacing.lg) {
                         if showSummary { CallSummaryCard(meetingID: meetingID) }
-                        MarkdownView(markdown: enhanced, citationMeetingID: meetingID)
+                        let playable = state.canPlayClips(meetingID)
+                        MarkdownView(markdown: enhanced, citationMeetingID: meetingID, playable: playable)
+                        if !playable, !Prefs.keepAudio, Citations.contains(enhanced) {
+                            KeepAudioHint().padding(.top, GrokSpacing.sm)
+                        }
                     }
                     .padding(GrokSpacing.contentInset)
                     .frame(maxWidth: 680, alignment: .leading)
@@ -105,6 +109,7 @@ private struct TranscriptBlock: Identifiable {
     let id: UUID
     let speakerKey: String
     let start: Double
+    var end: Double
     var lines: [(id: UUID, text: String)]
 }
 
@@ -113,9 +118,10 @@ private func mergedBlocks(from utterances: [Utterance]) -> [TranscriptBlock] {
     for u in utterances {
         if var last = blocks.last, last.speakerKey == u.speakerKey {
             last.lines.append((id: u.id, text: u.text))
+            last.end = max(last.end, u.end)
             blocks[blocks.count - 1] = last
         } else {
-            blocks.append(TranscriptBlock(id: u.id, speakerKey: u.speakerKey, start: u.start, lines: [(u.id, u.text)]))
+            blocks.append(TranscriptBlock(id: u.id, speakerKey: u.speakerKey, start: u.start, end: u.end, lines: [(u.id, u.text)]))
         }
     }
     return blocks
@@ -138,6 +144,7 @@ struct TranscriptTab: View {
         let utterances = state.meeting(meetingID)?.utterances ?? []
         let recording = state.recordingID == meetingID
         let blocks = mergedBlocks(from: utterances)
+        let playable = state.canPlayClips(meetingID)
 
         ZStack(alignment: .bottomTrailing) {
             ScrollViewReader { proxy in
@@ -149,7 +156,7 @@ struct TranscriptTab: View {
                                 .padding(GrokSpacing.contentInset)
                         }
                         ForEach(blocks) { block in
-                            TranscriptBlockView(meetingID: meetingID, block: block, highlighted: highlightedBlock == block.id)
+                            TranscriptBlockView(meetingID: meetingID, block: block, playable: playable, highlighted: highlightedBlock == block.id)
                                 .id(block.id)
                         }
                         if recording {
@@ -235,7 +242,9 @@ private struct TranscriptBlockView: View {
     @EnvironmentObject private var state: AppState
     let meetingID: UUID
     let block: TranscriptBlock
+    var playable = false
     var highlighted = false
+    @State private var hovering = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: GrokSpacing.xs) {
@@ -244,6 +253,10 @@ private struct TranscriptBlockView: View {
                 Text(Meeting.timestamp(block.start))
                     .font(GrokTypography.captionMuted().monospacedDigit())
                     .foregroundStyle(GrokColors.timestamp)
+                if playable {
+                    ClipPlayButton(meetingID: meetingID, start: block.start, end: block.end, visible: hovering)
+                        .font(GrokTypography.captionMuted())
+                }
             }
             VStack(alignment: .leading, spacing: GrokSpacing.xs) {
                 ForEach(block.lines, id: \.id) { line in
@@ -260,6 +273,7 @@ private struct TranscriptBlockView: View {
             in: RoundedRectangle(cornerRadius: 8)
         )
         .padding(-GrokSpacing.sm)
+        .onHover { hovering = $0 }
     }
 }
 
@@ -332,7 +346,11 @@ struct AskTab: View {
                             Text(message.role == "user" ? "You" : "Grok")
                                 .font(GrokTypography.captionMuted().weight(.semibold))
                                 .foregroundStyle(.secondary)
-                            MarkdownView(markdown: message.content, citationMeetingID: message.role == "assistant" ? meetingID : nil)
+                            MarkdownView(
+                                markdown: message.content,
+                                citationMeetingID: message.role == "assistant" ? meetingID : nil,
+                                playable: state.canPlayClips(meetingID)
+                            )
                         }
                     }
                     if busy { ProgressView().controlSize(.small) }
@@ -365,6 +383,8 @@ struct MarkdownView: View {
     let markdown: String
     /// When set, `[mm:ss]` citations link to this meeting's transcript.
     var citationMeetingID: UUID?
+    /// Adds a play link after each citation. Set only when the meeting's audio is on disk.
+    var playable = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: GrokSpacing.sm) {
@@ -405,15 +425,9 @@ struct MarkdownView: View {
     }
 
     private func inline(_ text: String) -> Text {
-        let source = citationMeetingID.map { Citations.linkify(text, meetingID: $0) } ?? text
+        let source = citationMeetingID.map { Citations.linkify(text, meetingID: $0, playable: playable) } ?? text
         var attributed = (try? AttributedString(markdown: source)) ?? AttributedString(text)
-        if citationMeetingID != nil {
-            let citations = attributed.runs.filter { $0.link.map { Citations.target(from: $0) != nil } ?? false }.map(\.range)
-            for range in citations {
-                attributed[range].font = GrokTypography.citation()
-                attributed[range].baselineOffset = 2
-            }
-        }
+        if citationMeetingID != nil { Citations.style(&attributed) }
         return Text(attributed)
     }
 }

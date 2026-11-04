@@ -86,6 +86,8 @@ struct Meeting: Codable, Identifiable {
     var templateID: String?
     /// The template the current enhanced notes were written with.
     var notesTemplateID: String?
+    /// Meeting time of the first sample in each kept recording, keyed by `AudioSource` raw value. Nil reads as 0.
+    var audioOffsets: [String: Double]?
 }
 
 struct TalkStat: Hashable {
