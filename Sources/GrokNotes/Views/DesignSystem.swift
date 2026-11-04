@@ -40,25 +40,42 @@ enum GrokColors {
 
 // MARK: - Recording pulse
 
+/// Fixed-size recording indicator. The ring is driven by a clock rather than
+/// `withAnimation(.repeatForever)`, which would also loop any layout change in
+/// the same transaction and make the dot slide around inside rows and toolbars.
 struct RecordingPulse: View {
-    @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private static let period: Double = 1.2
+    private static let dotSize: CGFloat = 8
+    private static let containerSize: CGFloat = 16
 
     var body: some View {
-        Circle()
-            .fill(GrokColors.recording)
-            .frame(width: 8, height: 8)
-            .overlay {
-                Circle()
-                    .stroke(GrokColors.recording.opacity(0.45), lineWidth: 2)
-                    .scaleEffect(pulse ? 1.8 : 1)
-                    .opacity(pulse ? 0 : 0.9)
-            }
-            .onAppear {
-                withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) {
-                    pulse = true
+        ZStack {
+            if !reduceMotion {
+                TimelineView(.animation) { context in
+                    let progress = Self.progress(at: context.date)
+                    Circle()
+                        .stroke(GrokColors.recording.opacity(0.45), lineWidth: 2)
+                        .frame(width: Self.dotSize, height: Self.dotSize)
+                        .scaleEffect(1 + 0.8 * progress)
+                        .opacity(0.9 * (1 - progress))
                 }
             }
-            .accessibilityLabel("Recording")
+            Circle()
+                .fill(GrokColors.recording)
+                .frame(width: Self.dotSize, height: Self.dotSize)
+        }
+        .frame(width: Self.containerSize, height: Self.containerSize)
+        .transaction { $0.animation = nil }
+        .accessibilityElement()
+        .accessibilityLabel("Recording")
+    }
+
+    /// Ease-out progress through the current pulse cycle, in 0...1.
+    private static func progress(at date: Date) -> Double {
+        let t = date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: period) / period
+        return 1 - (1 - t) * (1 - t)
     }
 }
 
