@@ -9,6 +9,8 @@ struct SettingsView: View {
     @AppStorage("keepAudio") private var keepAudio = false
     @AppStorage("inferNames") private var inferNames = true
     @AppStorage("useSnapshots") private var useSnapshots = true
+    @AppStorage("exportToGoogleDrive") private var exportToGoogleDrive = false
+    @AppStorage("googleDriveSubfolder") private var googleDriveSubfolder = ""
     @State private var apiKey = ""
     @State private var keyStatus: String?
 
@@ -55,6 +57,27 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Google Drive") {
+                Toggle("Copy notes to Google Drive when saved", isOn: $exportToGoogleDrive)
+                TextField("Subfolder under My Drive (optional)", text: $googleDriveSubfolder)
+                    .disabled(!exportToGoogleDrive)
+                if exportToGoogleDrive {
+                    let mounted = GoogleDriveExport.myDriveRoot() != nil
+                    HStack(spacing: 6) {
+                        Image(systemName: mounted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .foregroundStyle(mounted ? .green : .orange)
+                        Text(mounted
+                             ? "Google Drive for desktop is mounted."
+                             : "Drive not found. Install Google Drive for desktop and sign in.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Text("Uses the synced My Drive folder (no Google sign-in in Grok Notes). Each meeting gets a folder named with the date and title, containing notes.md and meeting.json.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Permissions") {
                 PermissionRow(title: "Microphone", detail: "Your voice", granted: state.permissions.microphone) {
                     Task { await state.requestMicrophone() }
@@ -72,7 +95,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 560, height: 680)
+        .frame(width: 560, height: 760)
         .onAppear {
             apiKey = Keychain.get(XAIClient.keychainAccount) ?? ""
             state.refreshPermissions()

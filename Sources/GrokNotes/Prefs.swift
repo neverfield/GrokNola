@@ -12,6 +12,8 @@ enum Prefs {
     static var keepAudio: Bool { defaults.object(forKey: "keepAudio") as? Bool ?? false }
     static var inferNames: Bool { defaults.object(forKey: "inferNames") as? Bool ?? true }
     static var useSnapshots: Bool { defaults.object(forKey: "useSnapshots") as? Bool ?? true }
+    static var exportToGoogleDrive: Bool { defaults.object(forKey: "exportToGoogleDrive") as? Bool ?? false }
+    static var googleDriveSubfolder: String? { nonEmpty(defaults.string(forKey: "googleDriveSubfolder")) }
 
     /// Names confirmed in past meetings. Used as transcription key terms and naming candidates.
     static var knownPeople: [String] {

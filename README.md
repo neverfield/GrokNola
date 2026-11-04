@@ -50,3 +50,17 @@ are heuristics. Meeting apps change their labels, so add a pattern there if name
 Everything lives in `~/Library/Application Support/GrokNotes/Meetings/<id>/`
 (`meeting.json`, `notes.md`, and the audio if you choose to keep it).
 Audio and text leave the Mac only to reach `api.x.ai`.
+
+### Google Drive (optional)
+
+With **Google Drive for desktop** installed and signed in, you can mirror exports into synced **My Drive**:
+
+1. Open Settings (Command-comma) → **Google Drive**.
+2. Turn on **Copy notes to Google Drive when saved**.
+3. Optionally set a **Subfolder under My Drive** (for example `Grok Notes`). Leave it blank to write at the top level of My Drive.
+
+On each save, Grok Notes copies `notes.md` and `meeting.json` into:
+
+`~/Library/CloudStorage/GoogleDrive-<account>/My Drive/<subfolder>/<yyyy-MM-dd Meeting title>/`
+
+Folder names use the meeting start date and a sanitized title. If Drive is not mounted, the app keeps saving locally and logs an export failure; it does not block saves or show an error banner.

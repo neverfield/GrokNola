@@ -35,6 +35,7 @@ struct MeetingStore {
         let dir = directory(for: meeting.id)
         try encoder.encode(meeting).write(to: dir.appendingPathComponent("meeting.json"), options: .atomic)
         try meeting.markdown(myName: myName).write(to: dir.appendingPathComponent("notes.md"), atomically: true, encoding: .utf8)
+        GoogleDriveExport.mirrorIfEnabled(meeting: meeting, sourceDirectory: dir)
     }
 
     func delete(_ id: UUID) {
