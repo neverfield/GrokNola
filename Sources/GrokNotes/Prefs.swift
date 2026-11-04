@@ -32,6 +32,15 @@ enum Prefs {
     static var autoTag: Bool { defaults.object(forKey: "autoTag") as? Bool ?? true }
     static var dynamicTags: Bool { defaults.object(forKey: "dynamicTags") as? Bool ?? true }
     static var defaultTemplateID: String { nonEmpty(defaults.string(forKey: "defaultTemplate")) ?? SummaryTemplate.generalID }
+    /// Non-reasoning, so the first token arrives without a thinking phase.
+    static let defaultLiveAnswersModel = "grok-4.20-non-reasoning"
+    static var liveAnswers: Bool { defaults.object(forKey: "liveAnswers") as? Bool ?? true }
+    static var liveAnswersModel: String { nonEmpty(defaults.string(forKey: "liveAnswersModel")) ?? defaultLiveAnswersModel }
+    /// Empty leaves `reasoning_effort` out of the request, which non-reasoning models require.
+    static var liveAnswersEffort: String { defaults.string(forKey: "liveAnswersEffort") ?? "" }
+    static var liveAnswersPastMeetings: Bool { defaults.object(forKey: "liveAnswersPastMeetings") as? Bool ?? true }
+    static var liveAnswersShowLatency: Bool { defaults.object(forKey: "liveAnswersShowLatency") as? Bool ?? false }
+    static var liveAnswersPriority: Bool { defaults.object(forKey: "liveAnswersPriority") as? Bool ?? false }
     static var calendarSource: CalendarChoice {
         defaults.string(forKey: "calendarSource").flatMap(CalendarChoice.init(rawValue:)) ?? .automatic
     }

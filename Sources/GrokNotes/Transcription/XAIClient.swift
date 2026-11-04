@@ -108,6 +108,67 @@ struct XAIClient {
         return text
     }
 
+    /// Streams the visible reply as it is generated. `extra` adds body fields such as `reasoning_effort`.
+    /// Usage from the final chunk is recorded when the stream ends, including after cancellation.
+    func streamChat(model: String, messages: [Message], extra: [String: Any] = [:], conversationID: String? = nil) -> AsyncThrowingStream<String, Error> {
+        var body: [String: Any] = [
+            "model": model,
+            "stream": true,
+            "stream_options": ["include_usage": true],
+            "messages": messages.map { ["role": $0.role, "content": $0.content] },
+        ]
+        body.merge(extra) { _, new in new }
+        var request = makeRequest("chat/completions", timeout: 60)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        if let conversationID { request.setValue(conversationID, forHTTPHeaderField: "x-grok-conv-id") }
+        let encoded = Result { try JSONSerialization.data(withJSONObject: body) }
+        request.httpBody = try? encoded.get()
+        let prepared = request
+        let context = usageContext
+
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                var usage: ChatUsage?
+                defer {
+                    if let usage {
+                        UsageRecorder.recordChat(
+                            model: model,
+                            inputTokens: usage.promptTokens,
+                            cachedTokens: usage.cachedTokens,
+                            outputTokens: usage.completionTokens,
+                            costTicks: usage.costTicks,
+                            context: context
+                        )
+                    }
+                }
+                do {
+                    _ = try encoded.get()
+                    let (bytes, response) = try await URLSession.shared.bytes(for: prepared)
+                    if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+                        var data = Data()
+                        for try await byte in bytes { data.append(byte) }
+                        try Self.check(response, data)
+                    }
+                    lines: for try await line in bytes.lines {
+                        for event in try ChatStreamParser.events(fromLine: line) {
+                            switch event {
+                            case .delta(let text): continuation.yield(text)
+                            case .usage(let u): usage = u
+                            case .done: break lines
+                            }
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
     func listModelCount() async throws -> Int {
         struct Response: Decodable {
             struct Model: Decodable { let id: String }

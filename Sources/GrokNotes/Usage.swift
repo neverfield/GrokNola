@@ -11,6 +11,7 @@ enum UsageKind: String, Codable, CaseIterable {
     case library
     case help
     case tags
+    case liveAnswers
     case other
 
     var label: String {
@@ -25,6 +26,7 @@ enum UsageKind: String, Codable, CaseIterable {
         case .library: return "Ask across notes"
         case .help: return "Help questions"
         case .tags: return "Tags"
+        case .liveAnswers: return "Live answers"
         case .other: return "Other"
         }
     }
@@ -61,6 +63,9 @@ enum UsageRecorder {
     static let batchSTTPerHour = 0.10
     private static let fallbackTokenPrices: [String: (input: Double, cached: Double, output: Double)] = [
         "grok-4.7": (2.00, 0.50, 6.00),
+        "grok-4.20-non-reasoning": (1.25, 0.20, 2.50),
+        "grok-4.20-0309-non-reasoning": (1.25, 0.20, 2.50),
+        "grok-4.3": (1.25, 0.20, 2.50),
     ]
 
     static func recordChat(model: String, inputTokens: Int?, cachedTokens: Int?, outputTokens: Int?, costTicks: Int64?, context: UsageContext?) {

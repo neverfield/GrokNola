@@ -112,8 +112,33 @@ enum LibraryAsk {
     }
 
     static func rank(_ meetings: [Meeting], query: String) -> [Meeting] {
+        scored(meetings, query: query).prefix(maxMeetingsInContext).map(\.0)
+    }
+
+    /// Meetings that match the query's words, best first, with the recency bonus left out of the bar.
+    static func matching(_ meetings: [Meeting], query: String, minimumScore: Double) -> [Meeting] {
+        scored(meetings, query: query).filter { $0.1 - recencyBonus($0.0) >= minimumScore }.map(\.0)
+    }
+
+    /// Up to `limit` characters of notes lines that mention the query, else the summary.
+    static func snippet(_ m: Meeting, query: String, limit: Int) -> String {
         let terms = tokens(query)
-        let now = Date()
+        let lines = (m.enhancedNotes ?? m.userNotes).split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
+        let hits = lines.filter { line in
+            let lower = line.lowercased()
+            return !line.hasPrefix("#") && terms.contains { lower.contains($0) }
+        }
+        let text = hits.isEmpty ? summaryLine(m) : hits.prefix(4).joined(separator: " ")
+        return String(text.prefix(limit))
+    }
+
+    private static func recencyBonus(_ m: Meeting) -> Double {
+        let ageDays = max(0, Date().timeIntervalSince(m.startedAt) / 86_400)
+        return 3 / (1 + ageDays / 7)
+    }
+
+    private static func scored(_ meetings: [Meeting], query: String) -> [(Meeting, Double)] {
+        let terms = tokens(query)
         let scored = meetings.map { m -> (Meeting, Double) in
             let title = m.title.lowercased()
             let notes = (m.enhancedNotes ?? m.userNotes).lowercased()
@@ -128,11 +153,10 @@ enum LibraryAsk {
                 score += Double(min(count(term, in: notes), 10)) * 2
                 score += Double(min(count(term, in: transcript), 20))
             }
-            let ageDays = max(0, now.timeIntervalSince(m.startedAt) / 86_400)
-            score += 3 / (1 + ageDays / 7)
+            score += recencyBonus(m)
             return (m, score)
         }
-        return scored.sorted { $0.1 > $1.1 }.prefix(maxMeetingsInContext).map(\.0)
+        return scored.sorted { $0.1 > $1.1 }
     }
 
     // MARK: Context
@@ -144,7 +168,7 @@ enum LibraryAsk {
         return "\(m.id.uuidString.prefix(8)) | \(m.startedAt.formatted(date: .abbreviated, time: .omitted)) | \(m.title) | \(people)\(tags) | \(summary)"
     }
 
-    private static func summaryLine(_ m: Meeting) -> String {
+    static func summaryLine(_ m: Meeting) -> String {
         let source = m.enhancedNotes ?? m.userNotes
         let lines = source.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }
         let body = lines.filter { !$0.hasPrefix("#") && !$0.isEmpty }.prefix(3).joined(separator: " ")

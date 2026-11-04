@@ -84,6 +84,7 @@ final class AppState: ObservableObject {
     let templateCatalog = TemplateCatalog()
     let clips: ClipPlayer
     let calendars = CalendarHub()
+    let liveAnswers = LiveAnswersEngine()
     private var session: RecordingSession?
     private var detectorTimer: Timer?
     private var saveTasks: [UUID: Task<Void, Never>] = [:]
@@ -95,6 +96,7 @@ final class AppState: ObservableObject {
         tagCatalog.reconcile(with: meetings)
         libraryChat = Self.loadLibraryChat()
         refreshPermissions()
+        liveAnswers.app = self
         detectorTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.detectMeeting() }
         }
@@ -168,7 +170,7 @@ final class AppState: ObservableObject {
         }
     }
 
-    private func scheduleSave(_ id: UUID) {
+    func scheduleSave(_ id: UUID) {
         saveTasks[id]?.cancel()
         saveTasks[id] = Task { [weak self] in
             try? await Task.sleep(for: .seconds(1))
@@ -262,6 +264,7 @@ final class AppState: ObservableObject {
         elapsed = 0
         liveMe = ""
         liveThem = ""
+        liveAnswers.begin(meetingID: meeting.id, apiKey: apiKey)
         let dir = store.directory(for: meeting.id)
         let meetingID = meeting.id
 
@@ -341,6 +344,7 @@ final class AppState: ObservableObject {
         guard let s = session else { return }
         session = nil
         recordingID = nil
+        liveAnswers.end()
         s.timer?.invalidate()
         s.mic?.stop()
         await s.system?.stop()
@@ -387,6 +391,7 @@ final class AppState: ObservableObject {
         stream.onLive = { [weak self] text in
             Task { @MainActor in
                 if source == .mic { self?.liveMe = text } else { self?.liveThem = text }
+                self?.liveAnswers.heardInterim(text, source: source)
             }
         }
         stream.onStatus = { [weak self] status in Task { @MainActor in self?.streamStatus = status } }
@@ -401,6 +406,7 @@ final class AppState: ObservableObject {
     }
 
     private func ingest(_ segments: [STTStream.Segment], meetingID: UUID, source: AudioSource, epoch: Int, diarized: Bool) {
+        var added: [Utterance] = []
         update(meetingID) { m in
             for segment in segments {
                 let text = segment.text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -411,9 +417,51 @@ final class AppState: ObservableObject {
                 case (.mic, true): key = "m\(epoch)-\(segment.speaker ?? 0)"
                 case (.system, _): key = "s\(epoch)-\(segment.speaker ?? 0)"
                 }
-                m.insert(Utterance(source: source, speakerKey: key, start: segment.start, end: segment.end, text: text))
+                let utterance = Utterance(source: source, speakerKey: key, start: segment.start, end: segment.end, text: text)
+                m.insert(utterance)
+                added.append(utterance)
             }
         }
+        guard meetingID == recordingID, let m = meeting(meetingID) else { return }
+        for u in added {
+            let asker = u.speakerKey == Meeting.meKey ? "You" : m.displayName(for: u.speakerKey, myName: Prefs.myName)
+            var text = u.text
+            if let previous = m.utterances.last(where: { $0.speakerKey == u.speakerKey && $0.start < u.start }),
+               u.start - previous.end < 3, let last = previous.text.last, !".?!".contains(last) {
+                text = previous.text + " " + text
+            }
+            liveAnswers.heard(text, asker: asker, at: u.start)
+        }
+    }
+
+    // MARK: Live answers
+
+    /// Appends a card's question and answer to the meeting's rough notes as a quote block.
+    func pinLiveAnswer(_ cardID: UUID) {
+        guard let card = liveAnswers.card(cardID), !card.isPinned, card.status == .done else { return }
+        var block = "> **Q (\(card.asker), \(Meeting.timestamp(card.askedAt))):** \(card.question)\n"
+        block += card.answer.split(separator: "\n", omittingEmptySubsequences: false).map { "> \($0)" }.joined(separator: "\n")
+        update(card.meetingID) { m in
+            let notes = m.userNotes.trimmingCharacters(in: .newlines)
+            m.userNotes = notes.isEmpty ? block + "\n" : notes + "\n\n" + block + "\n"
+        }
+        liveAnswers.setPinnedBlock(cardID, block)
+        scheduleSave(card.meetingID)
+    }
+
+    /// Removes a pinned block from the notes when it is still there unchanged.
+    func unpinLiveAnswer(_ cardID: UUID) {
+        guard let card = liveAnswers.card(cardID), let block = card.pinnedBlock else { return }
+        update(card.meetingID) { m in
+            for variant in ["\n\n" + block + "\n", block + "\n", block] {
+                if let range = m.userNotes.range(of: variant) {
+                    m.userNotes.removeSubrange(range)
+                    break
+                }
+            }
+        }
+        liveAnswers.setPinnedBlock(cardID, nil)
+        scheduleSave(card.meetingID)
     }
 
     private func tick() {

@@ -63,6 +63,18 @@ Every few seconds, the app checks for a call in Zoom, Microsoft Teams, Slack (hu
 - A bar at the bottom of the window shows the elapsed time, mic and system audio icons, and **Stop**.
 - If the transcription connection drops, a blue banner shows "Transcription reconnecting". The app reconnects by itself.
 
+### Live answers
+
+While recording, the inspector on the right opens to **Answers** (switch to **Info** for tags and speakers). When someone in the call asks a question, a card shows who asked, when, and a short answer from Grok.
+
+- Turn it off or on for this recording with the **Live answers** bolt button in the toolbar. Set the default in **Settings > Live answers > Answer questions heard during calls**.
+- Small talk ("Can you hear me?", "Does that make sense?") and repeats from the last 2 minutes are ignored. Grok also skips questions that need no answer.
+- Answers use the last few minutes of the transcript, your rough notes, and matching past meetings, which are named in a **From** line.
+- Type in **Ask now…** at the bottom of the pane for a quick question of your own.
+- **Pin** adds the question and answer to your rough notes, so they are kept and used in the enhanced notes. **Unpin** removes them. **Copy** copies them. **Dismiss** removes the card.
+- Answers are not saved unless pinned. Unpinned cards are cleared when you stop.
+- **Settings > Live answers** also sets the **Live answers model**, **Reasoning effort**, **Include relevant past meetings**, **Priority processing**, and **Show answer latency**.
+
 ### Stop
 
 Click **Stop** in the bottom bar, use **Meeting > Stop and Write Notes** (Shift-Command-R), or the menu bar menu > **Stop**. Then the app:
@@ -299,6 +311,7 @@ Audio settings in **Settings > Privacy**:
 
 - Transcription always uses `grok-voice-transcribe-2.0`.
 - Notes, names, tags, and answers use the model in **Settings > xAI API > Notes model** (default `grok-4.7`).
+- Live answers use **Settings > Live answers > Live answers model** (default `grok-4.20-non-reasoning`, chosen for speed).
 - **Language code** (default `en`) sets the transcription language.
 - Transcription gets your invitees and remembered people as key terms, so names are spelled right.
 

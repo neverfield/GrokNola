@@ -14,6 +14,12 @@ struct SettingsView: View {
     @AppStorage("exportToGoogleDrive") private var exportToGoogleDrive = false
     @AppStorage("googleDriveSubfolder") private var googleDriveSubfolder = ""
     @AppStorage("calendarSource") private var calendarSource = CalendarChoice.automatic
+    @AppStorage("liveAnswers") private var liveAnswers = true
+    @AppStorage("liveAnswersModel") private var liveAnswersModel = Prefs.defaultLiveAnswersModel
+    @AppStorage("liveAnswersEffort") private var liveAnswersEffort = ""
+    @AppStorage("liveAnswersPastMeetings") private var liveAnswersPastMeetings = true
+    @AppStorage("liveAnswersShowLatency") private var liveAnswersShowLatency = false
+    @AppStorage("liveAnswersPriority") private var liveAnswersPriority = false
     @State private var apiKey = ""
     @State private var keyStatus: String?
 
@@ -32,6 +38,23 @@ struct SettingsView: View {
                 TextField("Notes model", text: $model)
                 TextField("Language code", text: $language)
                 Text("Transcription uses \(XAIClient.transcribeModel). Notes, names, and answers use the model above.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Live answers") {
+                Toggle("Answer questions heard during calls", isOn: $liveAnswers)
+                TextField("Live answers model", text: $liveAnswersModel)
+                Picker("Reasoning effort", selection: $liveAnswersEffort) {
+                    Text("Not sent (non-reasoning models)").tag("")
+                    Text("None").tag("none")
+                    Text("Low").tag("low")
+                    Text("Medium").tag("medium")
+                }
+                Toggle("Include relevant past meetings", isOn: $liveAnswersPastMeetings)
+                Toggle("Priority processing (lower latency, 2x token price)", isOn: $liveAnswersPriority)
+                Toggle("Show answer latency", isOn: $liveAnswersShowLatency)
+                Text("Questions are found on this Mac; only those are sent to xAI with the last few minutes of transcript and your notes. Answers are not saved unless you pin them. The default model, \(Prefs.defaultLiveAnswersModel), does not reason, so leave effort unset. For grok-4.3 use None; for grok-4.7 use Low.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
