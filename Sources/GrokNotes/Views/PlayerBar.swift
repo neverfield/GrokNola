@@ -48,6 +48,7 @@ struct MeetingPlayerBar: View {
                         .foregroundStyle(.secondary)
                     }
                     rateMenu
+                    voiceMenu
                 }
                 .padding(.horizontal, GrokSpacing.lg)
                 .padding(.vertical, GrokSpacing.sm)
@@ -95,6 +96,22 @@ struct MeetingPlayerBar: View {
         .menuStyle(.borderlessButton)
         .fixedSize()
         .help("Playback speed")
+    }
+
+    private var voiceMenu: some View {
+        Menu {
+            Toggle("Balance voices", isOn: Binding(get: { clips.balanceVoices }, set: { clips.setBalanceVoices($0) }))
+            Picker("My voice", selection: Binding(get: { clips.myVoiceGain }, set: { clips.setMyVoiceGain($0) })) {
+                ForEach(ClipPlayer.myVoiceSteps, id: \.self) { dB in
+                    Text(dB == 0 ? "Normal" : String(format: "%+.0f dB", dB)).tag(dB)
+                }
+            }
+        } label: {
+            Image(systemName: "speaker.wave.2")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Voice levels: balance your microphone with the other participants")
     }
 
     private static func label(_ rate: Float) -> String {

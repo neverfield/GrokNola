@@ -4,6 +4,8 @@ import Foundation
 
 /// Plays one meeting's kept recordings, with the microphone and system audio mixed in sync on a meeting-time clock.
 /// Playback runs to the end of the recording, except a clip, which stops by itself at the end of its stretch.
+/// The microphone is often recorded much quieter than system audio, so each track's speech level is measured
+/// and, with "Balance voices" on, both are brought to the same level.
 @MainActor
 final class ClipPlayer: ObservableObject {
     struct NowPlaying: Equatable {
@@ -20,8 +22,9 @@ final class ClipPlayer: ObservableObject {
     static let minLength = 8.0
     static let maxLength = 30.0
     static let rates: [Float] = [1, 1.25, 1.5, 2]
-    /// A WAV header plus half a second of 16 kHz PCM16. Shorter files hold no useful audio.
-    private static let minFileBytes = 44 + 16_000
+    /// "My voice" steps in dB, added to the microphone track.
+    static let myVoiceSteps: [Double] = [-6, -3, 0, 3, 6, 9, 12]
+    private static let minDuration = 0.5
 
     /// The clip in progress. Nil during continuous playback.
     @Published private(set) var nowPlaying: NowPlaying?
@@ -30,27 +33,36 @@ final class ClipPlayer: ObservableObject {
     @Published private(set) var duration: Double = 0
     @Published private(set) var isPlaying = false
     @Published private(set) var rate: Float = 1
+    @Published private(set) var balanceVoices = Prefs.balanceVoices
+    @Published private(set) var myVoiceGain = Prefs.myVoiceGain
     /// The meeting and playback time, ten times a second while playing and after every seek.
     /// Not `@Published`, so only views that subscribe redraw.
     let ticks = PassthroughSubject<(meetingID: UUID, seconds: Double), Never>()
 
     private let root: URL
-    private var tracks: [(player: AVAudioPlayer, offset: Double)] = []
-    /// Meeting time at `anchorDevice`, or the paused position.
+    /// Renders with no output device, pulled by the caller through `mix.engine`. For checks that must stay silent.
+    private let offline: Bool
+    private(set) var mix: MeetingMix?
+    private var sources: [AudioSource] = []
+    /// Where playback started, or the paused position.
     private var anchorTime: Double = 0
-    private var anchorDevice: TimeInterval = 0
     private var clipEnd: Double?
+    private var finishedAt: Date?
     private var timer: Timer?
+    private var configObserver: NSObjectProtocol?
     private var audioCache: [UUID: Bool] = [:]
+    /// Measured speech levels in dBFS per meeting and track. Nil for a track with too little speech to tell.
+    private var levelCache: [UUID: [String: Float?]] = [:]
 
-    init(root: URL) {
+    init(root: URL, offline: Bool = false) {
         self.root = root
+        self.offline = offline
     }
 
     /// The playback position in meeting seconds.
     var currentTime: Double {
-        guard isPlaying, let clock = tracks.first?.player else { return anchorTime }
-        return min(anchorTime + max(0, clock.deviceCurrentTime - anchorDevice) * Double(rate), duration)
+        guard isPlaying, let mix else { return anchorTime }
+        return min(max(anchorTime, mix.position), clipEnd ?? duration)
     }
 
     /// Seconds into the current clip.
@@ -62,14 +74,20 @@ final class ClipPlayer: ObservableObject {
     /// Whether the meeting has a kept recording on disk. Cached; call `invalidate` when files change.
     func hasAudio(_ meetingID: UUID) -> Bool {
         if let cached = audioCache[meetingID] { return cached }
-        let found = !openTracks(for: meetingID, offsets: nil).isEmpty
+        let found = !openTracks(for: meetingID).isEmpty
         audioCache[meetingID] = found
         return found
     }
 
     /// Forgets cached file checks, and unloads a meeting whose recording is gone.
     func invalidate(_ meetingID: UUID? = nil) {
-        if let meetingID { audioCache[meetingID] = nil } else { audioCache.removeAll() }
+        if let meetingID {
+            audioCache[meetingID] = nil
+            levelCache[meetingID] = nil
+        } else {
+            audioCache.removeAll()
+            levelCache.removeAll()
+        }
         if let loadedID, meetingID == nil || meetingID == loadedID, !hasAudio(loadedID) { stop() }
     }
 
@@ -78,18 +96,27 @@ final class ClipPlayer: ObservableObject {
     /// Opens the meeting's recordings, keeping the position when it is already loaded. Returns false when there is no audio.
     @discardableResult
     func load(_ meeting: Meeting) -> Bool {
-        if loadedID == meeting.id, !tracks.isEmpty { return true }
+        if loadedID == meeting.id, mix != nil { return true }
         stop()
-        let loaded = openTracks(for: meeting.id, offsets: meeting.audioOffsets)
-        loaded.forEach { $0.player.prepareToPlay() }
-        guard !loaded.isEmpty else {
-            audioCache[meeting.id] = false
+        let opened = openTracks(for: meeting.id)
+        let tracks = opened.map { MeetingMix.Track(pcm: $0.pcm, offset: meeting.audioOffsets?[$0.source.rawValue] ?? 0) }
+        guard !tracks.isEmpty, let mix = try? MeetingMix(tracks: tracks, offlineFrames: offline ? 4096 : nil) else {
+            if opened.isEmpty { audioCache[meeting.id] = false }
             return false
         }
-        tracks = loaded
+        mix.setRate(rate)
+        self.mix = mix
+        sources = opened.map(\.source)
         loadedID = meeting.id
-        duration = loaded.map { $0.offset + $0.player.duration }.max() ?? meeting.duration
+        duration = mix.duration
         anchorTime = 0
+        configObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: mix.engine, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.restartAfterDeviceChange() }
+        }
+        applyGains()
+        measureLevels(meeting, tracks: Array(zip(opened.map(\.source), tracks)))
         return true
     }
 
@@ -104,14 +131,14 @@ final class ClipPlayer: ObservableObject {
 
     /// Resumes from the current position, or from the start after reaching the end.
     func play() {
-        guard !tracks.isEmpty else { return }
+        guard mix != nil else { return }
         start(at: anchorTime >= duration - 0.25 ? 0 : anchorTime)
     }
 
     func pause() {
         guard isPlaying else { return }
         anchorTime = currentTime
-        tracks.forEach { $0.player.pause() }
+        mix?.pause()
         isPlaying = false
         stopTimer()
         endClip()
@@ -123,7 +150,7 @@ final class ClipPlayer: ObservableObject {
     }
 
     func seek(to seconds: Double) {
-        guard !tracks.isEmpty else { return }
+        guard mix != nil else { return }
         endClip()
         if isPlaying {
             start(at: seconds)
@@ -139,16 +166,30 @@ final class ClipPlayer: ObservableObject {
 
     func setRate(_ newRate: Float) {
         guard newRate != rate else { return }
-        let position = currentTime
         rate = newRate
-        if isPlaying { start(at: position) }
+        mix?.setRate(newRate)
+    }
+
+    func setBalanceVoices(_ on: Bool) {
+        balanceVoices = on
+        Prefs.balanceVoices = on
+        applyGains()
+    }
+
+    func setMyVoiceGain(_ dB: Double) {
+        myVoiceGain = dB
+        Prefs.myVoiceGain = dB
+        applyGains()
     }
 
     /// Stops playback and closes the recordings.
     func stop() {
         stopTimer()
-        tracks.forEach { $0.player.stop() }
-        tracks = []
+        if let configObserver { NotificationCenter.default.removeObserver(configObserver) }
+        configObserver = nil
+        mix?.stop()
+        mix = nil
+        sources = []
         anchorTime = 0
         clipEnd = nil
         if nowPlaying != nil { nowPlaying = nil }
@@ -190,41 +231,45 @@ final class ClipPlayer: ObservableObject {
     // MARK: Engine
 
     private func start(at seconds: Double) {
-        guard let clock = tracks.first?.player else { return }
+        guard let mix else { return }
         let t = min(max(0, seconds), duration)
-        tracks.forEach { $0.player.pause() }
-        let startAt = clock.deviceCurrentTime + 0.05
-        for (player, offset) in tracks {
-            player.rate = rate
-            let fileTime = t - offset
-            // A file that ends before this point stays silent.
-            guard fileTime < player.duration else { continue }
-            if fileTime >= 0 {
-                player.currentTime = fileTime
-                player.play(atTime: startAt)
-            } else {
-                player.currentTime = 0
-                player.play(atTime: startAt - fileTime / Double(rate))
-            }
+        do {
+            try mix.play(from: t, until: clipEnd ?? duration)
+        } catch {
+            NSLog("GrokNotes: could not start playback: \(error)")
+            mix.pause()
+            if isPlaying { isPlaying = false }
+            stopTimer()
+            return
         }
         anchorTime = t
-        anchorDevice = startAt
+        finishedAt = nil
         if !isPlaying { isPlaying = true }
         startTimer()
         sendTick()
     }
 
+    /// Ends playback once rendering reached the stop point and the last of it has been heard.
     private func tick() {
-        guard isPlaying else { return }
-        let t = currentTime
-        if let clipEnd, t >= clipEnd {
+        guard isPlaying, let mix else { return }
+        if mix.finished {
+            let reached = finishedAt ?? Date()
+            finishedAt = reached
+            // Time-stretch holds up to 0.2 s that the reported latency can leave out.
+            guard Date().timeIntervalSince(reached) >= max(mix.latency, 0.2) else { return sendTick() }
+            let end = clipEnd ?? duration
             pause()
-        } else if t >= duration {
-            pause()
-            anchorTime = duration
+            anchorTime = end
+            sendTick()
         } else {
             sendTick()
         }
+    }
+
+    /// The engine stops when the output device changes. Picks up where it was.
+    private func restartAfterDeviceChange() {
+        guard isPlaying else { return }
+        start(at: currentTime)
     }
 
     private func sendTick() {
@@ -248,17 +293,49 @@ final class ClipPlayer: ObservableObject {
         timer = nil
     }
 
-    /// Players for a meeting's kept recordings, skipping empty files and files whose header reports no length.
-    private func openTracks(for meetingID: UUID, offsets: [String: Double]?) -> [(player: AVAudioPlayer, offset: Double)] {
+    /// A meeting's kept recordings, skipping missing, empty, and too-short files.
+    private func openTracks(for meetingID: UUID) -> [(source: AudioSource, pcm: PCMTrack)] {
         let dir = root.appendingPathComponent(meetingID.uuidString, isDirectory: true)
         return [AudioSource.mic, .system].compactMap { source in
-            let url = dir.appendingPathComponent("\(source.rawValue).wav")
-            let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
-            guard size >= Self.minFileBytes, let player = try? AVAudioPlayer(contentsOf: url), player.duration >= 0.5 else { return nil }
-            player.enableRate = true
-            player.volume = 0.9
-            return (player, offsets?[source.rawValue] ?? 0)
+            guard let pcm = PCMTrack(url: dir.appendingPathComponent("\(source.rawValue).wav")), pcm.duration >= Self.minDuration else { return nil }
+            return (source, pcm)
         }
+    }
+
+    // MARK: Levels
+
+    private func applyGains() {
+        guard let mix, let loadedID else { return }
+        let levels = levelCache[loadedID] ?? [:]
+        let gains = SpeechLevel.gains(
+            mic: levels[AudioSource.mic.rawValue] ?? nil,
+            system: levels[AudioSource.system.rawValue] ?? nil,
+            balance: balanceVoices,
+            myVoice: Float(myVoiceGain)
+        )
+        mix.setGains(sources.map { $0 == .mic ? gains.mic : gains.system })
+    }
+
+    /// Measures each track's speech level off the main thread, once per meeting, then applies the gains.
+    private func measureLevels(_ meeting: Meeting, tracks: [(AudioSource, MeetingMix.Track)]) {
+        guard levelCache[meeting.id] == nil else { return }
+        let spans: [AudioSource: [(start: Double, end: Double)]] = Dictionary(grouping: meeting.utterances, by: \.source)
+            .mapValues { utterances in utterances.map { (start: $0.start, end: $0.end) } }
+        let id = meeting.id
+        let jobs = tracks.map { source, track in
+            (source.rawValue, track.pcm, (spans[source] ?? []).map { (start: $0.start - track.offset, end: $0.end - track.offset) })
+        }
+        Task.detached(priority: .utility) { [weak self] in
+            var levels: [String: Float?] = [:]
+            for (key, pcm, fileSpans) in jobs { levels[key] = SpeechLevel.measure(pcm, spans: fileSpans) }
+            guard let self else { return }
+            await self.store(levels, for: id)
+        }
+    }
+
+    private func store(_ levels: [String: Float?], for id: UUID) {
+        levelCache[id] = levels
+        if loadedID == id { applyGains() }
     }
 
     /// The run of consecutive utterances by one speaker around `seconds`, as the transcript shows it.

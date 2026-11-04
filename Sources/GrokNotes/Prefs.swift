@@ -15,6 +15,16 @@ enum Prefs {
         let days = defaults.integer(forKey: "audioRetentionDays")
         return days > 0 ? days : nil
     }
+    /// Playback brings the microphone and system audio to the same speech level.
+    static var balanceVoices: Bool {
+        get { defaults.object(forKey: "balanceVoices") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "balanceVoices") }
+    }
+    /// Extra playback gain for the microphone track, in dB.
+    static var myVoiceGain: Double {
+        get { defaults.double(forKey: "myVoiceGain") }
+        set { defaults.set(newValue, forKey: "myVoiceGain") }
+    }
     static var inferNames: Bool { defaults.object(forKey: "inferNames") as? Bool ?? true }
     static var useSnapshots: Bool { defaults.object(forKey: "useSnapshots") as? Bool ?? true }
     static var exportToGoogleDrive: Bool { defaults.object(forKey: "exportToGoogleDrive") as? Bool ?? false }

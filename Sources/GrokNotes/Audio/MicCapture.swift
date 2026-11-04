@@ -8,6 +8,7 @@ final class MicCapture {
 
     private var engine = AVAudioEngine()
     private let converter = PCM16Converter()
+    private let leveler = MicLeveler()
 
     static func requestPermission() async -> Bool {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
@@ -53,7 +54,7 @@ final class MicCapture {
         }
         input.installTap(onBus: 0, bufferSize: 2048, format: format) { [weak self] buffer, _ in
             guard let self, let data = self.converter.convert(buffer) else { return }
-            self.onPCM?(data)
+            self.onPCM?(self.leveler.process(data))
         }
         _ = engine.mainMixerNode
         engine.prepare()
