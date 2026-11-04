@@ -80,6 +80,8 @@ struct Meeting: Codable, Identifiable {
     var chat: [ChatMessage] = []
     // Added after the first release: keep these Optional so older meeting.json files still decode.
     var topics: [String]?
+    /// Themed sections of the conversation, in order. When set, `topics` comes from their titles.
+    var chapters: [Chapter]?
     var tags: [String]?
     var pinned: Bool?
     /// The chosen summary template. Nil uses the default from Settings.
@@ -148,6 +150,7 @@ extension Meeting {
             let people = talkStats(myName: myName).map { "\($0.name) (\(Meeting.durationLabel($0.seconds)), \(Int(($0.share * 100).rounded()))%)" }
             out += "- Participants: \(people.joined(separator: ", "))\n"
             if let topics, !topics.isEmpty { out += "- Topics: \(topics.joined(separator: "; "))\n" }
+            out += Chapters.markdown(chapters ?? [])
             out += "\n"
         }
         if let enhancedNotes {
