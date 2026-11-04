@@ -70,7 +70,8 @@ final class MeetingMix {
         return engine.outputNode.presentationLatency + timePitch.auAudioUnit.latency + limiter.auAudioUnit.latency
     }
 
-    /// Gains in dB, one per track in the order given to `init`.
+    /// Gains in dB, one per track in the order given to `init`. Minus infinity mutes a track.
+    /// The render thread glides to new gains over about 50 ms, so changes during playback do not click.
     func setGains(_ dB: [Float]) {
         state.setGains(dB.map(SpeechLevel.linear))
     }
@@ -176,7 +177,9 @@ private final class MixState: @unchecked Sendable {
             if i < count {
                 let frame = start + i
                 for k in sources.indices {
-                    gains[k] += (targets[k] - gains[k]) * Self.glide
+                    let step = (targets[k] - gains[k]) * Self.glide
+                    // Lands exactly on the target, so a muted track reaches 0 instead of decaying into denormals.
+                    gains[k] = abs(step) < 1e-7 ? targets[k] : gains[k] + step
                     let j = frame - sources[k].offset
                     if j >= 0, j < sources[k].frames {
                         x += Float(sources[k].samples[j]) * (gains[k] / 32768)

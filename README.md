@@ -29,6 +29,11 @@ The app icon is `Resources/AppIcon.icns`, built from `Resources/AppIcon-master.p
 3. Click **Stop**. Grok re-transcribes the full recording, names the speakers,
    and writes enhanced notes built around your rough notes.
 4. Use **Ask Grok** for questions or follow-up drafts. Click any speaker name to correct it.
+5. In the **Transcript** tab, the copy icon at the top right copies the whole transcript as
+   `[mm:ss] Name: text` lines with `## Chapter (mm:ss–mm:ss)` headings. Each chapter title has
+   its own copy icon, and right-clicking a block copies that block.
+6. With kept audio, the speaker icon in the player opens separate **My voice** and **Others**
+   sliders (−12 to +12 dB around the balanced level), mute buttons, and **Balance voices**.
 
 ## How speakers get names
 

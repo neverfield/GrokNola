@@ -16,6 +16,7 @@ struct MeetingPlayerBar: View {
     /// Called when a chapter on the timeline is clicked, after playback moves there.
     var onChapter: (Chapter) -> Void = { _ in }
     @State private var keys = PlayerKeyMonitor()
+    @State private var showVoices = false
 
     var body: some View {
         if let meeting = state.meeting(meetingID) {
@@ -48,7 +49,7 @@ struct MeetingPlayerBar: View {
                         .foregroundStyle(.secondary)
                     }
                     rateMenu
-                    voiceMenu
+                    voiceButton
                 }
                 .padding(.horizontal, GrokSpacing.lg)
                 .padding(.vertical, GrokSpacing.sm)
@@ -98,20 +99,26 @@ struct MeetingPlayerBar: View {
         .help("Playback speed")
     }
 
-    private var voiceMenu: some View {
-        Menu {
-            Toggle("Balance voices", isOn: Binding(get: { clips.balanceVoices }, set: { clips.setBalanceVoices($0) }))
-            Picker("My voice", selection: Binding(get: { clips.myVoiceGain }, set: { clips.setMyVoiceGain($0) })) {
-                ForEach(ClipPlayer.myVoiceSteps, id: \.self) { dB in
-                    Text(dB == 0 ? "Normal" : String(format: "%+.0f dB", dB)).tag(dB)
-                }
-            }
-        } label: {
-            Image(systemName: "speaker.wave.2")
+    private var voiceButton: some View {
+        Button { showVoices.toggle() } label: {
+            Image(systemName: voiceSymbol)
+                .frame(width: 20)
+                .foregroundStyle(clips.voicesAdjusted ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.primary))
         }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-        .help("Voice levels: balance your microphone with the other participants")
+        .buttonStyle(.borderless)
+        .help("Voice levels: set your voice and the other participants separately")
+        .accessibilityLabel("Voice levels")
+        .popover(isPresented: $showVoices, arrowEdge: .top) {
+            VoiceLevelsPanel().environmentObject(clips)
+        }
+    }
+
+    private var voiceSymbol: String {
+        switch (clips.myVoiceMuted, clips.othersMuted) {
+        case (true, true): "speaker.slash"
+        case (false, false): "speaker.wave.2"
+        default: "speaker.wave.1"
+        }
     }
 
     private static func label(_ rate: Float) -> String {
@@ -128,6 +135,72 @@ struct MeetingPlayerBar: View {
         default: return false
         }
         return true
+    }
+}
+
+/// Separate levels for the microphone (you) and system audio (everyone else). Changes apply while playing.
+private struct VoiceLevelsPanel: View {
+    @EnvironmentObject private var clips: ClipPlayer
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: GrokSpacing.md) {
+            Toggle("Balance voices", isOn: Binding(get: { clips.balanceVoices }, set: { clips.setBalanceVoices($0) }))
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .help("Bring your microphone and the other participants to the same speech level")
+            row(
+                "My voice",
+                gain: Binding(get: { clips.myVoiceGain }, set: { clips.setMyVoiceGain($0) }),
+                muted: Binding(get: { clips.myVoiceMuted }, set: { clips.setMyVoiceMuted($0) })
+            )
+            row(
+                "Others",
+                gain: Binding(get: { clips.othersGain }, set: { clips.setOthersGain($0) }),
+                muted: Binding(get: { clips.othersMuted }, set: { clips.setOthersMuted($0) })
+            )
+            HStack {
+                Text(clips.balanceVoices ? "0 dB is the balanced level." : "0 dB is the level as recorded.")
+                    .font(GrokTypography.captionMuted())
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Reset") { clips.resetVoices() }
+                    .controlSize(.small)
+                    .disabled(!clips.voicesAdjusted)
+            }
+        }
+        .padding(GrokSpacing.lg)
+        .frame(width: 300)
+    }
+
+    private func row(_ title: String, gain: Binding<Double>, muted: Binding<Bool>) -> some View {
+        HStack(spacing: GrokSpacing.sm) {
+            Button { muted.wrappedValue.toggle() } label: {
+                Image(systemName: muted.wrappedValue ? "speaker.slash" : "speaker.wave.2")
+                    .frame(width: 20)
+                    .foregroundStyle(muted.wrappedValue ? AnyShapeStyle(Color.red) : AnyShapeStyle(.secondary))
+            }
+            .buttonStyle(.borderless)
+            .help(muted.wrappedValue ? "Unmute \(title.lowercased())" : "Mute \(title.lowercased())")
+            .accessibilityLabel(muted.wrappedValue ? "Unmute \(title)" : "Mute \(title)")
+            Text(title)
+                .frame(width: 64, alignment: .leading)
+            Slider(value: gain, in: Prefs.voiceGainRange)
+                .controlSize(.small)
+                .disabled(muted.wrappedValue)
+                .accessibilityLabel(title)
+                .accessibilityValue(Self.label(gain.wrappedValue))
+            Text(Self.label(gain.wrappedValue))
+                .font(GrokTypography.captionMuted().monospacedDigit())
+                .foregroundStyle(muted.wrappedValue ? .tertiary : .secondary)
+                .frame(width: 44, alignment: .trailing)
+        }
+    }
+
+    /// "+3 dB", "−6 dB", or "0 dB".
+    static func label(_ dB: Double) -> String {
+        let rounded = Int(dB.rounded())
+        if rounded == 0 { return "0 dB" }
+        return (rounded > 0 ? "+" : "−") + "\(abs(rounded)) dB"
     }
 }
 

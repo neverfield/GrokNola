@@ -105,28 +105,6 @@ struct NotesTab: View {
 
 // MARK: - Transcript
 
-private struct TranscriptBlock: Identifiable {
-    let id: UUID
-    let speakerKey: String
-    let start: Double
-    var end: Double
-    var lines: [(id: UUID, text: String)]
-}
-
-private func mergedBlocks(from utterances: [Utterance]) -> [TranscriptBlock] {
-    var blocks: [TranscriptBlock] = []
-    for u in utterances {
-        if var last = blocks.last, last.speakerKey == u.speakerKey {
-            last.lines.append((id: u.id, text: u.text))
-            last.end = max(last.end, u.end)
-            blocks[blocks.count - 1] = last
-        } else {
-            blocks.append(TranscriptBlock(id: u.id, speakerKey: u.speakerKey, start: u.start, end: u.end, lines: [(u.id, u.text)]))
-        }
-    }
-    return blocks
-}
-
 /// The last block that starts at or before `seconds`. Citations are whole seconds, so allow up to one second of rounding.
 private func blockID(containing seconds: Double, in blocks: [TranscriptBlock]) -> UUID? {
     (blocks.last { $0.start < seconds + 1 } ?? blocks.first)?.id
@@ -137,7 +115,7 @@ private func chapterHeaders(_ chapters: [Chapter], blocks: [TranscriptBlock]) ->
     var headers: [UUID: (index: Int, chapter: Chapter)] = [:]
     var last: Int?
     for block in blocks {
-        guard let i = Chapters.index(at: block.start + 1, in: chapters), i != last else { continue }
+        guard let i = TranscriptText.chapterIndex(ofBlockAt: block.start, in: chapters), i != last else { continue }
         headers[block.id] = (i, chapters[i])
         last = i
     }
@@ -160,9 +138,10 @@ struct TranscriptTab: View {
         let meeting = state.meeting(meetingID)
         let utterances = meeting?.utterances ?? []
         let recording = state.recordingID == meetingID
-        let blocks = mergedBlocks(from: utterances)
+        let blocks = TranscriptText.blocks(from: utterances)
         let playable = state.canPlayClips(meetingID)
         let headers = recording ? [:] : chapterHeaders(meeting?.chapters ?? [], blocks: blocks)
+        let hasChapters = !headers.isEmpty
         let playing = playable && clips.isPlaying && clips.loadedID == meetingID
 
         ZStack(alignment: .bottomTrailing) {
@@ -183,7 +162,8 @@ struct TranscriptTab: View {
                                 block: block,
                                 playable: playable,
                                 highlighted: highlightedBlock == block.id,
-                                current: playable && clips.loadedID == meetingID && currentBlock == block.id
+                                current: playable && clips.loadedID == meetingID && currentBlock == block.id,
+                                inChapter: hasChapters
                             )
                             .id(block.id)
                         }
@@ -195,6 +175,8 @@ struct TranscriptTab: View {
                     .padding(GrokSpacing.contentInset)
                     .frame(maxWidth: 720, alignment: .leading)
                     .frame(maxWidth: .infinity)
+                    // Keeps text out from under the copy button in a narrow pane.
+                    .padding(.horizontal, blocks.isEmpty ? 0 : Self.copyButtonGutter)
                 }
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 8).onChanged { _ in stickToBottom = false }
@@ -259,7 +241,21 @@ struct TranscriptTab: View {
                 .padding(GrokSpacing.lg)
             }
         }
+        .overlay(alignment: .topTrailing) {
+            if !blocks.isEmpty {
+                CopyButton(label: "Copy transcript", help: "Copy the whole transcript as text") {
+                    state.copyTranscript(meetingID, .all)
+                }
+                .padding(.horizontal, GrokSpacing.sm)
+                .padding(.vertical, GrokSpacing.xs)
+                .background(.regularMaterial, in: Capsule())
+                .overlay(Capsule().strokeBorder(.quaternary))
+                .padding(GrokSpacing.md)
+            }
+        }
     }
+
+    private static let copyButtonGutter: CGFloat = 36
 
     /// Scrolls to the block that contains the requested time and highlights it briefly.
     private func focus(blocks: [TranscriptBlock], proxy: ScrollViewProxy) {
@@ -297,6 +293,8 @@ private struct TranscriptBlockView: View {
     var highlighted = false
     /// Playback is inside this block.
     var current = false
+    /// The transcript shows chapters, so "Copy from here to end of chapter" applies.
+    var inChapter = false
     @State private var hovering = false
 
     var body: some View {
@@ -333,6 +331,44 @@ private struct TranscriptBlockView: View {
         .padding(-GrokSpacing.sm)
         .animation(.easeOut(duration: 0.2), value: current)
         .onHover { hovering = $0 }
+        .contextMenu {
+            Button("Copy") { state.copyTranscript(meetingID, .block(block.id)) }
+            if inChapter {
+                Button("Copy from Here to End of Chapter") { state.copyTranscript(meetingID, .toChapterEnd(block.id)) }
+            }
+        }
+    }
+}
+
+/// A borderless copy icon that shows a checkmark for a moment after copying.
+struct CopyButton: View {
+    let label: String
+    let help: String
+    let action: () -> Void
+    @State private var copied = false
+    @State private var resetTask: Task<Void, Never>?
+
+    var body: some View {
+        Button {
+            action()
+            copied = true
+            resetTask?.cancel()
+            resetTask = Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1.2))
+                guard !Task.isCancelled else { return }
+                copied = false
+            }
+        } label: {
+            Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                .foregroundStyle(copied ? AnyShapeStyle(Color.green) : AnyShapeStyle(.secondary))
+                .frame(width: 16, height: 16)
+                .contentTransition(.symbolEffect(.replace))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .help(copied ? "Copied" : help)
+        .accessibilityLabel(label)
+        .accessibilityValue(copied ? "Copied" : "")
     }
 }
 
@@ -346,25 +382,31 @@ private struct ChapterHeader: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.sm) {
-            RoundedRectangle(cornerRadius: 1.5)
-                .fill(ChapterColor.color(index))
-                .frame(width: 3, height: 14)
-            Text(chapter.title)
-                .font(.headline)
-            Button {
-                state.openChapter(meetingID, chapter)
-            } label: {
-                Text("\(Meeting.timestamp(chapter.start)) · \(Meeting.durationLabel(chapter.length))")
-                    .font(GrokTypography.captionMuted().monospacedDigit())
-                    .foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.sm) {
+                RoundedRectangle(cornerRadius: 1.5)
+                    .fill(ChapterColor.color(index))
+                    .frame(width: 3, height: 14)
+                Text(chapter.title)
+                    .font(.headline)
+                Button {
+                    state.openChapter(meetingID, chapter)
+                } label: {
+                    Text("\(Meeting.timestamp(chapter.start)) · \(Meeting.durationLabel(chapter.length))")
+                        .font(GrokTypography.captionMuted().monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(state.canPlayClips(meetingID) ? "Play this chapter" : "Chapter start")
             }
-            .buttonStyle(.plain)
-            .help(state.canPlayClips(meetingID) ? "Play this chapter" : "Chapter start")
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+            CopyButton(label: "Copy chapter \(chapter.title)", help: "Copy this chapter's transcript as text") {
+                state.copyTranscript(meetingID, .chapter(index))
+            }
+            .font(GrokTypography.captionMuted())
             VStack { Divider() }
         }
         .padding(.top, first ? 0 : GrokSpacing.md)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isHeader)
     }
 }
 

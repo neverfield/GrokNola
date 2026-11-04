@@ -173,7 +173,13 @@ When a meeting's audio is kept, a player bar appears at the bottom of the meetin
 - **Back 15 seconds**, **Play/Pause**, and **Forward 15 seconds** buttons.
 - A timeline of the whole meeting. Chapters show as colored segments with titles above. Click or drag the line to scrub. Click a chapter title to play from its start. Hover to see the time and chapter.
 - The speed menu: 1×, 1.25×, 1.5×, 2×.
-- The voice menu (speaker icon): **Balance voices** brings your mic and the other participants to the same level (on by default). **My voice** adds or removes gain on your mic track, from −6 dB to +12 dB (**Normal** is 0).
+- The voice levels panel (click the speaker icon):
+  - **Balance voices** brings your mic and the other participants to the same speech level (on by default).
+  - **My voice** and **Others** are separate sliders, from −12 dB to +12 dB. 0 dB is the balanced level (or the level as recorded, when **Balance voices** is off).
+  - The speaker button next to each slider mutes that side.
+  - **Reset** turns balancing on, sets both sliders to 0 dB, and unmutes both sides.
+  - Changes apply while the meeting plays and are kept for the next meeting. A limiter keeps boosted voices from clipping.
+  - The speaker icon turns blue when a level is changed from its default. It shows one wave when one side is muted, and a slash when both sides are muted.
 
 Keyboard: Space plays or pauses. Left and right arrows move 5 seconds. These keys do nothing while you type in a text field.
 
@@ -182,6 +188,14 @@ In the **Transcript** tab during playback, the block being played is highlighted
 ## Transcript
 
 The **Transcript** tab shows the conversation in blocks by speaker, each with a timestamp. Chapter titles appear between blocks. Hover a block to show its play button (when audio is kept). Click a speaker chip to rename that speaker. You can select and copy text.
+
+To copy the transcript as plain text:
+
+- **Copy transcript** (the copy icon at the top right of the transcript) copies the whole transcript. The first line is the meeting title and date. Each block is a line like `[04:12] Dana: text`, with resolved speaker names. When the meeting has chapters, each chapter starts with a heading like `## Pricing (04:12–10:30)`.
+- The copy icon next to a chapter title copies only that chapter, with its heading.
+- Right-click a block for **Copy** (that block) and, when there are chapters, **Copy from Here to End of Chapter**.
+- The icon shows a checkmark for a moment after it copies.
+- While you record, **Copy transcript** copies the finished lines so far, without chapter headings. The live line is left out.
 
 ## Ask Grok
 
@@ -350,7 +364,7 @@ The banner "System audio is off (…). Recording the microphone only." means mac
 
 ### My voice is quiet
 
-The app automatically raises a quiet microphone by up to 12 dB while recording. In playback, keep **Balance voices** on in the player's voice menu, or raise **My voice**.
+The app automatically raises a quiet microphone by up to 12 dB while recording. In playback, keep **Balance voices** on in the player's voice levels panel, or raise **My voice** (or lower **Others**).
 
 ### Names are not detected (everyone is "Them")
 

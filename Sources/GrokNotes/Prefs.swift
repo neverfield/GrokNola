@@ -20,10 +20,25 @@ enum Prefs {
         get { defaults.object(forKey: "balanceVoices") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "balanceVoices") }
     }
-    /// Extra playback gain for the microphone track, in dB.
+    /// Playback gain range for "My voice" and "Others", in dB relative to the balanced level.
+    static let voiceGainRange: ClosedRange<Double> = -12...12
+    /// Extra playback gain for the microphone track, in dB. Older builds stored a step from -6 to +12 under this key.
     static var myVoiceGain: Double {
-        get { defaults.double(forKey: "myVoiceGain") }
-        set { defaults.set(newValue, forKey: "myVoiceGain") }
+        get { clampVoiceGain(defaults.double(forKey: "myVoiceGain")) }
+        set { defaults.set(clampVoiceGain(newValue), forKey: "myVoiceGain") }
+    }
+    /// Extra playback gain for the system audio track (the other participants), in dB.
+    static var othersGain: Double {
+        get { clampVoiceGain(defaults.double(forKey: "othersGain")) }
+        set { defaults.set(clampVoiceGain(newValue), forKey: "othersGain") }
+    }
+    static var myVoiceMuted: Bool {
+        get { defaults.bool(forKey: "myVoiceMuted") }
+        set { defaults.set(newValue, forKey: "myVoiceMuted") }
+    }
+    static var othersMuted: Bool {
+        get { defaults.bool(forKey: "othersMuted") }
+        set { defaults.set(newValue, forKey: "othersMuted") }
     }
     static var inferNames: Bool { defaults.object(forKey: "inferNames") as? Bool ?? true }
     static var useSnapshots: Bool { defaults.object(forKey: "useSnapshots") as? Bool ?? true }
@@ -57,6 +72,10 @@ enum Prefs {
             people.append(name)
         }
         knownPeople = people
+    }
+
+    private static func clampVoiceGain(_ dB: Double) -> Double {
+        dB.isFinite ? min(max(dB, voiceGainRange.lowerBound), voiceGainRange.upperBound) : 0
     }
 
     private static func nonEmpty(_ s: String?) -> String? {

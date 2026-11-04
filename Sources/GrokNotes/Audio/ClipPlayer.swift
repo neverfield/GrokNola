@@ -22,8 +22,6 @@ final class ClipPlayer: ObservableObject {
     static let minLength = 8.0
     static let maxLength = 30.0
     static let rates: [Float] = [1, 1.25, 1.5, 2]
-    /// "My voice" steps in dB, added to the microphone track.
-    static let myVoiceSteps: [Double] = [-6, -3, 0, 3, 6, 9, 12]
     private static let minDuration = 0.5
 
     /// The clip in progress. Nil during continuous playback.
@@ -34,7 +32,12 @@ final class ClipPlayer: ObservableObject {
     @Published private(set) var isPlaying = false
     @Published private(set) var rate: Float = 1
     @Published private(set) var balanceVoices = Prefs.balanceVoices
+    /// dB added to the microphone track, on top of balancing.
     @Published private(set) var myVoiceGain = Prefs.myVoiceGain
+    /// dB added to the system audio track, on top of balancing.
+    @Published private(set) var othersGain = Prefs.othersGain
+    @Published private(set) var myVoiceMuted = Prefs.myVoiceMuted
+    @Published private(set) var othersMuted = Prefs.othersMuted
     /// The meeting and playback time, ten times a second while playing and after every seek.
     /// Not `@Published`, so only views that subscribe redraw.
     let ticks = PassthroughSubject<(meetingID: UUID, seconds: Double), Never>()
@@ -177,8 +180,46 @@ final class ClipPlayer: ObservableObject {
     }
 
     func setMyVoiceGain(_ dB: Double) {
-        myVoiceGain = dB
         Prefs.myVoiceGain = dB
+        myVoiceGain = Prefs.myVoiceGain
+        applyGains()
+    }
+
+    func setOthersGain(_ dB: Double) {
+        Prefs.othersGain = dB
+        othersGain = Prefs.othersGain
+        applyGains()
+    }
+
+    func setMyVoiceMuted(_ on: Bool) {
+        myVoiceMuted = on
+        Prefs.myVoiceMuted = on
+        applyGains()
+    }
+
+    func setOthersMuted(_ on: Bool) {
+        othersMuted = on
+        Prefs.othersMuted = on
+        applyGains()
+    }
+
+    /// Whether any voice control differs from its default.
+    var voicesAdjusted: Bool {
+        !balanceVoices || myVoiceGain != 0 || othersGain != 0 || myVoiceMuted || othersMuted
+    }
+
+    /// Balancing on, both gains at 0 dB, nothing muted.
+    func resetVoices() {
+        Prefs.balanceVoices = true
+        Prefs.myVoiceGain = 0
+        Prefs.othersGain = 0
+        Prefs.myVoiceMuted = false
+        Prefs.othersMuted = false
+        balanceVoices = true
+        myVoiceGain = 0
+        othersGain = 0
+        myVoiceMuted = false
+        othersMuted = false
         applyGains()
     }
 
@@ -311,9 +352,12 @@ final class ClipPlayer: ObservableObject {
             mic: levels[AudioSource.mic.rawValue] ?? nil,
             system: levels[AudioSource.system.rawValue] ?? nil,
             balance: balanceVoices,
-            myVoice: Float(myVoiceGain)
+            myVoice: Float(myVoiceGain),
+            others: Float(othersGain)
         )
-        mix.setGains(sources.map { $0 == .mic ? gains.mic : gains.system })
+        let mic = myVoiceMuted ? -Float.infinity : gains.mic
+        let system = othersMuted ? -Float.infinity : gains.system
+        mix.setGains(sources.map { $0 == .mic ? mic : system })
     }
 
     /// Measures each track's speech level off the main thread, once per meeting, then applies the gains.

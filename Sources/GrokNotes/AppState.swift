@@ -755,6 +755,14 @@ final class AppState: ObservableObject {
         NSPasteboard.general.setString(m.markdown(myName: Prefs.myName), forType: .string)
     }
 
+    /// Copies transcript text as plain `[mm:ss] Name: text` lines. Chapter headings are left out while recording.
+    func copyTranscript(_ id: UUID, _ scope: TranscriptText.Scope) {
+        guard let m = meeting(id) else { return }
+        let chapters = recordingID == id ? [] : m.chapters ?? []
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(TranscriptText.text(m, myName: Prefs.myName, chapters: chapters, scope: scope), forType: .string)
+    }
+
     func revealInFinder(_ id: UUID) {
         NSWorkspace.shared.activateFileViewerSelecting([store.directory(for: id).appendingPathComponent("notes.md")])
     }

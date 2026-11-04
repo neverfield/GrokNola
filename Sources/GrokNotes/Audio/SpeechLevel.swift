@@ -54,8 +54,8 @@ enum SpeechLevel {
 
     /// Playback gains in dB for the microphone and system audio.
     /// With balancing on, each measured track moves toward `target` within `maxCut`...`maxBoost`.
-    /// `myVoice` is added to the microphone either way.
-    static func gains(mic: Float?, system: Float?, balance: Bool, myVoice: Float) -> (mic: Float, system: Float) {
+    /// `myVoice` is added to the microphone and `others` to system audio either way.
+    static func gains(mic: Float?, system: Float?, balance: Bool, myVoice: Float, others: Float = 0) -> (mic: Float, system: Float) {
         var m: Float = 0
         var s: Float = 0
         if balance {
@@ -67,9 +67,10 @@ enum SpeechLevel {
                 if gap < -allowedGap { m = max(maxCut, m - (-gap - allowedGap)) }
             }
         }
-        return (m + myVoice, s)
+        return (m + myVoice, s + others)
     }
 
+    /// Minus infinity is silence.
     static func linear(_ dB: Float) -> Float { pow(10, dB / 20) }
 
     private static func clamp(_ dB: Float) -> Float { min(max(dB, maxCut), maxBoost) }
