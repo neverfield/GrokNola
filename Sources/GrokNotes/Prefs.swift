@@ -14,6 +14,8 @@ enum Prefs {
     static var useSnapshots: Bool { defaults.object(forKey: "useSnapshots") as? Bool ?? true }
     static var exportToGoogleDrive: Bool { defaults.object(forKey: "exportToGoogleDrive") as? Bool ?? false }
     static var googleDriveSubfolder: String? { nonEmpty(defaults.string(forKey: "googleDriveSubfolder")) }
+    static var autoTag: Bool { defaults.object(forKey: "autoTag") as? Bool ?? true }
+    static var dynamicTags: Bool { defaults.object(forKey: "dynamicTags") as? Bool ?? true }
 
     /// Names confirmed in past meetings. Used as transcription key terms and naming candidates.
     static var knownPeople: [String] {

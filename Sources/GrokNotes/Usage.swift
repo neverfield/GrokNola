@@ -8,6 +8,7 @@ enum UsageKind: String, Codable, CaseIterable {
     case vision
     case ask
     case library
+    case tags
     case other
 
     var label: String {
@@ -19,6 +20,7 @@ enum UsageKind: String, Codable, CaseIterable {
         case .vision: return "Speaker names (snapshots)"
         case .ask: return "Ask Grok (one meeting)"
         case .library: return "Ask across notes"
+        case .tags: return "Tags"
         case .other: return "Other"
         }
     }

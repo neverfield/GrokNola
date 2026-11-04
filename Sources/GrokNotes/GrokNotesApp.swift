@@ -9,6 +9,7 @@ struct GrokNotesApp: App {
             ContentView()
                 .environmentObject(state)
                 .environmentObject(state.usage)
+                .environmentObject(state.tagCatalog)
                 .frame(minWidth: 900, minHeight: 600)
         }
         .commands {
@@ -43,7 +44,9 @@ struct GrokNotesApp: App {
         }
 
         Settings {
-            SettingsView().environmentObject(state)
+            SettingsView()
+                .environmentObject(state)
+                .environmentObject(state.tagCatalog)
         }
     }
 }

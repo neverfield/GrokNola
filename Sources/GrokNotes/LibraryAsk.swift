@@ -61,7 +61,7 @@ enum LibraryAsk {
         let index = meetings.sorted { $0.startedAt > $1.startedAt }.prefix(indexLimit).map(indexLine).joined(separator: "\n")
         let reply = try await client.chat(model: model, messages: [
             .init(role: "system", content: """
-            Pick the meetings most likely to answer the question. Consider names, topics, and dates \
+            Pick the meetings most likely to answer the question. Consider names, tags, topics, and dates \
             (today is \(Date().formatted(date: .complete, time: .omitted))).
             Reply with JSON only: {"ids":["<id>", ...]} with at most \(maxMeetingsInContext) ids, most relevant first.
             """),
@@ -84,9 +84,11 @@ enum LibraryAsk {
             let notes = (m.enhancedNotes ?? m.userNotes).lowercased()
             let people = (m.attendees + m.speakers.values.compactMap(\.name)).joined(separator: " ").lowercased()
             let transcript = m.utterances.map(\.text).joined(separator: " ").lowercased()
+            let tags = m.tagList.joined(separator: " ").lowercased()
             var score = 0.0
             for term in terms {
                 score += Double(count(term, in: title)) * 6
+                score += Double(count(term, in: tags)) * 5
                 score += Double(count(term, in: people)) * 4
                 score += Double(min(count(term, in: notes), 10)) * 2
                 score += Double(min(count(term, in: transcript), 20))
@@ -103,7 +105,8 @@ enum LibraryAsk {
     private static func indexLine(_ m: Meeting) -> String {
         let people = uniqueNames(m.attendees + m.speakers.values.compactMap(\.name)).prefix(8).joined(separator: ", ")
         let summary = summaryLine(m)
-        return "\(m.id.uuidString.prefix(8)) | \(m.startedAt.formatted(date: .abbreviated, time: .omitted)) | \(m.title) | \(people) | \(summary)"
+        let tags = m.tagList.isEmpty ? "" : " | tags: \(m.tagList.joined(separator: ", "))"
+        return "\(m.id.uuidString.prefix(8)) | \(m.startedAt.formatted(date: .abbreviated, time: .omitted)) | \(m.title) | \(people)\(tags) | \(summary)"
     }
 
     private static func summaryLine(_ m: Meeting) -> String {
@@ -121,6 +124,7 @@ enum LibraryAsk {
             if let app = m.appName { block += " — \(app)" }
             block += "\nLink: \(link(for: m))\n"
             if !m.attendees.isEmpty { block += "Invitees: \(m.attendees.joined(separator: ", "))\n" }
+            if !m.tagList.isEmpty { block += "Tags: \(m.tagList.joined(separator: ", "))\n" }
             block += "Notes:\n\(m.enhancedNotes ?? (m.userNotes.isEmpty ? "(none)" : m.userNotes))\n"
             block += "Transcript:\n\(m.transcript(myName: myName))\n"
             out += String(block.prefix(perMeeting))
