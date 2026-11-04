@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MenuBarView: View {
     @EnvironmentObject private var state: AppState
+    @EnvironmentObject private var usage: UsageLedger
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -19,6 +20,10 @@ struct MenuBarView: View {
         }
         Divider()
         Button("Open Grok Notes") { showWindow() }
+        Button("Usage & Cost · \(usage.total(since: Calendar.current.dateInterval(of: .month, for: Date())?.start).usd) this month") {
+            openWindow(id: "usage")
+            NSApp.activate(ignoringOtherApps: true)
+        }
         SettingsLink { Text("Settings…") }
         Divider()
         Button("Quit Grok Notes") { NSApp.terminate(nil) }

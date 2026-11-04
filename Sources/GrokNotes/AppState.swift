@@ -50,6 +50,7 @@ final class AppState: ObservableObject {
     @Published private(set) var permissions = Permissions()
 
     let store = MeetingStore()
+    let usage = UsageLedger()
     private let calendar = CalendarService()
     private var session: RecordingSession?
     private var detectorTimer: Timer?
@@ -311,6 +312,11 @@ final class AppState: ObservableObject {
 
         let micDuration = s.micWAV?.close() ?? 0
         let systemDuration = s.systemWAV?.close() ?? 0
+        UsageRecorder.recordTranscription(
+            kind: .liveTranscription,
+            seconds: (s.micStream == nil ? 0 : micDuration) + (s.systemStream == nil ? 0 : systemDuration),
+            context: UsageContext(kind: .liveTranscription, meetingID: s.meetingID, meetingTitle: meeting(s.meetingID)?.title)
+        )
         liveMe = ""
         liveThem = ""
         streamStatus = nil
@@ -389,7 +395,7 @@ final class AppState: ObservableObject {
         // Re-diarize the full recording. Speaker numbers from one batch pass are stable for the
         // whole meeting, unlike the live stream, which restarts numbering after a reconnect.
         if s.hasSystemAudio, systemDuration > 10, let wav = s.systemWAV {
-            if let segments = await batchSegments(client, wav: wav, language: language, keyterms: s.keyterms) {
+            if let segments = await batchSegments(client.tracking(.batchTranscription, m), wav: wav, language: language, keyterms: s.keyterms) {
                 m.utterances.removeAll { $0.source == .system }
                 m.speakers = m.speakers.filter { !$0.key.hasPrefix("s") }
                 for seg in segments {
@@ -399,7 +405,7 @@ final class AppState: ObservableObject {
         }
         if !s.hasSystemAudio {
             if micDuration > 10, let wav = s.micWAV,
-               let segments = await batchSegments(client, wav: wav, language: language, keyterms: s.keyterms) {
+               let segments = await batchSegments(client.tracking(.batchTranscription, m), wav: wav, language: language, keyterms: s.keyterms) {
                 m.utterances.removeAll { $0.source == .mic }
                 m.speakers = m.speakers.filter { $0.key == Meeting.meKey || !$0.key.hasPrefix("m") }
                 for seg in segments {
@@ -413,7 +419,9 @@ final class AppState: ObservableObject {
         var namesOnScreen: [String] = []
         if let frames = s.snapshotter?.frames, !frames.isEmpty {
             do {
-                namesOnScreen = try await SpeakerResolver.identifyFromSnapshots(in: &m, frames: frames, myName: myName, client: client, model: model)
+                namesOnScreen = try await SpeakerResolver.identifyFromSnapshots(
+                    in: &m, frames: frames, myName: myName, client: client.tracking(.vision, m), model: model
+                )
             } catch {
                 banner = "Grok could not read the meeting-window snapshots: \(error.localizedDescription)"
             }
@@ -422,7 +430,9 @@ final class AppState: ObservableObject {
         if Prefs.inferNames {
             let candidates = uniqueNames(m.attendees + namesOnScreen + (s.monitor?.observedNames ?? []) + Prefs.knownPeople)
             do {
-                try await SpeakerResolver.inferNames(in: &m, candidates: candidates, myName: myName, client: client, model: model)
+                try await SpeakerResolver.inferNames(
+                    in: &m, candidates: candidates, myName: myName, client: client.tracking(.speakerNames, m), model: model
+                )
             } catch {
                 banner = "Grok could not match names to voices: \(error.localizedDescription)"
             }
@@ -434,7 +444,7 @@ final class AppState: ObservableObject {
 
         if !m.utterances.isEmpty || !m.userNotes.isEmpty {
             do {
-                m.enhancedNotes = try await NotesGenerator.enhancedNotes(for: m, myName: myName, client: client, model: model)
+                m.enhancedNotes = try await NotesGenerator.enhancedNotes(for: m, myName: myName, client: client.tracking(.notes, m), model: model)
             } catch {
                 banner = "Grok could not write the notes: \(error.localizedDescription)"
             }
@@ -481,7 +491,7 @@ final class AppState: ObservableObject {
             let client = try XAIClient.fromSettings()
             processing.insert(id)
             defer { processing.remove(id) }
-            let notes = try await NotesGenerator.enhancedNotes(for: m, myName: Prefs.myName, client: client, model: Prefs.model)
+            let notes = try await NotesGenerator.enhancedNotes(for: m, myName: Prefs.myName, client: client.tracking(.notes, m), model: Prefs.model)
             update(id) { $0.enhancedNotes = notes }
             save(id)
         } catch {
@@ -496,7 +506,7 @@ final class AppState: ObservableObject {
         defer { asking.remove(id) }
         do {
             let client = try XAIClient.fromSettings()
-            let answer = try await NotesGenerator.answer(question, about: m, myName: Prefs.myName, client: client, model: Prefs.model)
+            let answer = try await NotesGenerator.answer(question, about: m, myName: Prefs.myName, client: client.tracking(.ask, m), model: Prefs.model)
             update(id) { $0.chat.append(ChatMessage(role: "assistant", content: answer)) }
         } catch {
             update(id) { $0.chat.append(ChatMessage(role: "assistant", content: "Error: \(error.localizedDescription)")) }

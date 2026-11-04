@@ -45,6 +45,15 @@ the microphone alone is diarized and the main voice is labeled as you.
 The active-speaker patterns in `Sources/GrokNotes/Speakers/ActiveSpeakerMonitor.swift`
 are heuristics. Meeting apps change their labels, so add a pattern there if names stop appearing.
 
+## Cost
+
+**Meeting > Usage & Cost** (Shift-Command-U, or the menu bar) shows xAI spend for today,
+the last 7 days, this month, or all time, broken down by feature and by meeting. Each meeting
+header also shows its own cost. Grok requests use the exact `cost_in_usd_ticks` that xAI
+returns. Transcription is estimated from recorded audio at list price ($0.20 per hour
+streaming, $0.10 per hour for the full-recording pass). The log is
+`~/Library/Application Support/GrokNotes/usage.jsonl`.
+
 ## Data
 
 Everything lives in `~/Library/Application Support/GrokNotes/Meetings/<id>/`

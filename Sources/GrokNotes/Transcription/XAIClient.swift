@@ -11,6 +11,14 @@ struct XAIClient {
     static let keychainAccount = "xai_api_key"
 
     let apiKey: String
+    /// What requests from this client are for, so usage is logged against the right meeting and feature.
+    var usageContext: UsageContext?
+
+    func tracking(_ kind: UsageKind, _ meeting: Meeting) -> XAIClient {
+        var copy = self
+        copy.usageContext = UsageContext(kind: kind, meetingID: meeting.id, meetingTitle: meeting.title)
+        return copy
+    }
 
     static func storedAPIKey() -> String? {
         if let key = Keychain.get(keychainAccount), !key.isEmpty { return key }
@@ -61,7 +69,15 @@ struct XAIClient {
                 struct Content: Decodable { let content: String? }
                 let message: Content
             }
+            struct Usage: Decodable {
+                struct PromptDetails: Decodable { let cached_tokens: Int? }
+                let prompt_tokens: Int?
+                let completion_tokens: Int?
+                let prompt_tokens_details: PromptDetails?
+                let cost_in_usd_ticks: Int64?
+            }
             let choices: [Choice]
+            let usage: Usage?
         }
         var request = makeRequest("chat/completions", timeout: 600)
         request.httpMethod = "POST"
@@ -70,6 +86,16 @@ struct XAIClient {
         let (data, response) = try await URLSession.shared.data(for: request)
         try Self.check(response, data)
         let decoded = try JSONDecoder().decode(Response.self, from: data)
+        if let usage = decoded.usage {
+            UsageRecorder.recordChat(
+                model: model,
+                inputTokens: usage.prompt_tokens,
+                cachedTokens: usage.prompt_tokens_details?.cached_tokens,
+                outputTokens: usage.completion_tokens,
+                costTicks: usage.cost_in_usd_ticks,
+                context: usageContext
+            )
+        }
         guard let text = decoded.choices.first?.message.content, !text.isEmpty else {
             throw XAIError(message: "Grok returned an empty reply.")
         }
@@ -130,7 +156,10 @@ struct XAIClient {
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         let (data, response) = try await URLSession.shared.upload(for: request, fromFile: bodyURL)
         try Self.check(response, data)
-        return try JSONDecoder().decode(STTResult.self, from: data)
+        let result = try JSONDecoder().decode(STTResult.self, from: data)
+        let seconds = result.duration ?? Double((try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? Int) ?? 0) / 32_000
+        UsageRecorder.recordTranscription(kind: .batchTranscription, seconds: seconds, context: usageContext)
+        return result
     }
 
     // MARK: Helpers
