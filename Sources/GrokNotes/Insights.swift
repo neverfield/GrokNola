@@ -46,7 +46,7 @@ enum Insights {
             var seen = Set<String>()
             for raw in values(m) {
                 let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-                let key = name.lowercased()
+                let key = Topics.key(name)
                 guard !key.isEmpty, seen.insert(key).inserted else { continue }
                 totals[key, default: 0] += 1
                 casings[key, default: [:]][name, default: 0] += 1
@@ -172,7 +172,8 @@ enum Insights {
     }
 
     static func decisions(in notes: String) -> [String] {
-        section(notes, titles: ["decision"]).compactMap { line in
+        // "What we committed" is the Customer template's decisions section.
+        section(notes, titles: ["decision", "what we committed"]).compactMap { line in
             guard line.hasPrefix("- ") || line.hasPrefix("* ") else { return nil }
             let text = String(line.dropFirst(2)).trimmingCharacters(in: .whitespaces)
             return text.isEmpty ? nil : text
@@ -191,7 +192,8 @@ enum Insights {
             return Citations.strip(t)
         }
         if let notes = meeting.enhancedNotes, !notes.isEmpty {
-            let summary = section(notes, titles: ["summary", "overview", "tl;dr", "tldr"]).map(plain)
+            // Opening sections of the built-in templates: General, Customer, Brainstorm, 1:1 and Standup.
+            let summary = section(notes, titles: ["summary", "overview", "tl;dr", "tldr", "context", "problem framing", "updates"]).map(plain)
             if !summary.isEmpty { return summary.joined(separator: " ") }
             let lines = notes.components(separatedBy: "\n")
                 .map { $0.trimmingCharacters(in: .whitespaces) }
