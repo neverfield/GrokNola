@@ -14,12 +14,10 @@ struct ContentView: View {
         NavigationSplitView {
             sidebar
         } detail: {
-            if state.showLibraryChat {
-                LibraryChatView()
-            } else if let id = state.selectedID, state.meeting(id) != nil {
-                MeetingDetailView(meetingID: id).id(id)
-            } else {
-                EmptyStateView()
+            switch state.route {
+            case .home: HomeView()
+            case .library: LibraryChatView()
+            case .meeting(let id): MeetingDetailView(meetingID: id).id(id)
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) {
@@ -99,6 +97,19 @@ struct ContentView: View {
         let content = sidebarContent()
         return List(selection: $state.selectedID) {
             Section {
+                let atHome = state.route == .home
+                Button {
+                    state.openHome()
+                } label: {
+                    Label("Home", systemImage: "house")
+                        .fontWeight(atHome ? .semibold : .regular)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.vertical, GrokSpacing.xs)
+                .listRowBackground(atHome ? Color.accentColor.opacity(0.15) : Color.clear)
+                .help("Your week at a glance (Command-Shift-H)")
                 Button {
                     state.openLibraryChat()
                 } label: {
@@ -457,31 +468,7 @@ private struct BannerView: View {
     }
 }
 
-private struct EmptyStateView: View {
-    @EnvironmentObject private var state: AppState
-
-    var body: some View {
-        VStack(spacing: GrokSpacing.xl) {
-            Image(systemName: "note.text")
-                .font(.system(size: 52, weight: .light))
-                .foregroundStyle(.tertiary)
-                .symbolRenderingMode(.hierarchical)
-            Text("Your notepad for calls")
-                .font(GrokTypography.emptyStateTitle())
-            Text("Start notes when a call begins. Type rough thoughts while you talk—Grok turns them into polished notes when you stop.")
-                .font(GrokTypography.emptyStateBody())
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 440)
-            RecordButton().frame(width: 280)
-            PermissionSummary()
-        }
-        .padding(40)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-private struct PermissionSummary: View {
+struct PermissionSummary: View {
     @EnvironmentObject private var state: AppState
 
     var body: some View {

@@ -22,6 +22,8 @@ struct GrokNotesApp: App {
                         .keyboardShortcut("r", modifiers: [.command, .shift])
                 }
                 Divider()
+                Button("Home") { state.openHome() }
+                    .keyboardShortcut("h", modifiers: [.command, .shift])
                 Button("Ask Across Notes") { state.openLibraryChat() }
                     .keyboardShortcut("k", modifiers: .command)
                 OpenUsageButton().keyboardShortcut("u", modifiers: [.command, .shift])
