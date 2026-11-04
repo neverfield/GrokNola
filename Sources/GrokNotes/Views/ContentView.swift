@@ -479,7 +479,7 @@ struct PermissionSummary: View {
             row("Microphone", p.microphone, "Required")
             row("Screen & System Audio Recording", p.systemAudio, "Separates you from the other side")
             row("Accessibility", p.accessibility, "Reads who is talking in Zoom, Teams, Meet, and Slack")
-            row("Calendar", p.calendar, "Titles and invitee names")
+            row("Calendar", p.calendar || p.calendarFile, p.calendarFile ? "Google via Cursor (calendar.json)" : "Titles and invitee names")
             SettingsLink { Text("Open Settings") }.padding(.top, GrokSpacing.xs)
         }
         .font(.callout)

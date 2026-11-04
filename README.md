@@ -35,7 +35,7 @@ rebuilds keep their permissions. Set `CODESIGN_IDENTITY` to use another certific
 | Microphone vs. system audio on separate streams | Microphone + Screen & System Audio Recording | You vs. everyone else |
 | Diarization of system audio | Same | Remote voices split into separate speakers |
 | The meeting app's "who is talking" indicator, read through Accessibility and matched to speech timing | Accessibility | Real names (`active speaker`) |
-| Calendar invitees plus Grok reading the transcript for introductions and name use | Calendar (optional) | Real names (`inferred`) with a confidence bar |
+| Calendar invitees plus Grok reading the transcript for introductions and name use | A calendar source (optional, see [Calendar](#calendar)) | Real names (`inferred`) with a confidence bar |
 | Your corrections | None | Saved, and reused as hints in later meetings |
 
 A speaker without strong evidence stays **Them**, so you fall back to Me / Them
@@ -44,6 +44,76 @@ the microphone alone is diarized and the main voice is labeled as you.
 
 The active-speaker patterns in `Sources/GrokNotes/Speakers/ActiveSpeakerMonitor.swift`
 are heuristics. Meeting apps change their labels, so add a pattern there if names stop appearing.
+
+## Calendar
+
+Grok Notes uses your calendar to title a meeting, list its invitees, and show
+**Up next** on Home (today's remaining events with **Join** and **Start notes**).
+Pick the source in **Settings > Calendar**:
+
+| Source | Reads |
+| --- | --- |
+| **Automatic** (default) | `calendar.json` when it was synced in the last 24 hours, else Apple Calendar when allowed, else a stale `calendar.json` |
+| **Google via Cursor** | `calendar.json` only |
+| **Apple Calendar** | EventKit (needs the Calendar permission) |
+| **None** | Nothing |
+
+### Google Calendar through Cursor
+
+When Apple Calendar is not available (for example on a managed Mac) and
+Google's private iCal link is off, a Cursor agent can read Google Calendar
+through an MCP server and write a local file. Grok Notes only reads the file:
+no Google sign-in and no network access in the app.
+
+1. Install the skill: `mkdir -p ~/.cursor/skills && cp -R skills/grok-notes-calendar-sync ~/.cursor/skills/`
+2. Connect a Google Calendar MCP server in Cursor Settings > MCP.
+3. In Cursor, say **"Sync my calendar for Grok Notes"**
+   (Settings > Calendar > **Copy sync prompt** copies it).
+4. To keep it fresh while Cursor is open: `/loop 30m sync my calendar for Grok Notes`.
+
+Grok Notes watches the file and reloads it within a minute of a change.
+Settings shows the status, for example "Google via Cursor · synced 12 min ago · 14 events".
+
+### calendar.json contract
+
+Path: `~/Library/Application Support/GrokNotes/calendar.json`
+(override with the `GROK_NOTES_CALENDAR_FILE` environment variable for testing).
+Writers must replace it atomically: write a temp file in the same folder, then rename it.
+
+```json
+{
+  "version": 1,
+  "source": "google-calendar-mcp",
+  "syncedAt": "2026-11-04T20:00:00Z",
+  "timeZone": "America/Los_Angeles",
+  "rangeStart": "2026-11-03T00:00:00-08:00",
+  "rangeEnd": "2026-11-12T00:00:00-08:00",
+  "events": [
+    {
+      "id": "abc123",
+      "title": "Pricing sync",
+      "start": "2026-11-04T10:00:00-08:00",
+      "end": "2026-11-04T10:30:00-08:00",
+      "allDay": false,
+      "attendees": [{"name": "Yemi A", "email": "yemi@example.com", "self": false, "response": "accepted"}],
+      "organizer": {"name": "Yemi A", "email": "yemi@example.com"},
+      "conferenceURL": "https://meet.google.com/abc-defg-hij",
+      "location": "Room 4",
+      "description": "Optional, truncated to 2000 characters"
+    }
+  ]
+}
+```
+
+- Only `id`, `title`, `start`, and `end` are required.
+- Times are ISO 8601 with an offset (fractional seconds allowed). All-day events use
+  `YYYY-MM-DD` dates with an exclusive end, interpreted in `timeZone`.
+- Events you declined (`self: true`, `response: "declined"`) are ignored. Entries that
+  cannot be read are skipped and counted in the Settings status.
+- The current meeting is the timed event that overlaps now (from 10 minutes before
+  its start to its end), preferring events with other invitees. Invitee names come
+  from `name`, else the email's local part; `self` is left out. A Meet, Zoom, or Teams
+  `conferenceURL` names the meeting app when no running app was detected.
 
 ## Ask across notes
 

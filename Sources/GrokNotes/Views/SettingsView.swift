@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var state: AppState
+    @EnvironmentObject private var calendars: CalendarHub
     @AppStorage("myName") private var myName = NSFullUserName()
     @AppStorage("chatModel") private var model = Prefs.defaultModel
     @AppStorage("language") private var language = "en"
@@ -12,6 +13,7 @@ struct SettingsView: View {
     @AppStorage("useSnapshots") private var useSnapshots = true
     @AppStorage("exportToGoogleDrive") private var exportToGoogleDrive = false
     @AppStorage("googleDriveSubfolder") private var googleDriveSubfolder = ""
+    @AppStorage("calendarSource") private var calendarSource = CalendarChoice.automatic
     @State private var apiKey = ""
     @State private var keyStatus: String?
 
@@ -38,6 +40,8 @@ struct SettingsView: View {
                 TextField("Your name", text: $myName)
                 Toggle("Echo cancellation (turn off when you always wear headphones)", isOn: $echoCancellation)
             }
+
+            calendarSection
 
             Section("Speaker names") {
                 Toggle("Identify speakers from meeting-window snapshots", isOn: $useSnapshots)
@@ -102,7 +106,7 @@ struct SettingsView: View {
                 PermissionRow(title: "Accessibility", detail: "Reads who is talking in the meeting app. Without it, speakers are Me / Them.", granted: state.permissions.accessibility) {
                     state.requestAccessibility()
                 }
-                PermissionRow(title: "Calendar", detail: "Meeting title and invitees", granted: state.permissions.calendar) {
+                PermissionRow(title: "Apple Calendar", detail: "Meeting title and invitees, when Apple Calendar is the source", granted: state.permissions.calendar) {
                     Task { await state.requestCalendar() }
                 }
                 Button("Refresh status") { state.refreshPermissions() }
@@ -121,6 +125,42 @@ struct SettingsView: View {
         .onAppear {
             apiKey = Keychain.get(XAIClient.keychainAccount) ?? ""
             state.refreshPermissions()
+            calendars.reload()
+        }
+    }
+
+    private var calendarSection: some View {
+        Section("Calendar") {
+            Picker("Source", selection: $calendarSource) {
+                ForEach(CalendarChoice.allCases) { Text($0.label).tag($0) }
+            }
+            TimelineView(.periodic(from: .now, by: 30)) { _ in
+                HStack(spacing: 6) {
+                    Image(systemName: calendarStatusOK ? "checkmark.circle.fill" : "exclamationmark.circle")
+                        .foregroundStyle(calendarStatusOK ? .green : .orange)
+                    Text(calendars.statusLine)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                }
+            }
+            Text("Automatic uses calendar.json when it was synced in the last 24 hours, else Apple Calendar when allowed. To fill calendar.json from Google Calendar, say “\(CalendarHub.syncPrompt)” in Cursor (needs the grok-notes-calendar-sync skill and a Google Calendar connection). Use “/loop 30m \(CalendarHub.syncPrompt.lowercased())” to keep it fresh.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack {
+                Button("Reveal file") { calendars.revealFile() }
+                Button("Copy sync prompt") { calendars.copySyncPrompt() }
+                Button("Reload") { calendars.reload(force: true) }
+            }
+        }
+        .onChange(of: calendarSource) { calendars.objectWillChange.send() }
+    }
+
+    private var calendarStatusOK: Bool {
+        switch calendars.active {
+        case .none: return calendarSource == .none
+        case .apple: return true
+        case .file: return calendars.hasFreshFile && calendars.fileError == nil
         }
     }
 

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The landing page: this week at a glance, trends, recent meetings, and open action items.
+/// The landing page: today's calendar, this week at a glance, trends, recent meetings, and open action items.
 struct HomeView: View {
     @EnvironmentObject private var state: AppState
     @EnvironmentObject private var usage: UsageLedger
@@ -22,6 +22,7 @@ struct HomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: GrokSpacing.xl) {
                 header
+                UpNextCard()
                 if state.meetings.isEmpty {
                     OnboardingCard()
                 } else {
@@ -381,7 +382,7 @@ private struct HomeSnapshot {
 
 // MARK: - Cards and rows
 
-private struct HomeCard<Content: View>: View {
+struct HomeCard<Content: View>: View {
     let title: String
     let systemImage: String
     var trailing: String?

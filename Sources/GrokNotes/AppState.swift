@@ -7,7 +7,10 @@ struct Permissions {
     var microphone = false
     var systemAudio = false
     var accessibility = false
+    /// Apple Calendar access.
     var calendar = false
+    /// A fresh calendar.json from the Cursor sync.
+    var calendarFile = false
 }
 
 /// Everything that lives only while one meeting is being recorded.
@@ -77,7 +80,7 @@ final class AppState: ObservableObject {
     let tagCatalog = TagCatalog()
     let templateCatalog = TemplateCatalog()
     let clips: ClipPlayer
-    private let calendar = CalendarService()
+    let calendars = CalendarHub()
     private var session: RecordingSession?
     private var detectorTimer: Timer?
     private var saveTasks: [UUID: Task<Void, Never>] = [:]
@@ -178,7 +181,8 @@ final class AppState: ObservableObject {
             microphone: AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
             systemAudio: CGPreflightScreenCaptureAccess(),
             accessibility: ActiveSpeakerMonitor.isTrusted,
-            calendar: calendar.isAuthorized
+            calendar: calendars.apple.isAuthorized,
+            calendarFile: calendars.hasFreshFile
         )
     }
 
@@ -200,7 +204,7 @@ final class AppState: ObservableObject {
     }
 
     func requestCalendar() async {
-        _ = await calendar.requestAccess()
+        _ = await calendars.apple.requestAccess()
         refreshPermissions()
     }
 
@@ -218,7 +222,8 @@ final class AppState: ObservableObject {
 
     // MARK: Recording
 
-    func startMeeting() async {
+    /// Starts recording. Pass an event, such as one picked on Home, to use its title and invitees.
+    func startMeeting(event picked: CalendarEvent? = nil) async {
         guard session == nil else { return }
         clips.stop()
         guard let apiKey = XAIClient.storedAPIKey() else {
@@ -233,15 +238,17 @@ final class AppState: ObservableObject {
 
         let now = Date()
         let app = MeetingDetector.detect(micInUse: MeetingDetector.micInUse())
-        let event = calendar.currentEvent()
+        calendars.reload()
+        let event = picked ?? calendars.currentEvent(at: now)
         let myName = Prefs.myName
         var meeting = Meeting(
             title: event?.title ?? "\(app?.name ?? "Meeting") · \(now.formatted(date: .abbreviated, time: .shortened))",
             autoTitle: event == nil,
             startedAt: now
         )
-        meeting.appName = app?.name
-        meeting.attendees = event?.attendees ?? []
+        meeting.appName = app?.name ?? event?.meetingAppName
+        meeting.attendees = event?.attendeeNames ?? []
+        if let emails = event?.attendeeEmails, !emails.isEmpty { meeting.attendeeEmails = emails }
         meetings.insert(meeting, at: 0)
         selectedID = meeting.id
 

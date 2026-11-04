@@ -88,6 +88,8 @@ struct Meeting: Codable, Identifiable {
     var notesTemplateID: String?
     /// Meeting time of the first sample in each kept recording, keyed by `AudioSource` raw value. Nil reads as 0.
     var audioOffsets: [String: Double]?
+    /// Invitee emails from the calendar event, excluding you.
+    var attendeeEmails: [String]?
 }
 
 struct TalkStat: Hashable {
