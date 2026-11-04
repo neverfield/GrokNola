@@ -4,6 +4,7 @@ struct MeetingDetailView: View {
     @EnvironmentObject private var state: AppState
     let meetingID: UUID
     @State private var tab: Tab = .notes
+    @State private var showInspector = false
 
     enum Tab: String, CaseIterable {
         case notes = "Notes"
@@ -12,74 +13,121 @@ struct MeetingDetailView: View {
     }
 
     var body: some View {
-        if let meeting = state.meeting(meetingID) {
-            VStack(alignment: .leading, spacing: 0) {
-                header(meeting)
-                Picker("", selection: $tab) {
-                    ForEach(Tab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+        if state.meeting(meetingID) != nil {
+            NavigationStack {
+                VStack(alignment: .leading, spacing: 0) {
+                    Picker("", selection: $tab) {
+                        ForEach(Tab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .padding(.horizontal, GrokSpacing.lg)
+                    .padding(.vertical, GrokSpacing.sm)
+
+                    switch tab {
+                    case .notes: NotesTab(meetingID: meetingID)
+                    case .transcript: TranscriptTab(meetingID: meetingID)
+                    case .ask: AskTab(meetingID: meetingID)
+                    }
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-                Divider()
-                switch tab {
-                case .notes: NotesTab(meetingID: meetingID)
-                case .transcript: TranscriptTab(meetingID: meetingID)
-                case .ask: AskTab(meetingID: meetingID)
+                .navigationTitle("")
+                .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        TextField("Title", text: state.titleBinding(meetingID))
+                            .textFieldStyle(.plain)
+                            .font(GrokTypography.meetingTitle())
+                            .frame(minWidth: 200, maxWidth: 420)
+                    }
+                    ToolbarItemGroup(placement: .automatic) {
+                        if state.recordingID == meetingID {
+                            HStack(spacing: GrokSpacing.xs) {
+                                RecordingPulse()
+                                Text(Meeting.timestamp(state.elapsed))
+                                    .font(.caption.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            showInspector.toggle()
+                        } label: {
+                            Label("Meeting info", systemImage: "info.circle")
+                        }
+                        .help("Speakers, attendees, and attribution")
+                    }
+                }
+                .inspector(isPresented: $showInspector) {
+                    MeetingInspectorView(meetingID: meetingID)
                 }
             }
         }
     }
+}
 
-    private func header(_ meeting: Meeting) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            TextField("Title", text: state.titleBinding(meetingID))
-                .textFieldStyle(.plain)
-                .font(.title2.bold())
-            HStack(spacing: 8) {
-                Text(meeting.startedAt.formatted(date: .abbreviated, time: .shortened))
-                if let app = meeting.appName { Text("· \(app)") }
-                if !meeting.attendees.isEmpty {
-                    Text("· \(meeting.attendees.count) invited").help(meeting.attendees.joined(separator: ", "))
+struct MeetingInspectorView: View {
+    @EnvironmentObject private var state: AppState
+    @EnvironmentObject private var usage: UsageLedger
+    let meetingID: UUID
+
+    var body: some View {
+        if let meeting = state.meeting(meetingID) {
+            Form {
+                Section("When") {
+                    LabeledContent("Started") {
+                        Text(meeting.startedAt.formatted(date: .abbreviated, time: .shortened))
+                    }
+                    if let app = meeting.appName {
+                        LabeledContent("App") { Text(app) }
+                    }
+                    if let ended = meeting.endedAt {
+                        LabeledContent("Ended") {
+                            Text(ended.formatted(date: .abbreviated, time: .shortened))
+                        }
+                    }
                 }
-                MeetingCostLabel(meetingID: meetingID)
-                ModeBadge(mode: meeting.mode)
-            }
-            .font(.callout)
-            .foregroundStyle(.secondary)
-            if !meeting.speakerKeys.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack {
+
+                Section("Attribution") {
+                    LabeledContent("Mode") {
+                        Text(meeting.mode.label)
+                            .help(modeHelp(meeting.mode))
+                    }
+                    let cost = usage.total(for: meetingID)
+                    if cost > 0 {
+                        LabeledContent("API cost") { Text(cost.usd).monospacedDigit() }
+                    }
+                }
+
+                if !meeting.attendees.isEmpty {
+                    Section("Invitees") {
+                        ForEach(meeting.attendees, id: \.self) { name in
+                            Text(name)
+                        }
+                    }
+                }
+
+                if !meeting.speakerKeys.isEmpty {
+                    Section("Speakers") {
+                        Text("Click a name to rename.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                         ForEach(meeting.speakerKeys, id: \.self) { key in
                             SpeakerChip(meetingID: meetingID, key: key, showDetail: true)
                         }
                     }
                 }
             }
+            .formStyle(.grouped)
+            .inspectorColumnWidth(min: 260, ideal: 300, max: 360)
         }
-        .padding()
-    }
-}
-
-private struct ModeBadge: View {
-    let mode: AttributionMode
-
-    var body: some View {
-        Text(mode.label)
-            .font(.caption.weight(.medium))
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(.quaternary, in: Capsule())
-            .help(help)
     }
 
-    private var help: String {
+    private func modeHelp(_ mode: AttributionMode) -> String {
         switch mode {
         case .detecting: return "Names are matched while you talk and again when the meeting ends."
-        case .named: return "At least one remote speaker has a real name. Click a name to fix it."
+        case .named: return "At least one remote speaker has a real name."
         case .meThem: return "No reliable names were found. Click Them to name a speaker."
-        case .micOnly: return "System audio was not available, so speakers come from the microphone alone."
+        case .micOnly: return "System audio was not available."
         }
     }
 }
@@ -108,7 +156,7 @@ struct SpeakerChip: View {
         Button {
             editing = true
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: GrokSpacing.xs) {
                 Circle().fill(color).frame(width: 8, height: 8)
                 Text(meeting?.displayName(for: key, myName: Prefs.myName) ?? key).fontWeight(.medium)
                 if showDetail, let info {
@@ -116,7 +164,7 @@ struct SpeakerChip: View {
                 }
             }
             .font(.callout)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, GrokSpacing.sm)
             .padding(.vertical, 3)
             .background(color.opacity(0.15), in: Capsule())
         }
@@ -145,7 +193,7 @@ private struct RenameSpeakerView: View {
 
     var body: some View {
         let suggestions = uniqueNames((state.meeting(meetingID)?.attendees ?? []) + Prefs.knownPeople.reversed()).prefix(8)
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: GrokSpacing.sidebarInset) {
             Text("Who is this?").font(.headline)
             TextField("Name", text: $name).onSubmit(save).frame(width: 240)
             if !suggestions.isEmpty {
@@ -172,7 +220,7 @@ private struct FlowButtons: View {
     let pick: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: GrokSpacing.xs) {
             ForEach(names, id: \.self) { name in
                 Button(name) { pick(name) }.buttonStyle(.link)
             }

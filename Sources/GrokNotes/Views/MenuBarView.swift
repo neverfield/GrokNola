@@ -7,26 +7,26 @@ struct MenuBarView: View {
 
     var body: some View {
         if state.recordingID != nil {
-            Text("Recording · \(Meeting.timestamp(state.elapsed))")
-            Button("Stop and Write Notes") { Task { await state.stopMeeting() } }
+            Text(Meeting.timestamp(state.elapsed))
+            Button("Stop") { Task { await state.stopMeeting() } }
         } else {
             if let app = state.detectedApp {
-                Text("Meeting detected in \(app.name)")
+                Text("\(app.name) detected")
             }
-            Button("Start Notes") {
+            Button("Start notes") {
                 showWindow()
                 Task { await state.startMeeting() }
             }
         }
         Divider()
         Button("Open Grok Notes") { showWindow() }
-        Button("Usage & Cost · \(usage.total(since: Calendar.current.dateInterval(of: .month, for: Date())?.start).usd) this month") {
+        Button("Usage · \(usage.total(since: Calendar.current.dateInterval(of: .month, for: Date())?.start).usd) mo.") {
             openWindow(id: "usage")
             NSApp.activate(ignoringOtherApps: true)
         }
-        SettingsLink { Text("Settings…") }
+        SettingsLink { Text("Settings") }
         Divider()
-        Button("Quit Grok Notes") { NSApp.terminate(nil) }
+        Button("Quit") { NSApp.terminate(nil) }
     }
 
     private func showWindow() {

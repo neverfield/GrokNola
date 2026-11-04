@@ -91,7 +91,15 @@ struct SettingsView: View {
                 PermissionRow(title: "Calendar", detail: "Meeting title and invitees", granted: state.permissions.calendar) {
                     Task { await state.requestCalendar() }
                 }
-                Button("Refresh") { state.refreshPermissions() }
+                Button("Refresh status") { state.refreshPermissions() }
+            }
+
+            Section("Usage") {
+                OpenUsageButton()
+                    .buttonStyle(.link)
+                Text("See xAI API spend by meeting and feature.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

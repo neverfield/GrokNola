@@ -5,23 +5,7 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $state.selectedID) {
-                ForEach(state.meetings) { meeting in
-                    MeetingRow(meeting: meeting)
-                        .tag(meeting.id)
-                        .contextMenu {
-                            Button("Copy as Markdown") { state.copyMarkdown(meeting.id) }
-                            Button("Show in Finder") { state.revealInFinder(meeting.id) }
-                            Divider()
-                            Button("Delete", role: .destructive) { state.delete(meeting.id) }
-                                .disabled(state.recordingID == meeting.id)
-                        }
-                }
-            }
-            .navigationSplitViewColumnWidth(min: 220, ideal: 260)
-            .safeAreaInset(edge: .bottom) {
-                RecordButton().padding(10)
-            }
+            sidebar
         } detail: {
             if let id = state.selectedID, state.meeting(id) != nil {
                 MeetingDetailView(meetingID: id).id(id)
@@ -39,7 +23,64 @@ struct ContentView: View {
                 }
             }
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if state.recordingID != nil {
+                RecordingStatusBar()
+            }
+        }
         .onAppear { state.refreshPermissions() }
+    }
+
+    private var sidebar: some View {
+        List(selection: $state.selectedID) {
+            if state.meetings.isEmpty {
+                ContentUnavailableView {
+                    Label("No meetings yet", systemImage: "note.text")
+                } description: {
+                    Text("Start notes when a call begins. Your rough notes guide what Grok writes.")
+                }
+                .listRowBackground(Color.clear)
+            } else {
+                ForEach(state.meetings) { meeting in
+                    MeetingRow(meeting: meeting)
+                        .tag(meeting.id)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button("Delete", role: .destructive) {
+                                state.delete(meeting.id)
+                            }
+                            .disabled(state.recordingID == meeting.id)
+                        }
+                        .contextMenu {
+                            Button("Copy as Markdown") { state.copyMarkdown(meeting.id) }
+                            Button("Show in Finder") { state.revealInFinder(meeting.id) }
+                            Divider()
+                            Button("Delete", role: .destructive) { state.delete(meeting.id) }
+                                .disabled(state.recordingID == meeting.id)
+                        }
+                }
+            }
+        }
+        .navigationSplitViewColumnWidth(min: 220, ideal: 260)
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                if state.recordingID == nil {
+                    Button {
+                        Task { await state.startMeeting() }
+                    } label: {
+                        Label(
+                            state.detectedApp.map { "Start · \($0.name)" } ?? "Start notes",
+                            systemImage: "record.circle"
+                        )
+                    }
+                    .help("Start capturing notes for this meeting")
+                }
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if state.recordingID == nil {
+                StartNotesBar()
+            }
+        }
     }
 }
 
@@ -48,20 +89,101 @@ private struct MeetingRow: View {
     let meeting: Meeting
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 6) {
-                if state.recordingID == meeting.id {
-                    Image(systemName: "record.circle.fill").foregroundStyle(.red)
-                } else if state.processing.contains(meeting.id) {
-                    ProgressView().controlSize(.small)
-                }
-                Text(meeting.title).lineLimit(1)
+        HStack(spacing: GrokSpacing.sm) {
+            rowIcon
+            VStack(alignment: .leading, spacing: 2) {
+                Text(meeting.title)
+                    .lineLimit(1)
+                    .font(.body)
+                Text(GrokFormat.meetingSubtitle(date: meeting.startedAt, appName: meeting.appName))
+                    .font(GrokTypography.captionMuted())
+                    .foregroundStyle(.secondary)
             }
-            Text(meeting.startedAt.formatted(date: .abbreviated, time: .shortened) + (meeting.appName.map { " · \($0)" } ?? ""))
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, GrokSpacing.xs)
+    }
+
+    @ViewBuilder
+    private var rowIcon: some View {
+        if state.recordingID == meeting.id {
+            RecordingPulse()
+                .frame(width: 28, height: 28)
+        } else if state.processing.contains(meeting.id) {
+            ProgressView()
+                .controlSize(.small)
+                .frame(width: 28, height: 28)
+        } else {
+            Image(systemName: MeetingAppIcon.symbol(for: meeting.appName))
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .frame(width: 28, height: 28)
+                .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
+        }
+    }
+}
+
+/// Compact start control at the bottom of the sidebar when idle.
+struct StartNotesBar: View {
+    @EnvironmentObject private var state: AppState
+
+    var body: some View {
+        Button {
+            Task { await state.startMeeting() }
+        } label: {
+            Label(
+                state.detectedApp.map { "Start notes · \($0.name)" } ?? "Start notes",
+                systemImage: "record.circle"
+            )
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.large)
+        .padding(GrokSpacing.sidebarInset)
+    }
+}
+
+/// Recording status while a meeting is active (sidebar + global inset).
+struct RecordingStatusBar: View {
+    @EnvironmentObject private var state: AppState
+
+    var body: some View {
+        HStack(spacing: GrokSpacing.md) {
+            RecordingPulse()
+            Text(Meeting.timestamp(state.elapsed))
+                .font(.body.monospacedDigit())
+                .foregroundStyle(.primary)
+            Text("Recording")
+                .font(GrokTypography.captionMuted())
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
+            HStack(spacing: GrokSpacing.sm) {
+                Label("Mic", systemImage: "mic.fill")
+                    .labelStyle(.iconOnly)
+                    .foregroundStyle(.secondary)
+                    .help("Microphone capture")
+                if state.permissions.systemAudio {
+                    Label("System", systemImage: "speaker.wave.2.fill")
+                        .labelStyle(.iconOnly)
+                        .foregroundStyle(.secondary)
+                        .help("System audio capture")
+                }
+            }
+
+            Button {
+                Task { await state.stopMeeting() }
+            } label: {
+                Label("Stop", systemImage: "stop.fill")
+            }
+            .buttonStyle(.bordered)
+            .tint(GrokColors.recording)
+            .keyboardShortcut("r", modifiers: [.command, .shift])
+            .accessibilityLabel("Stop recording and write notes")
+        }
+        .padding(.horizontal, GrokSpacing.lg)
+        .padding(.vertical, GrokSpacing.sm)
+        .background(.bar)
     }
 }
 
@@ -76,8 +198,8 @@ struct RecordButton: View {
                 Label("Stop · \(Meeting.timestamp(state.elapsed))", systemImage: "stop.circle.fill")
                     .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.red)
+            .buttonStyle(.bordered)
+            .tint(GrokColors.recording)
             .controlSize(.large)
         } else {
             Button {
@@ -107,7 +229,7 @@ private struct BannerView: View {
                 Button(action: onClose) { Image(systemName: "xmark") }.buttonStyle(.plain)
             }
         }
-        .padding(10)
+        .padding(GrokSpacing.sidebarInset)
         .background(.bar)
     }
 }
@@ -116,17 +238,23 @@ private struct EmptyStateView: View {
     @EnvironmentObject private var state: AppState
 
     var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "waveform").font(.system(size: 48)).foregroundStyle(.secondary)
-            Text("Grok Notes").font(.largeTitle).bold()
-            Text("Start notes when a call begins. Type rough notes while you talk, and Grok writes the rest.")
+        VStack(spacing: GrokSpacing.xl) {
+            Image(systemName: "note.text")
+                .font(.system(size: 52, weight: .light))
+                .foregroundStyle(.tertiary)
+                .symbolRenderingMode(.hierarchical)
+            Text("Your notepad for calls")
+                .font(GrokTypography.emptyStateTitle())
+            Text("Start notes when a call begins. Type rough thoughts while you talk—Grok turns them into polished notes when you stop.")
+                .font(GrokTypography.emptyStateBody())
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .frame(maxWidth: 420)
-            RecordButton().frame(width: 260)
+                .frame(maxWidth: 440)
+            RecordButton().frame(width: 280)
             PermissionSummary()
         }
         .padding(40)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -136,17 +264,17 @@ private struct PermissionSummary: View {
     var body: some View {
         let p = state.permissions
         let hasKey = XAIClient.storedAPIKey() != nil
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: GrokSpacing.sm) {
             row("xAI API key", hasKey, "Required")
             row("Microphone", p.microphone, "Required")
             row("Screen & System Audio Recording", p.systemAudio, "Separates you from the other side")
             row("Accessibility", p.accessibility, "Reads who is talking in Zoom, Teams, Meet, and Slack")
             row("Calendar", p.calendar, "Titles and invitee names")
-            SettingsLink { Text("Open Settings") }.padding(.top, 4)
+            SettingsLink { Text("Open Settings") }.padding(.top, GrokSpacing.xs)
         }
         .font(.callout)
-        .padding()
-        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+        .padding(GrokSpacing.lg)
+        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
     }
 
     private func row(_ title: String, _ ok: Bool, _ detail: String) -> some View {
