@@ -49,7 +49,7 @@ struct HomeView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             NowPlayingBar(showsMeetingTitle: true)
         }
-        .animation(.easeOut(duration: 0.2), value: clips.nowPlaying)
+        .animation(.easeOut(duration: 0.2), value: clips.isPlaying)
         .environment(\.openURL, OpenURLAction { url in
             if let target = Citations.playTarget(from: url) {
                 state.toggleClip(target.meetingID, at: target.seconds)

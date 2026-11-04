@@ -2,7 +2,6 @@ import SwiftUI
 
 struct MeetingDetailView: View {
     @EnvironmentObject private var state: AppState
-    @EnvironmentObject private var clips: ClipPlayer
     let meetingID: UUID
     @State private var tab: Tab = .notes
     @State private var showInspector = false
@@ -32,9 +31,12 @@ struct MeetingDetailView: View {
                     }
                 }
                 .safeAreaInset(edge: .bottom, spacing: 0) {
-                    NowPlayingBar()
+                    if state.canPlayClips(meetingID) {
+                        MeetingPlayerBar(meetingID: meetingID) { chapter in
+                            if tab == .transcript { state.focusTranscript(meetingID, at: chapter.start) }
+                        }
+                    }
                 }
-                .animation(.easeOut(duration: 0.2), value: clips.nowPlaying)
                 .environment(\.openURL, OpenURLAction { url in
                     if let target = Citations.playTarget(from: url) {
                         state.toggleClip(target.meetingID, at: target.seconds)

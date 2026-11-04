@@ -61,31 +61,83 @@ struct CallSummaryCard: View {
         .help("\(stat.words) words")
     }
 
+    /// Chapters when the meeting has them; otherwise its topics and a Find chapters button.
     @ViewBuilder
     private func topics(_ meeting: Meeting) -> some View {
         let finding = state.findingTopics.contains(meetingID)
-        if let topics = meeting.topics, !topics.isEmpty {
-            FlowLayout(spacing: GrokSpacing.xs) {
-                ForEach(topics, id: \.self) { topic in
-                    Text(topic)
-                        .font(.callout)
-                        .padding(.horizontal, GrokSpacing.sm)
-                        .padding(.vertical, 3)
-                        .background(Color.accentColor.opacity(0.12), in: Capsule())
+        if let chapters = meeting.chapters, !chapters.isEmpty {
+            chapterRows(chapters)
+        } else {
+            if let topics = meeting.topics, !topics.isEmpty {
+                FlowLayout(spacing: GrokSpacing.xs) {
+                    ForEach(topics, id: \.self) { topic in
+                        Text(topic)
+                            .font(.callout)
+                            .padding(.horizontal, GrokSpacing.sm)
+                            .padding(.vertical, 3)
+                            .background(Color.accentColor.opacity(0.12), in: Capsule())
+                    }
                 }
             }
-        } else if finding {
-            HStack(spacing: GrokSpacing.sm) {
-                ProgressView().controlSize(.small)
-                Text("Finding topics…").font(GrokTypography.captionMuted()).foregroundStyle(.secondary)
+            if finding {
+                HStack(spacing: GrokSpacing.sm) {
+                    ProgressView().controlSize(.small)
+                    Text("Finding chapters…").font(GrokTypography.captionMuted()).foregroundStyle(.secondary)
+                }
+            } else if !state.processing.contains(meetingID) {
+                Button {
+                    Task { await state.findChapters(meetingID) }
+                } label: {
+                    Label("Find chapters", systemImage: "sparkles")
+                }
+                .controlSize(.small)
+                .help("Split the meeting into topic chapters")
             }
-        } else if !state.processing.contains(meetingID) {
-            Button {
-                Task { await state.findTopics(meetingID) }
-            } label: {
-                Label("Find topics", systemImage: "sparkles")
+        }
+    }
+
+    private func chapterRows(_ chapters: [Chapter]) -> some View {
+        let total = max(1, chapters.map(\.length).reduce(0, +))
+        let playable = state.canPlayClips(meetingID)
+        return VStack(alignment: .leading, spacing: 2) {
+            Text("Chapters")
+                .font(GrokTypography.captionMuted().weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 2)
+            ForEach(Array(chapters.enumerated()), id: \.offset) { i, chapter in
+                let share = chapter.length / total
+                Button {
+                    state.openChapter(meetingID, chapter)
+                } label: {
+                    HStack(spacing: GrokSpacing.md) {
+                        Text(Meeting.timestamp(chapter.start))
+                            .font(GrokTypography.captionMuted().monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .frame(width: 52, alignment: .leading)
+                        Text(chapter.title)
+                            .font(.callout)
+                            .lineLimit(1)
+                        Spacer(minLength: GrokSpacing.sm)
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(.quaternary)
+                                Capsule()
+                                    .fill(ChapterColor.color(i))
+                                    .frame(width: max(4, geo.size.width * share))
+                            }
+                        }
+                        .frame(width: 90, height: 6)
+                        Text("\(Int((share * 100).rounded()))%")
+                            .font(GrokTypography.captionMuted().monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .frame(width: 34, alignment: .trailing)
+                    }
+                    .padding(.vertical, 3)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(playable ? "Play from \(Meeting.timestamp(chapter.start)) (\(Meeting.durationLabel(chapter.length)))" : "Show in the transcript")
             }
-            .controlSize(.small)
         }
     }
 }

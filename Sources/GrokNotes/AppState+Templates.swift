@@ -21,22 +21,43 @@ extension AppState {
     }
 
     /// Writes notes with the meeting's template. Returns true when the same request also produced topics.
+    /// When it produced chapters, the topics come from the chapter titles.
     @discardableResult
     func writeNotes(into m: inout Meeting, client: XAIClient) async throws -> Bool {
         let template = templateCatalog.template(for: m)
+        let vocabulary = Topics.vocabulary(from: meetings, excluding: m.id)
         let notes = try await NotesGenerator.enhancedNotes(
             for: m,
             template: template,
-            topicVocabulary: Topics.vocabulary(from: meetings, excluding: m.id),
+            topicVocabulary: vocabulary,
             myName: Prefs.myName,
             client: client.tracking(.notes, m),
             model: Prefs.model
         )
         m.enhancedNotes = notes.markdown
         m.notesTemplateID = template.id
+        if let chapters = notes.chapters {
+            m.chapters = chapters
+            let topics = Chapters.topics(from: chapters, vocabulary: vocabulary)
+            if !topics.isEmpty {
+                m.topics = topics
+                return true
+            }
+        }
         guard let topics = notes.topics else { return false }
         m.topics = topics
         return true
+    }
+
+    func chapters(for m: Meeting, client: XAIClient) async throws -> [Chapter]? {
+        try await NotesGenerator.chapters(
+            for: m,
+            template: templateCatalog.template(for: m),
+            topicVocabulary: Topics.vocabulary(from: meetings, excluding: m.id),
+            myName: Prefs.myName,
+            client: client.tracking(.topics, m),
+            model: Prefs.model
+        )
     }
 
     func topics(for m: Meeting, client: XAIClient) async throws -> [String] {

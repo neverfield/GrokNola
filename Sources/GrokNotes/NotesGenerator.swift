@@ -7,9 +7,11 @@ enum NotesGenerator {
         var markdown: String
         /// Normalized themes from the notes call, or nil when Grok left out the Topics line.
         var topics: [String]?
+        /// Chapters from the trailing block, or nil when Grok left it out or it did not parse.
+        var chapters: [Chapter]?
     }
 
-    /// Writes the notes with `template` and, in the same request, the meeting's topics.
+    /// Writes the notes with `template` and, in the same request, the meeting's topics and chapters.
     static func enhancedNotes(
         for meeting: Meeting,
         template: SummaryTemplate,
@@ -20,6 +22,16 @@ enum NotesGenerator {
     ) async throws -> Notes {
         let sections = template.sections.enumerated().map { "\($0.offset + 1). ## \($0.element)" }.joined(separator: "\n")
         let instructions = template.instructions.trimmingCharacters(in: .whitespacesAndNewlines)
+        let chapterSection = meeting.utterances.isEmpty ? "" : """
+
+
+        Chapters:
+        - After the Topics line, end with a line "Chapters:" and then one line per chapter, for example:
+        Chapters:
+        [00:00] Kickoff and Agenda
+        [04:12] Pricing and Packaging
+        \(Chapters.rules)
+        """
         let system = """
         You are Grok Notes, an expert meeting note-taker. Turn the transcript and the user's rough notes into clean, skimmable Markdown.
 
@@ -35,8 +47,8 @@ enum NotesGenerator {
         - The user's rough notes are the backbone. Keep every point they wrote, in their order, placed in the section where it fits, and add specifics from the transcript under each.
 
         Topics:
-        - After the notes, end with exactly one final plain line: "Topics: Theme One; Theme Two; Theme Three".
-        \(Topics.rules(template: template, vocabulary: topicVocabulary))
+        - After the notes, write exactly one plain line: "Topics: Theme One; Theme Two; Theme Three".
+        \(Topics.rules(template: template, vocabulary: topicVocabulary))\(chapterSection)
 
         Rules:
         - Attribute statements and owners by name only when the transcript label is a real name. "Them" is an unidentified remote participant; write "the other side" or "someone" instead.
@@ -61,9 +73,37 @@ enum NotesGenerator {
             .init(role: "system", content: system),
             .init(role: "user", content: user),
         ])
-        let split = Topics.splitTopicsLine(from: reply)
+        let block = Chapters.split(from: reply)
+        let split = Topics.splitTopicsLine(from: block.text)
         let topics = split.topics.map { Topics.normalize($0, vocabulary: topicVocabulary) }
-        return Notes(markdown: split.notes, topics: topics?.isEmpty == true ? nil : topics)
+        let chapters = block.entries.flatMap { Chapters.build($0, end: Chapters.end(of: meeting), vocabulary: topicVocabulary) }
+        return Notes(markdown: split.notes, topics: topics?.isEmpty == true ? nil : topics, chapters: chapters)
+    }
+
+    /// Chapters for meetings whose notes came without them. Reads the transcript, which carries the timestamps.
+    static func chapters(
+        for meeting: Meeting,
+        template: SummaryTemplate,
+        topicVocabulary: [String],
+        myName: String,
+        client: XAIClient,
+        model: String
+    ) async throws -> [Chapter]? {
+        let reply = try await client.chat(model: model, messages: [
+            .init(role: "system", content: """
+            You split a meeting (meeting type: \(template.name)) into topic chapters.
+            \(Topics.rules(template: template, vocabulary: topicVocabulary))
+            \(Chapters.rules)
+            Reply with the line "Chapters:" and then one line per chapter, like "[04:12] Pricing and Packaging", and nothing else.
+            """),
+            .init(role: "user", content: """
+            Meeting: \(meeting.title)\(Topics.vocabularyBlock(topicVocabulary))
+
+            Transcript:
+            \(String(meeting.transcript(myName: myName).prefix(maxTranscriptCharacters)))
+            """),
+        ])
+        return Chapters.build(Chapters.entries(in: reply), end: Chapters.end(of: meeting), vocabulary: topicVocabulary)
     }
 
     static func answer(_ question: String, about meeting: Meeting, myName: String, client: XAIClient, model: String) async throws -> String {

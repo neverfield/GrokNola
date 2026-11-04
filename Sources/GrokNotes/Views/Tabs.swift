@@ -132,19 +132,38 @@ private func blockID(containing seconds: Double, in blocks: [TranscriptBlock]) -
     (blocks.last { $0.start < seconds + 1 } ?? blocks.first)?.id
 }
 
+/// The chapter that starts at each block where the chapter changes, keyed by block id.
+private func chapterHeaders(_ chapters: [Chapter], blocks: [TranscriptBlock]) -> [UUID: (index: Int, chapter: Chapter)] {
+    var headers: [UUID: (index: Int, chapter: Chapter)] = [:]
+    var last: Int?
+    for block in blocks {
+        guard let i = Chapters.index(at: block.start + 1, in: chapters), i != last else { continue }
+        headers[block.id] = (i, chapters[i])
+        last = i
+    }
+    return headers
+}
+
 struct TranscriptTab: View {
     @EnvironmentObject private var state: AppState
+    @EnvironmentObject private var clips: ClipPlayer
     let meetingID: UUID
     @State private var stickToBottom = true
     @State private var scrollToLiveRequest = 0
     @State private var highlightedBlock: UUID?
     @State private var highlightTask: Task<Void, Never>?
+    /// The block under the playhead, while this meeting's audio is loaded.
+    @State private var currentBlock: UUID?
+    @AppStorage("transcriptFollowsPlayback") private var follow = true
 
     var body: some View {
-        let utterances = state.meeting(meetingID)?.utterances ?? []
+        let meeting = state.meeting(meetingID)
+        let utterances = meeting?.utterances ?? []
         let recording = state.recordingID == meetingID
         let blocks = mergedBlocks(from: utterances)
         let playable = state.canPlayClips(meetingID)
+        let headers = recording ? [:] : chapterHeaders(meeting?.chapters ?? [], blocks: blocks)
+        let playing = playable && clips.isPlaying && clips.loadedID == meetingID
 
         ZStack(alignment: .bottomTrailing) {
             ScrollViewReader { proxy in
@@ -156,8 +175,17 @@ struct TranscriptTab: View {
                                 .padding(GrokSpacing.contentInset)
                         }
                         ForEach(blocks) { block in
-                            TranscriptBlockView(meetingID: meetingID, block: block, playable: playable, highlighted: highlightedBlock == block.id)
-                                .id(block.id)
+                            if let header = headers[block.id] {
+                                ChapterHeader(meetingID: meetingID, index: header.index, chapter: header.chapter, first: block.id == blocks.first?.id)
+                            }
+                            TranscriptBlockView(
+                                meetingID: meetingID,
+                                block: block,
+                                playable: playable,
+                                highlighted: highlightedBlock == block.id,
+                                current: playable && clips.loadedID == meetingID && currentBlock == block.id
+                            )
+                            .id(block.id)
                         }
                         if recording {
                             LiveTranscriptRegion(meetingID: meetingID)
@@ -195,6 +223,29 @@ struct TranscriptTab: View {
                         proxy.scrollTo("live", anchor: .bottom)
                     }
                 }
+                .onReceive(clips.ticks) { tick in
+                    guard tick.meetingID == meetingID, !recording else { return }
+                    let id = (blocks.last { $0.start <= tick.seconds } ?? blocks.first)?.id
+                    guard id != currentBlock else { return }
+                    currentBlock = id
+                    if follow, clips.isPlaying, let id {
+                        withAnimation(.easeInOut(duration: 0.3)) { proxy.scrollTo(id, anchor: .center) }
+                    }
+                }
+                .onChange(of: follow) { _, on in
+                    if on, let currentBlock {
+                        withAnimation(.easeInOut(duration: 0.3)) { proxy.scrollTo(currentBlock, anchor: .center) }
+                    }
+                }
+            }
+
+            if playing {
+                Toggle(isOn: $follow) {
+                    Label("Follow", systemImage: "text.line.first.and.arrowtriangle.forward")
+                }
+                .toggleStyle(.button)
+                .help("Scroll the transcript along with playback")
+                .padding(GrokSpacing.lg)
             }
 
             if recording, !stickToBottom {
@@ -244,6 +295,8 @@ private struct TranscriptBlockView: View {
     let block: TranscriptBlock
     var playable = false
     var highlighted = false
+    /// Playback is inside this block.
+    var current = false
     @State private var hovering = false
 
     var body: some View {
@@ -254,7 +307,7 @@ private struct TranscriptBlockView: View {
                     .font(GrokTypography.captionMuted().monospacedDigit())
                     .foregroundStyle(GrokColors.timestamp)
                 if playable {
-                    ClipPlayButton(meetingID: meetingID, start: block.start, end: block.end, visible: hovering)
+                    ClipPlayButton(meetingID: meetingID, start: block.start, visible: hovering, current: current)
                         .font(GrokTypography.captionMuted())
                 }
             }
@@ -269,11 +322,49 @@ private struct TranscriptBlockView: View {
         }
         .padding(GrokSpacing.sm)
         .background(
-            Color.accentColor.opacity(highlighted ? 0.16 : 0),
+            Color.accentColor.opacity(highlighted ? 0.16 : current ? 0.08 : 0),
             in: RoundedRectangle(cornerRadius: 8)
         )
+        .overlay(alignment: .leading) {
+            if current {
+                Capsule().fill(Color.accentColor).frame(width: 3).padding(.vertical, GrokSpacing.xs)
+            }
+        }
         .padding(-GrokSpacing.sm)
+        .animation(.easeOut(duration: 0.2), value: current)
         .onHover { hovering = $0 }
+    }
+}
+
+/// A topic chapter's title and start, between transcript blocks. Click the time to play from there.
+private struct ChapterHeader: View {
+    @EnvironmentObject private var state: AppState
+    let meetingID: UUID
+    let index: Int
+    let chapter: Chapter
+    var first = false
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.sm) {
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(ChapterColor.color(index))
+                .frame(width: 3, height: 14)
+            Text(chapter.title)
+                .font(.headline)
+            Button {
+                state.openChapter(meetingID, chapter)
+            } label: {
+                Text("\(Meeting.timestamp(chapter.start)) · \(Meeting.durationLabel(chapter.length))")
+                    .font(GrokTypography.captionMuted().monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help(state.canPlayClips(meetingID) ? "Play this chapter" : "Chapter start")
+            VStack { Divider() }
+        }
+        .padding(.top, first ? 0 : GrokSpacing.md)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 }
 

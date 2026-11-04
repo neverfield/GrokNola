@@ -55,13 +55,14 @@ final class AppState: ObservableObject {
     @Published var meetings: [Meeting] = []
     @Published var selectedID: UUID? {
         didSet {
-            if let playing = clips.nowPlaying?.meetingID, playing != selectedID, selectedID != nil { clips.stop() }
+            if let playing = clips.loadedID, playing != selectedID, selectedID != nil { clips.stop() }
         }
     }
     @Published private(set) var recordingID: UUID?
     @Published private(set) var processing: Set<UUID> = []
     @Published private(set) var asking: Set<UUID> = []
-    @Published private(set) var findingTopics: Set<UUID> = []
+    /// Meetings with a Find topics or Find chapters request in flight.
+    @Published var findingTopics: Set<UUID> = []
     @Published var transcriptFocus: TranscriptFocus?
     @Published var liveMe = ""
     @Published var liveThem = ""
@@ -147,7 +148,7 @@ final class AppState: ObservableObject {
 
     func delete(_ id: UUID) {
         guard id != recordingID else { return }
-        if clips.nowPlaying?.meetingID == id { clips.stop() }
+        if clips.loadedID == id { clips.stop() }
         meetings.removeAll { $0.id == id }
         store.delete(id)
         clips.invalidate(id)
@@ -552,6 +553,7 @@ final class AppState: ObservableObject {
                 $0.enhancedNotes = m.enhancedNotes
                 $0.notesTemplateID = m.notesTemplateID
                 if gotTopics { $0.topics = m.topics }
+                if m.chapters != nil { $0.chapters = m.chapters }
             }
             save(id)
         } catch {
@@ -586,7 +588,7 @@ final class AppState: ObservableObject {
         recordingID != id && clips.hasAudio(id)
     }
 
-    /// Plays the audio around a time, or stops it when that clip is already playing.
+    /// Plays the audio around a time, or pauses it when that clip is already playing.
     func toggleClip(_ id: UUID, at seconds: Double, until end: Double? = nil) {
         guard recordingID != id, let m = meeting(id) else { return }
         if !clips.toggle(m, at: seconds, until: end) {
