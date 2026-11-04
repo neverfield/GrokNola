@@ -43,6 +43,7 @@ struct MeetingDetailView: View {
                 if !meeting.attendees.isEmpty {
                     Text("· \(meeting.attendees.count) invited").help(meeting.attendees.joined(separator: ", "))
                 }
+                MeetingCostLabel(meetingID: meetingID)
                 ModeBadge(mode: meeting.mode)
             }
             .font(.callout)

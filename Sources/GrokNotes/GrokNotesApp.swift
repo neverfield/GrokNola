@@ -8,6 +8,7 @@ struct GrokNotesApp: App {
         Window("Grok Notes", id: "main") {
             ContentView()
                 .environmentObject(state)
+                .environmentObject(state.usage)
                 .frame(minWidth: 900, minHeight: 600)
         }
         .commands {
@@ -19,17 +20,39 @@ struct GrokNotesApp: App {
                     Button("Start Notes") { Task { await state.startMeeting() } }
                         .keyboardShortcut("r", modifiers: [.command, .shift])
                 }
+                Divider()
+                OpenUsageButton().keyboardShortcut("u", modifiers: [.command, .shift])
             }
         }
 
+        Window("Usage & Cost", id: "usage") {
+            UsageView()
+                .environmentObject(state)
+                .environmentObject(state.usage)
+        }
+        .defaultSize(width: 820, height: 600)
+
         MenuBarExtra {
-            MenuBarView().environmentObject(state)
+            MenuBarView()
+                .environmentObject(state)
+                .environmentObject(state.usage)
         } label: {
             Image(systemName: state.recordingID != nil ? "record.circle.fill" : (state.detectedApp != nil ? "waveform.badge.exclamationmark" : "waveform"))
         }
 
         Settings {
             SettingsView().environmentObject(state)
+        }
+    }
+}
+
+struct OpenUsageButton: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("Usage & Cost") {
+            openWindow(id: "usage")
+            NSApp.activate(ignoringOtherApps: true)
         }
     }
 }
