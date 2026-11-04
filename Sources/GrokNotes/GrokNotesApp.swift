@@ -27,9 +27,13 @@ struct GrokNotesApp: App {
                 Divider()
                 Button("Home") { state.openHome() }
                     .keyboardShortcut("h", modifiers: [.command, .shift])
-                Button("Ask Across Notes") { state.openLibraryChat() }
+                Button("Ask Grok") { state.openLibraryChat() }
                     .keyboardShortcut("k", modifiers: .command)
                 OpenUsageButton().keyboardShortcut("u", modifiers: [.command, .shift])
+            }
+            CommandGroup(replacing: .help) {
+                AskHelpButton(state: state, title: "Grok Notes Help")
+                    .keyboardShortcut("?", modifiers: .command)
             }
         }
 
@@ -54,6 +58,22 @@ struct GrokNotesApp: App {
                 .environmentObject(state.tagCatalog)
                 .environmentObject(state.templateCatalog)
                 .environmentObject(state.calendars)
+        }
+    }
+}
+
+/// Brings up the main window on Ask Grok, for help with the app.
+/// It takes the state directly because menu commands do not get environment objects.
+struct AskHelpButton: View {
+    @Environment(\.openWindow) private var openWindow
+    let state: AppState
+    let title: String
+
+    var body: some View {
+        Button(title) {
+            openWindow(id: "main")
+            state.openHelp()
+            NSApp.activate(ignoringOtherApps: true)
         }
     }
 }

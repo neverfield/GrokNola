@@ -1,7 +1,7 @@
 import Foundation
 
-/// Answers questions across every meeting: picks the relevant meetings, then asks Grok
-/// with their notes and transcripts. Answers link back with `groknotes://meeting/<id>`.
+/// Answers questions across every meeting and about the app itself: picks the relevant meetings, then asks Grok
+/// with their notes and transcripts and, for app questions, the user guide. Answers link back with `groknotes://meeting/<id>`.
 enum LibraryAsk {
     static let linkScheme = "groknotes"
     private static let maxMeetingsInContext = 8
@@ -17,31 +17,66 @@ enum LibraryAsk {
         return UUID(uuidString: url.lastPathComponent)
     }
 
+    /// Whether a question needs the user guide, the meetings, or both. Without meetings, only the guide can help.
+    static func route(for question: String, history: [ChatMessage], meetings: [Meeting], myName: String) -> HelpRouter.Route {
+        guard !meetings.isEmpty else { return .help }
+        let people = HelpRouter.peopleTokens(
+            meetings.prefix(indexLimit).flatMap { $0.attendees + $0.speakers.values.compactMap(\.name) },
+            excluding: myName
+        )
+        let previous = history.last { $0.role == "user" }?.content
+        return HelpRouter.route(question, previous: previous, people: people)
+    }
+
     static func answer(
         _ question: String,
         history: [ChatMessage],
         meetings: [Meeting],
         myName: String,
+        route: HelpRouter.Route,
         client: XAIClient,
         model: String
     ) async throws -> String {
-        guard !meetings.isEmpty else { return "There are no meetings yet. Record one and ask again." }
-        let recentTurns = history.suffix(6).map(\.content).joined(separator: "\n")
-        let selected = try await select(for: question, context: recentTurns, from: meetings, myName: myName, client: client, model: model)
-
-        var messages: [XAIClient.Message] = [
-            .init(role: "system", content: """
+        var messages: [XAIClient.Message] = []
+        if route != .meetings {
+            messages.append(.init(role: "system", content: helpPrompt(hasMeetings: !meetings.isEmpty)))
+        }
+        if route != .help {
+            let recentTurns = history.suffix(6).map(\.content).joined(separator: "\n")
+            let selected = try await select(for: question, context: recentTurns, from: meetings, myName: myName, client: client, model: model)
+            messages.append(.init(role: "system", content: """
             You answer questions across the user's meeting notes and transcripts.
             Use only the meetings provided. If they do not contain the answer, say so and suggest what to search for.
             Cite every fact with a Markdown link to its meeting, using the exact link given, for example [Pricing sync, Nov 3](\(linkScheme)://meeting/<id>).
             Add a timestamp like [12:04] when quoting the transcript. "Them" is an unidentified remote participant.
             Be concise. Use short bullets for lists.
-            """),
-            .init(role: "user", content: context(for: selected, total: meetings.count, myName: myName)),
-        ]
+            """ + (route == .both ? """
+
+            The question may be about the meetings, about how Grok Notes works, or both. \
+            Answer app questions from the user guide with the rules above, and meeting questions from the meetings. \
+            Leave out the part that does not apply.
+            """ : "")))
+            messages.append(.init(role: "user", content: context(for: selected, total: meetings.count, myName: myName)))
+        }
         messages += history.suffix(12).map { .init(role: $0.role, content: $0.content) }
         messages.append(.init(role: "user", content: question))
         return try await client.chat(model: model, messages: messages)
+    }
+
+    /// The guide comes first and does not change between questions, so xAI can cache it.
+    private static func helpPrompt(hasMeetings: Bool) -> String {
+        """
+        You are the built-in help for Grok Notes, a macOS meeting notepad. Answer questions about how the app works \
+        (features, settings, permissions, troubleshooting) using only the Grok Notes user guide below.
+        - Give concrete numbered steps. Name the exact UI labels from the guide in bold, for example **Settings > Privacy > Keep audio recordings after notes are written**, and include the keyboard shortcut when the guide lists one.
+        - If the guide does not cover something, say that the guide does not cover it and point to the closest topic it does cover. Never invent features, settings, menu items, file paths, or shortcuts.
+        - These Markdown links open places in the app; add one when it saves the user a step: \(AppLink.promptList). Use no other groknotes:// links in help answers.
+        - Be concise. Use short bullets for lists.\(hasMeetings ? "" : "\n- The user has not recorded any meetings yet. If they ask about meeting content, say so and explain how to start notes.")
+
+        <user_guide>
+        \(HelpGuide.text)
+        </user_guide>
+        """
     }
 
     // MARK: Selection

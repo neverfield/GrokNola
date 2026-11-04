@@ -22,6 +22,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/GrokNotes" "$APP/Contents/MacOS/GrokNotes"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+cp -R Resources/Help "$APP/Contents/Resources/Help"
 
 codesign --force --sign "$IDENTITY" "$APP"
 echo "Built $APP"

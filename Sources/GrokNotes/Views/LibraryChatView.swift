@@ -1,16 +1,25 @@
 import SwiftUI
 
-/// One chat pane that searches and answers across every meeting.
+/// One chat pane that answers across every meeting and about how Grok Notes works.
 struct LibraryChatView: View {
     @EnvironmentObject private var state: AppState
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
     @State private var question = ""
     @FocusState private var composerFocused: Bool
 
-    private let suggestions = [
+    private let meetingSuggestions = [
         "What did I commit to this week?",
         "Summarize my last three calls",
         "What open questions came up with customers?",
         "Draft a follow-up for my most recent meeting",
+    ]
+
+    private let helpSuggestions = [
+        "How do speaker names work?",
+        "How do I sync Google Calendar?",
+        "Why is system audio off?",
+        "How do I make a custom summary template?",
     ]
 
     var body: some View {
@@ -27,7 +36,8 @@ struct LibraryChatView: View {
                         if state.libraryAsking {
                             HStack(spacing: GrokSpacing.sm) {
                                 ProgressView().controlSize(.small)
-                                Text("Searching \(state.meetings.count) meetings…").foregroundStyle(.secondary)
+                                Text(state.libraryRoute == .help ? "Checking the Grok Notes guide…" : "Searching \(state.meetings.count) meetings…")
+                                    .foregroundStyle(.secondary)
                             }
                             .id("thinking")
                         }
@@ -46,7 +56,8 @@ struct LibraryChatView: View {
             Divider()
             composer
         }
-        .navigationTitle("Ask across notes")
+        .navigationTitle("Ask Grok")
+        .navigationSubtitle("Your meetings and how Grok Notes works")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -63,7 +74,15 @@ struct LibraryChatView: View {
                 state.openMeeting(id)
                 return .handled
             }
-            return .systemAction
+            guard let link = AppLink(url) else { return .systemAction }
+            switch link {
+            case .settings: openSettings()
+            case .usage: openWindow(id: "usage")
+            case .home: state.openHome()
+            case .privacy(let anchor): state.openPrivacyPane(anchor)
+            }
+            NSApp.activate(ignoringOtherApps: true)
+            return .handled
         })
         .onAppear { composerFocused = true }
     }
@@ -73,24 +92,32 @@ struct LibraryChatView: View {
             Image(systemName: "sparkle.magnifyingglass")
                 .font(.system(size: 36, weight: .light))
                 .foregroundStyle(.secondary)
-            Text("Ask across all your notes")
+            Text("Ask about your meetings or Grok Notes")
                 .font(.title2.weight(.semibold))
-            Text("Grok finds the relevant meetings, reads their notes and transcripts, and links each answer back to its source.")
+            Text("Grok finds the relevant meetings, reads their notes and transcripts, and links each answer back to its source. Ask how the app works, too: answers come from the built-in guide.")
                 .foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: GrokSpacing.sm) {
-                ForEach(suggestions, id: \.self) { suggestion in
-                    Button {
-                        send(suggestion)
-                    } label: {
-                        Label(suggestion, systemImage: "arrow.up.right")
-                            .labelStyle(.titleAndIcon)
-                    }
-                    .buttonStyle(.link)
-                }
-            }
-            .disabled(state.meetings.isEmpty)
+            suggestionGroup("Your meetings", meetingSuggestions)
+                .disabled(state.meetings.isEmpty)
+            suggestionGroup("How Grok Notes works", helpSuggestions)
         }
         .padding(.top, GrokSpacing.xl)
+    }
+
+    private func suggestionGroup(_ title: String, _ suggestions: [String]) -> some View {
+        VStack(alignment: .leading, spacing: GrokSpacing.sm) {
+            Text(title)
+                .font(GrokTypography.captionMuted().weight(.semibold))
+                .foregroundStyle(.secondary)
+            ForEach(suggestions, id: \.self) { suggestion in
+                Button {
+                    send(suggestion)
+                } label: {
+                    Label(suggestion, systemImage: "arrow.up.right")
+                        .labelStyle(.titleAndIcon)
+                }
+                .buttonStyle(.link)
+            }
+        }
     }
 
     private func messageView(_ message: ChatMessage) -> some View {
@@ -110,7 +137,7 @@ struct LibraryChatView: View {
 
     private var composer: some View {
         HStack(spacing: GrokSpacing.sm) {
-            TextField("Ask about any meeting…", text: $question, axis: .vertical)
+            TextField("Ask about your meetings or Grok Notes…", text: $question, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...5)
                 .focused($composerFocused)

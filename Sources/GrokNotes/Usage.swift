@@ -9,6 +9,7 @@ enum UsageKind: String, Codable, CaseIterable {
     case vision
     case ask
     case library
+    case help
     case tags
     case other
 
@@ -22,6 +23,7 @@ enum UsageKind: String, Codable, CaseIterable {
         case .vision: return "Speaker names (snapshots)"
         case .ask: return "Ask Grok (one meeting)"
         case .library: return "Ask across notes"
+        case .help: return "Help questions"
         case .tags: return "Tags"
         case .other: return "Other"
         }

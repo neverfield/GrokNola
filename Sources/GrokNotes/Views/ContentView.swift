@@ -113,15 +113,24 @@ struct ContentView: View {
                 Button {
                     state.openLibraryChat()
                 } label: {
-                    Label("Ask across notes", systemImage: "sparkle.magnifyingglass")
-                        .fontWeight(state.showLibraryChat ? .semibold : .regular)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
+                    Label {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Ask Grok")
+                                .fontWeight(state.showLibraryChat ? .semibold : .regular)
+                            Text("Meetings and app help")
+                                .font(GrokTypography.captionMuted())
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: "sparkle.magnifyingglass")
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .padding(.vertical, GrokSpacing.xs)
                 .listRowBackground(state.showLibraryChat ? Color.accentColor.opacity(0.15) : Color.clear)
-                .help("Ask Grok about all your meetings (Command-K)")
+                .help("Your meetings and how Grok Notes works (Command-K)")
             }
             if state.meetings.isEmpty {
                 ContentUnavailableView {

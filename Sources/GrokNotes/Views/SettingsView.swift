@@ -119,6 +119,19 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Section("Help") {
+                HStack {
+                    AskHelpButton(state: state, title: "Ask about Grok Notes")
+                    if let guide = HelpGuide.url {
+                        Button("Open user guide") { NSWorkspace.shared.open(guide) }
+                    }
+                }
+                .buttonStyle(.link)
+                Text("Ask Grok (Command-K) answers how-to and troubleshooting questions from the built-in guide.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .frame(width: 560, height: 760)

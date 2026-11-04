@@ -119,12 +119,30 @@ Writers must replace it atomically: write a temp file in the same folder, then r
 
 ## Ask across notes
 
-**Ask across notes** at the top of the sidebar (Command-K) is one chat over every meeting.
+**Ask Grok** at the top of the sidebar (Command-K) is one chat over every meeting, and the app's built-in help (see [Help](#help)).
 Grok ranks meetings by keywords, names, and recency, picks the most relevant ones from a
 compact index, then answers from their notes and transcripts. Each answer links to its
 source meetings; click a link to open the meeting. The search field above the meeting list
 filters by title, notes, people, and transcript text. The chat history is saved in
 `~/Library/Application Support/GrokNotes/library-chat.json`.
+
+## Help
+
+The user guide is `Resources/Help/GrokNotesGuide.md`. The build script copies it into
+`Grok Notes.app/Contents/Resources/Help/`; `swift run` reads the source copy. Ask how the app
+works in **Ask Grok** (Command-K), **Help > Grok Notes Help** (Command-?), or
+**Settings > Help > Ask about Grok Notes**.
+
+- A local keyword check routes each question. Clear app questions ("How do I sync Google Calendar?",
+  "Why is system audio off?") are answered from the guide alone, with no meeting-selection request.
+  Clear meeting questions skip the guide. Anything unclear gets both.
+- Help answers give steps with the exact UI labels, say when the guide does not cover something, and can
+  include links that open Settings (`groknotes://settings`), Usage & Cost (`groknotes://usage`), Home
+  (`groknotes://home`), or a System Settings privacy pane (`groknotes://privacy/microphone`,
+  `screen-recording`, `accessibility`, `calendars`).
+- Help-only questions are logged in Usage & Cost as **Help questions**.
+
+Keep the guide in step with this README when a feature changes.
 
 ## Cost
 

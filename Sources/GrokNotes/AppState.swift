@@ -75,6 +75,8 @@ final class AppState: ObservableObject {
     @Published var showLibraryChat = false
     @Published private(set) var libraryChat: [ChatMessage] = []
     @Published private(set) var libraryAsking = false
+    /// What the question in flight is answered from, for the progress line.
+    @Published private(set) var libraryRoute: HelpRouter.Route = .meetings
 
     let store = MeetingStore()
     let usage = UsageLedger()
@@ -646,6 +648,11 @@ final class AppState: ObservableObject {
         selectedID = nil
     }
 
+    /// Opens Ask Grok, where the empty state offers help questions and the composer takes app questions.
+    func openHelp() {
+        openLibraryChat()
+    }
+
     func openMeeting(_ id: UUID) {
         guard meeting(id) != nil else { return }
         showLibraryChat = false
@@ -655,16 +662,19 @@ final class AppState: ObservableObject {
     func askLibrary(_ question: String) async {
         guard !libraryAsking else { return }
         let history = libraryChat
+        let myName = Prefs.myName
+        let route = LibraryAsk.route(for: question, history: history, meetings: meetings, myName: myName)
         libraryChat.append(ChatMessage(role: "user", content: question))
+        libraryRoute = route
         libraryAsking = true
         defer {
             libraryAsking = false
             saveLibraryChat()
         }
         do {
-            let client = try XAIClient.fromSettings().tracking(.library)
+            let client = try XAIClient.fromSettings().tracking(route == .help ? .help : .library)
             let answer = try await LibraryAsk.answer(
-                question, history: history, meetings: meetings, myName: Prefs.myName, client: client, model: Prefs.model
+                question, history: history, meetings: meetings, myName: myName, route: route, client: client, model: Prefs.model
             )
             libraryChat.append(ChatMessage(role: "assistant", content: answer))
         } catch {
