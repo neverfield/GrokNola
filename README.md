@@ -19,6 +19,8 @@ Permissions are tied to the code signature. Run `./scripts/create-signing-cert.s
 once to create a local signing certificate. The build script then uses it, so
 rebuilds keep their permissions. Set `CODESIGN_IDENTITY` to use another certificate.
 
+The app icon is `Resources/AppIcon.icns`, built from `Resources/AppIcon-master.png` (shaped by `scripts/shape-icon.swift`; other concepts in `Resources/icon-options/`).
+
 ## Use
 
 1. When a call starts, click **Start notes** (window, menu bar, or Shift-Command-R).
