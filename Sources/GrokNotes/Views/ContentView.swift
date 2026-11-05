@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var state: AppState
     @EnvironmentObject private var catalog: TagCatalog
+    @Environment(\.undoManager) private var undoManager
     @State private var searchText = ""
     @State private var tagFilter: String?
     @State private var searchIndex = MeetingSearchIndex()
@@ -21,6 +22,9 @@ struct ContentView: View {
             case .library: LibraryChatView()
             case .meeting(let id): MeetingDetailView(meetingID: id).id(id)
             }
+        }
+        .overlay(alignment: .bottom) {
+            TrashToast(trash: state.trash) { state.undoTrash($0, undoManager: undoManager) }
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             BannerStack()
@@ -161,9 +165,9 @@ struct ContentView: View {
             ForEach(meetings) { meeting in
                 MeetingRow(meeting: meeting, dateStyle: dateStyle)
                     .tag(meeting.id)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                         Button("Delete", role: .destructive) {
-                            state.delete(meeting.id)
+                            state.moveToTrash(meeting.id, undoManager: undoManager)
                         }
                         .disabled(state.recordingID == meeting.id)
                     }
@@ -254,6 +258,7 @@ struct ContentView: View {
 private struct MeetingContextMenu: View {
     @EnvironmentObject private var state: AppState
     @EnvironmentObject private var catalog: TagCatalog
+    @Environment(\.undoManager) private var undoManager
     let meeting: Meeting
 
     var body: some View {
@@ -273,7 +278,7 @@ private struct MeetingContextMenu: View {
         Button("Copy as Markdown") { state.copyMarkdown(meeting.id) }
         Button("Show in Finder") { state.revealInFinder(meeting.id) }
         Divider()
-        Button("Delete", role: .destructive) { state.delete(meeting.id) }
+        Button("Delete", role: .destructive) { state.moveToTrash(meeting.id, undoManager: undoManager) }
             .disabled(state.recordingID == meeting.id)
     }
 }

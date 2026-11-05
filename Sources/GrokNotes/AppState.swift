@@ -91,6 +91,8 @@ final class AppState: ObservableObject {
     /// The clock, interim text and input levels while recording. Views that show them observe this, not `AppState`.
     let recording = RecordingModel()
     let notifications = AppNotifications()
+    /// Deleted meetings, kept 30 days for Undo. Purges old ones when created at launch.
+    let trash = MeetingTrash()
     private var session: RecordingSession?
     private var detectorTimer: Timer?
     private var saveTasks: [UUID: Task<Void, Never>] = [:]

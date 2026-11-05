@@ -3,6 +3,8 @@ import SwiftUI
 struct NotesTab: View {
     @EnvironmentObject private var state: AppState
     let meetingID: UUID
+    /// Editing the enhanced notes' Markdown. Owned by the meeting view so its menu can start an edit.
+    @Binding var editing: Bool
     @State private var showMyNotes = false
 
     var body: some View {
@@ -11,55 +13,57 @@ struct NotesTab: View {
         let processing = state.processing.contains(meetingID)
         let enhanced = meeting?.enhancedNotes
         let awaitingNotes = enhanced == nil && [.pending, .running].contains(state.processingStage[meetingID]?.status(.writing))
+        let hasTranscript = !recording && !(meeting?.utterances.isEmpty ?? true)
+        let showEnhanced = enhanced != nil && !recording && !showMyNotes
+        let editingEnhanced = showEnhanced && editing && !processing
+        // The editor shows the summary only when there are no enhanced notes to switch to.
+        let showSummary = hasTranscript && (showEnhanced || enhanced == nil)
 
-        VStack(spacing: 0) {
-            if !recording {
-                notesToolbar(enhanced: enhanced, processing: processing, awaitingNotes: awaitingNotes)
-                Divider()
-                if state.processingStage[meetingID] != nil {
-                    ProcessingStepsRow(meetingID: meetingID)
-                    Divider()
-                }
-            }
-
-            let hasTranscript = !recording && !(meeting?.utterances.isEmpty ?? true)
-            let showEnhanced = enhanced != nil && !recording && !showMyNotes
-            // The editor shows the summary only when there are no enhanced notes to switch to.
-            let showSummary = hasTranscript && (showEnhanced || enhanced == nil)
-            GeometryReader { geo in
-                let wide = showSummary && geo.size.width >= Self.sideColumnMinWidth
-                HStack(spacing: 0) {
-                    VStack(spacing: 0) {
-                        if showSummary, !wide, !showEnhanced {
-                            CallSummaryCard(meetingID: meetingID)
-                                .padding([.horizontal, .top], GrokSpacing.contentInset)
-                                .frame(maxWidth: 680, alignment: .leading)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .background(GrokColors.notesSurface)
-                        }
-                        if showEnhanced, let enhanced {
-                            enhancedNotes(enhanced, summaryAbove: showSummary && !wide)
-                        } else if awaitingNotes, !showMyNotes {
-                            NotesSkeleton(template: state.template(for: meetingID))
-                        } else {
-                            notesEditor(meeting: meeting, recording: recording)
-                        }
-                        if recording {
-                            Divider()
-                            LiveTranscriptStrip()
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    if wide {
+        GeometryReader { geo in
+            let wide = showSummary && geo.size.width >= Self.sideColumnMinWidth
+            HStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    header(meeting: meeting, recording: recording, processing: processing, showEnhanced: showEnhanced, awaitingNotes: awaitingNotes)
+                    if !recording, state.processingStage[meetingID] != nil {
                         Divider()
-                        ScrollView {
-                            CallSummaryCard(meetingID: meetingID, style: .sidebar)
-                        }
-                        .frame(width: Self.sideColumnWidth)
-                        .background(.quaternary.opacity(0.18))
+                        ProcessingStepsRow(meetingID: meetingID)
+                        Divider()
+                    }
+                    if showSummary, !wide, !showEnhanced {
+                        CallSummaryCard(meetingID: meetingID)
+                            .padding([.horizontal, .top], GrokSpacing.contentInset)
+                            .frame(maxWidth: 680, alignment: .leading)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .background(GrokColors.notesSurface)
+                    }
+                    if editingEnhanced {
+                        MarkdownSourceEditor(text: state.enhancedNotesBinding(meetingID))
+                            .background(GrokColors.notesSurface)
+                    } else if showEnhanced, let enhanced {
+                        enhancedNotes(enhanced, summaryAbove: showSummary && !wide, processing: processing)
+                    } else if awaitingNotes, !showMyNotes {
+                        NotesSkeleton(template: state.template(for: meetingID))
+                    } else {
+                        notesEditor(meeting: meeting, recording: recording)
+                    }
+                    if recording {
+                        Divider()
+                        LiveTranscriptStrip()
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if wide {
+                    Divider()
+                    ScrollView {
+                        CallSummaryCard(meetingID: meetingID, style: .sidebar)
+                    }
+                    .frame(width: Self.sideColumnWidth)
+                    .background(.quaternary.opacity(0.18))
+                }
             }
+        }
+        .onChange(of: processing) { _, busy in
+            if busy { editing = false }
         }
     }
 
@@ -67,12 +71,18 @@ struct NotesTab: View {
     private static let sideColumnMinWidth: CGFloat = 900
     private static let sideColumnWidth: CGFloat = 290
 
-    private func enhancedNotes(_ enhanced: String, summaryAbove: Bool) -> some View {
+    private func enhancedNotes(_ enhanced: String, summaryAbove: Bool, processing: Bool) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: GrokSpacing.lg) {
                 if summaryAbove { CallSummaryCard(meetingID: meetingID) }
                 let playable = state.canPlayClips(meetingID)
-                MarkdownView(markdown: enhanced, citationMeetingID: meetingID, playable: playable)
+                MarkdownView(
+                    markdown: enhanced,
+                    citationMeetingID: meetingID,
+                    playable: playable,
+                    onToggleCheckbox: processing ? nil : { state.toggleNotesCheckbox(meetingID, line: $0) },
+                    quote: { state.transcriptQuote(meetingID, at: $0) }
+                )
                 if !playable, !Prefs.keepAudio, Citations.contains(enhanced) {
                     KeepAudioHint().padding(.top, GrokSpacing.sm)
                 }
@@ -81,42 +91,66 @@ struct NotesTab: View {
             .frame(maxWidth: 680, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(GrokColors.notesSurface)
     }
 
-    @ViewBuilder
-    private func notesToolbar(enhanced: String?, processing: Bool, awaitingNotes: Bool) -> some View {
-        HStack(spacing: GrokSpacing.sm) {
-            if enhanced != nil || awaitingNotes {
-                Picker("", selection: $showMyNotes) {
+    /// Enhanced / My notes, the template, and Edit, at the top left of the notes.
+    private func header(meeting: Meeting?, recording: Bool, processing: Bool, showEnhanced: Bool, awaitingNotes: Bool) -> some View {
+        let enhanced = meeting?.enhancedNotes
+        return HStack(spacing: GrokSpacing.md) {
+            if enhanced != nil || awaitingNotes, !recording {
+                Picker("Notes", selection: $showMyNotes) {
                     Text("Enhanced").tag(false)
                     Text("My notes").tag(true)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                .frame(width: 220)
+                .controlSize(.small)
+                .fixedSize()
+                .disabled(editing && showEnhanced)
+                .help("Grok's notes, or the rough notes you typed")
             }
-            Spacer()
-            if enhanced != nil, let pending = state.pendingTemplate(for: meetingID) {
-                Button("Regenerate with \(pending.name)") { Task { await state.regenerateNotes(meetingID) } }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(processing)
-                    .help("These notes were written with another template")
-            } else {
-                Button(enhanced == nil ? "Write notes" : "Regenerate") { Task { await state.regenerateNotes(meetingID) } }
-                    .disabled(processing)
+            TemplatePickerMenu(meetingID: meetingID, compact: true)
+            if processing {
+                // The step list below shows progress; this covers a run that has no step list.
+                if state.processingStage[meetingID] == nil {
+                    HStack(spacing: GrokSpacing.xs) {
+                        ProgressView().controlSize(.small)
+                        Text("Writing notes…")
+                    }
+                    .font(GrokTypography.captionMuted())
+                    .foregroundStyle(.secondary)
+                }
+            } else if enhanced != nil, !recording, let pending = state.pendingTemplate(for: meetingID) {
+                Button("Regenerate with \(pending.name)") {
+                    editing = false
+                    Task { await state.regenerateNotes(meetingID) }
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .help("These notes were written with another template")
+            } else if enhanced == nil, !recording, let meeting, !meeting.utterances.isEmpty || !meeting.userNotes.isEmpty {
+                Button("Write notes") { Task { await state.regenerateNotes(meetingID) } }
+                    .controlSize(.small)
             }
-            Button("Copy Markdown") { state.copyMarkdown(meetingID) }
-            Button("Show in Finder") { state.revealInFinder(meetingID) }
+            Spacer(minLength: 0)
+            if showEnhanced {
+                Button(editing ? "Done" : "Edit") { editing.toggle() }
+                    .controlSize(.small)
+                    .disabled(processing)
+                    .help(editing ? "Show the notes as formatted text" : "Edit the notes' Markdown, for example to fix a name")
+            }
         }
-        .padding(.horizontal, GrokSpacing.lg)
+        .padding(.horizontal, GrokSpacing.contentInset)
         .padding(.vertical, GrokSpacing.sm)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(GrokColors.notesSurface)
     }
 
     @ViewBuilder
     private func notesEditor(meeting: Meeting?, recording: Bool) -> some View {
         TextEditor(text: state.binding(meetingID, \.userNotes, default: ""))
-            .font(recording ? GrokTypography.placeholder() : .body)
+            .font(.body)
             .scrollContentBackground(.hidden)
             .padding(GrokSpacing.notesEditorInset)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -126,7 +160,7 @@ struct NotesTab: View {
                     Text(recording
                          ? "Jot rough notes here while you talk…"
                          : "Jot rough notes here. When the meeting ends, Grok merges them with the transcript.")
-                        .font(recording ? GrokTypography.placeholder() : .body)
+                        .font(.body)
                         .foregroundStyle(.tertiary)
                         .padding(GrokSpacing.notesEditorInset + 4)
                         .allowsHitTesting(false)
@@ -158,6 +192,14 @@ struct TranscriptTab: View {
     @EnvironmentObject private var state: AppState
     @EnvironmentObject private var clips: ClipPlayer
     let meetingID: UUID
+    /// Set by the meeting's menu to open the find bar.
+    @Binding var findRequested: Bool
+    @State private var finding = false
+    @State private var query = ""
+    @State private var matchIndex = 0
+    @FocusState private var findFocused: Bool
+    @State private var hoveringFollow = false
+    @FocusState private var followFocused: Bool
     @State private var stickToBottom = true
     @State private var scrollToLiveRequest = 0
     @State private var highlightedBlock: UUID?
@@ -174,8 +216,102 @@ struct TranscriptTab: View {
         let playable = state.canPlayClips(meetingID)
         let headers = recording ? [:] : chapterHeaders(meeting?.chapters ?? [], blocks: blocks)
         let hasChapters = !headers.isEmpty
-        let playing = playable && clips.isPlaying && clips.loadedID == meetingID
+        let loaded = playable && clips.loadedID == meetingID
+        let matches = finding ? TranscriptSearch.matches(query, in: blocks) : []
+        let currentMatch = matches.isEmpty ? nil : matches[min(matchIndex, matches.count - 1)]
 
+        VStack(spacing: 0) {
+            if finding {
+                findBar(count: matches.count)
+                Divider()
+            }
+            transcript(
+                blocks: blocks, headers: headers, hasChapters: hasChapters, recording: recording,
+                playable: playable, loaded: loaded, utteranceCount: utterances.count, currentMatch: currentMatch
+            )
+        }
+        .background {
+            Button("Find in Transcript") { openFind() }
+                .keyboardShortcut("f", modifiers: .command)
+                .opacity(0)
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
+        }
+        .onAppear { if findRequested { openFind() } }
+        .onChange(of: findRequested) { _, requested in if requested { openFind() } }
+        .onChange(of: query) { matchIndex = 0 }
+    }
+
+    // MARK: Find
+
+    private func openFind() {
+        findRequested = false
+        finding = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(50))
+            findFocused = true
+        }
+    }
+
+    private func closeFind() {
+        finding = false
+        query = ""
+    }
+
+    private func step(_ delta: Int, count: Int) {
+        guard count > 0 else { return }
+        matchIndex = ((min(matchIndex, count - 1) + delta) % count + count) % count
+    }
+
+    private func findBar(count: Int) -> some View {
+        HStack(spacing: GrokSpacing.sm) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            TextField("Find in transcript", text: $query)
+                .textFieldStyle(.plain)
+                .focused($findFocused)
+                .onSubmit { step(1, count: count) }
+                .onKeyPress(.return, phases: .down) { press in
+                    guard press.modifiers.contains(.shift) else { return .ignored }
+                    step(-1, count: count)
+                    return .handled
+                }
+                .onKeyPress(.escape) {
+                    closeFind()
+                    return .handled
+                }
+            if !query.trimmingCharacters(in: .whitespaces).isEmpty {
+                Text(count == 0 ? "No matches" : "\(min(matchIndex, count - 1) + 1) of \(count)")
+                    .font(GrokTypography.captionMuted().monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .accessibilityAddTraits(.updatesFrequently)
+            }
+            Button { step(-1, count: count) } label: { Image(systemName: "chevron.up") }
+                .keyboardShortcut("g", modifiers: [.command, .shift])
+                .disabled(count == 0)
+                .help("Previous match (Shift-Return or Shift-Command-G)")
+                .accessibilityLabel("Previous match")
+            Button { step(1, count: count) } label: { Image(systemName: "chevron.down") }
+                .keyboardShortcut("g", modifiers: .command)
+                .disabled(count == 0)
+                .help("Next match (Return or Command-G)")
+                .accessibilityLabel("Next match")
+            Button("Done", action: closeFind)
+                .controlSize(.small)
+        }
+        .buttonStyle(.borderless)
+        .padding(.horizontal, GrokSpacing.lg)
+        .padding(.vertical, GrokSpacing.sm)
+        .background(.bar)
+    }
+
+    // MARK: Blocks
+
+    private func transcript(
+        blocks: [TranscriptBlock], headers: [UUID: (index: Int, chapter: Chapter)], hasChapters: Bool, recording: Bool,
+        playable: Bool, loaded: Bool, utteranceCount: Int, currentMatch: TranscriptSearch.Match?
+    ) -> some View {
         ZStack(alignment: .bottomTrailing) {
             ScrollViewReader { proxy in
                 ScrollView {
@@ -194,8 +330,10 @@ struct TranscriptTab: View {
                                 block: block,
                                 playable: playable,
                                 highlighted: highlightedBlock == block.id,
-                                current: playable && clips.loadedID == meetingID && currentBlock == block.id,
-                                inChapter: hasChapters
+                                current: loaded && currentBlock == block.id,
+                                inChapter: hasChapters,
+                                query: finding ? query : "",
+                                currentMatch: currentMatch?.blockID == block.id ? currentMatch : nil
                             )
                             .id(block.id)
                         }
@@ -207,13 +345,16 @@ struct TranscriptTab: View {
                     .padding(GrokSpacing.contentInset)
                     .frame(maxWidth: 720, alignment: .leading)
                     .frame(maxWidth: .infinity)
-                    // Keeps text out from under the copy button in a narrow pane.
-                    .padding(.horizontal, blocks.isEmpty ? 0 : Self.copyButtonGutter)
                 }
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 8).onChanged { _ in stickToBottom = false }
                 )
-                .onChange(of: utterances.count) {
+                .onChange(of: currentMatch) { _, match in
+                    guard let match else { return }
+                    stickToBottom = false
+                    withAnimation(.easeInOut(duration: 0.2)) { proxy.scrollTo(match.blockID, anchor: .center) }
+                }
+                .onChange(of: utteranceCount) {
                     if recording, stickToBottom {
                         withAnimation(.easeOut(duration: 0.2)) {
                             proxy.scrollTo("live", anchor: .bottom)
@@ -254,12 +395,15 @@ struct TranscriptTab: View {
                 }
             }
 
-            if playing {
+            if loaded {
                 Toggle(isOn: $follow) {
                     Label("Follow", systemImage: "text.line.first.and.arrowtriangle.forward")
                 }
                 .toggleStyle(.button)
                 .help("Scroll the transcript along with playback")
+                .focused($followFocused)
+                .onHover { hoveringFollow = $0 }
+                .opacity(hoveringFollow || followFocused ? 1 : GrokOpacity.idleControl)
                 .padding(GrokSpacing.lg)
             }
 
@@ -274,21 +418,7 @@ struct TranscriptTab: View {
                 .padding(GrokSpacing.lg)
             }
         }
-        .overlay(alignment: .topTrailing) {
-            if !blocks.isEmpty {
-                CopyButton(label: "Copy transcript", help: "Copy the whole transcript as text") {
-                    state.copyTranscript(meetingID, .all)
-                }
-                .padding(.horizontal, GrokSpacing.sm)
-                .padding(.vertical, GrokSpacing.xs)
-                .background(.regularMaterial, in: Capsule())
-                .overlay(Capsule().strokeBorder(.quaternary))
-                .padding(GrokSpacing.md)
-            }
-        }
     }
-
-    private static let copyButtonGutter: CGFloat = 36
 
     /// Scrolls to the block that contains the requested time and highlights it briefly.
     private func focus(blocks: [TranscriptBlock], proxy: ScrollViewProxy) {
@@ -328,6 +458,10 @@ private struct TranscriptBlockView: View {
     var current = false
     /// The transcript shows chapters, so "Copy from here to end of chapter" applies.
     var inChapter = false
+    /// Text to highlight from the find bar.
+    var query = ""
+    /// The find bar's current match, when it is in this block.
+    var currentMatch: TranscriptSearch.Match?
     @State private var hovering = false
 
     var body: some View {
@@ -344,9 +478,18 @@ private struct TranscriptBlockView: View {
             }
             VStack(alignment: .leading, spacing: GrokSpacing.xs) {
                 ForEach(block.lines, id: \.id) { line in
-                    Text(line.text)
-                        .font(GrokTypography.transcriptBody())
-                        .textSelection(.enabled)
+                    Group {
+                        if query.isEmpty {
+                            Text(line.text)
+                        } else {
+                            Text(TranscriptSearch.highlighted(
+                                line.text, query: query,
+                                current: currentMatch?.lineID == line.id ? currentMatch?.occurrence : nil
+                            ))
+                        }
+                    }
+                    .font(GrokTypography.transcriptBody())
+                    .textSelection(.enabled)
                 }
             }
             .padding(.leading, 2)
@@ -515,7 +658,8 @@ struct AskTab: View {
                             MarkdownView(
                                 markdown: message.content,
                                 citationMeetingID: message.role == "assistant" ? meetingID : nil,
-                                playable: state.canPlayClips(meetingID)
+                                playable: state.canPlayClips(meetingID),
+                                quote: { state.transcriptQuote(meetingID, at: $0) }
                             )
                         }
                     }
@@ -544,56 +688,31 @@ struct AskTab: View {
     }
 }
 
-/// Renders the subset of Markdown that Grok's notes use: headings, bullets, checkboxes, and inline styles.
+/// Renders the Markdown that Grok writes as one selectable text: headings, lists, checkboxes, quotes, inline styles,
+/// and `[mm:ss]` citations as pills. Links open through the environment's `openURL`.
 struct MarkdownView: View {
     let markdown: String
-    /// When set, `[mm:ss]` citations link to this meeting's transcript.
+    /// When set, `[mm:ss]` citations link to this meeting.
     var citationMeetingID: UUID?
-    /// Adds a play link after each citation. Set only when the meeting's audio is on disk.
+    /// Citations play their clip. Set only when the meeting's audio is on disk.
     var playable = false
+    var textStyle: NSFont.TextStyle = .body
+    /// Makes checkboxes clickable. Gets the line number in `markdown`.
+    var onToggleCheckbox: ((Int) -> Void)?
+    /// The transcript line near a time, shown when hovering a citation.
+    var quote: ((Double) -> String?)?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: GrokSpacing.sm) {
-            ForEach(Array(markdown.components(separatedBy: "\n").enumerated()), id: \.offset) { _, line in
-                row(line)
-            }
-        }
-        .textSelection(.enabled)
-    }
-
-    @ViewBuilder
-    private func row(_ raw: String) -> some View {
-        let line = raw.trimmingCharacters(in: .whitespaces)
-        let indent = CGFloat(raw.prefix(while: { $0 == " " }).count / 2) * 16
-        if line.hasPrefix("# ") {
-            inline(String(line.dropFirst(2))).font(.title2.bold()).padding(.top, GrokSpacing.xs)
-        } else if line.hasPrefix("## ") {
-            inline(String(line.dropFirst(3))).font(.title3.bold()).padding(.top, GrokSpacing.md)
-        } else if line.hasPrefix("### ") {
-            inline(String(line.dropFirst(4))).font(.headline).padding(.top, GrokSpacing.sm)
-        } else if line.hasPrefix("- [ ] ") || line.lowercased().hasPrefix("- [x] ") {
-            HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.sm) {
-                Image(systemName: line.hasPrefix("- [ ] ") ? "square" : "checkmark.square")
-                inline(String(line.dropFirst(6)))
-            }
-            .padding(.leading, indent)
-        } else if line.hasPrefix("- ") || line.hasPrefix("* ") {
-            HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.sm) {
-                Text("•")
-                inline(String(line.dropFirst(2)))
-            }
-            .padding(.leading, indent)
-        } else if line.isEmpty {
-            Spacer().frame(height: GrokSpacing.xs)
-        } else {
-            inline(line)
-        }
-    }
-
-    private func inline(_ text: String) -> Text {
-        let source = citationMeetingID.map { Citations.linkify(text, meetingID: $0, playable: playable) } ?? text
-        var attributed = (try? AttributedString(markdown: source)) ?? AttributedString(text)
-        if citationMeetingID != nil { Citations.style(&attributed) }
-        return Text(attributed)
+        RenderedMarkdownView(
+            markdown: markdown,
+            options: NotesRenderer.Options(
+                textStyle: textStyle,
+                citationMeetingID: citationMeetingID,
+                playable: playable,
+                checkboxes: onToggleCheckbox != nil
+            ),
+            quote: quote,
+            onToggleCheckbox: onToggleCheckbox
+        )
     }
 }

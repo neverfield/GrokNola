@@ -31,11 +31,20 @@ The app icon is `Resources/AppIcon.icns`, built from `Resources/AppIcon-master.p
 3. Click **Stop & Write Notes**. Grok re-transcribes the full recording, names the speakers,
    writes enhanced notes built around your rough notes, and tags the meeting. The Notes tab shows
    each step; a failed step has **Retry**. A "Notes ready" notification opens the meeting.
-4. Use **Ask Grok** for questions or follow-up drafts. Click any speaker name to correct it.
-5. In the **Transcript** tab, the copy icon at the top right copies the whole transcript as
-   `[mm:ss] Name: text` lines with `## Chapter (mm:ss–mm:ss)` headings. Each chapter title has
-   its own copy icon, and right-clicking a block copies that block.
-6. With kept audio, the speaker icon in the player opens separate **My voice** and **Others**
+4. Switch between **Notes**, **Transcript**, and **Ask** in the toolbar (Command-1/2/3). Use the
+   meeting's **Ask** tab for questions or follow-up drafts. Click any speaker name to correct it.
+5. Enhanced notes select and copy across lines. Click **Edit** to fix a name or line in the Markdown,
+   and click a checkbox to mark an action item done. Timestamps show as pills: **▶ 5:17** plays the
+   clip (Option-click opens the transcript), **5:17** opens the transcript when no audio was kept.
+6. The toolbar **…** menu has Regenerate Notes (Option-Command-R), Edit Notes, Copy Markdown
+   (Shift-Command-C), Copy Transcript, Find in Transcript, Show in Finder, and Delete Meeting.
+   **Share** sends the Markdown to another app. **Copy Transcript** writes `[mm:ss] Name: text` lines
+   with `## Chapter (mm:ss–mm:ss)` headings. Each chapter title has its own copy icon, and
+   right-clicking a block copies that block.
+7. In the **Transcript** tab, Command-F finds text: Return and Shift-Return step through matches.
+8. Deleting a meeting moves it to `~/Library/Application Support/GrokNotes/Trash/`. Click **Undo**
+   in the bar that appears, or press Command-Z. The trash is emptied of meetings older than 30 days at launch.
+9. With kept audio, the speaker icon in the player opens separate **My voice** and **Others**
    sliders (−12 to +12 dB around the balanced level), mute buttons, and **Balance voices**.
 
 ## How speakers get names

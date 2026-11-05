@@ -144,7 +144,7 @@ struct CallSummaryCard: View {
         HStack(spacing: GrokSpacing.md) {
             SpeakerChip(meetingID: meetingID, key: stat.key)
                 .frame(width: 150, alignment: .leading)
-            bar(stat.share, color: SpeakerColor.color(for: stat.key))
+            bar(stat.share, color: SpeakerColor.color(for: stat.key, in: state.meeting(meetingID)))
             Text(percent(stat.share))
                 .font(.callout.monospacedDigit().weight(.medium))
                 .frame(width: 40, alignment: .trailing)
@@ -154,6 +154,17 @@ struct CallSummaryCard: View {
                 .frame(width: 60, alignment: .trailing)
         }
         .help("\(stat.words) words")
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(spokenTalkTime(stat))
+    }
+
+    /// "Sani Yo, 47 percent, 25 minutes" for VoiceOver.
+    private func spokenTalkTime(_ stat: TalkStat) -> String {
+        let formatter = DateComponentsFormatter()
+        formatter.unitsStyle = .full
+        formatter.allowedUnits = stat.seconds >= 60 ? [.hour, .minute] : [.second]
+        let duration = formatter.string(from: stat.seconds.rounded()) ?? Meeting.durationLabel(stat.seconds)
+        return "\(stat.name), \(Int((stat.share * 100).rounded())) percent, \(duration)"
     }
 
     /// Chip and numbers on one line, a full-width bar beneath.
@@ -169,9 +180,11 @@ struct CallSummaryCard: View {
                     .font(GrokTypography.captionMuted().monospacedDigit())
                     .foregroundStyle(.secondary)
             }
-            bar(stat.share, color: SpeakerColor.color(for: stat.key), height: 5)
+            bar(stat.share, color: SpeakerColor.color(for: stat.key, in: state.meeting(meetingID)), height: 5)
         }
         .help("\(stat.words) words")
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(spokenTalkTime(stat))
     }
 
     // MARK: Chapters

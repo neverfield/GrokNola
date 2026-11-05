@@ -1,37 +1,54 @@
 import SwiftUI
 
+/// What the menu bar can do to the meeting on screen. Published by `MeetingDetailView` while it is shown.
+struct MeetingActions {
+    var selectTab: (MeetingDetailView.Tab) -> Void
+    var toggleInspector: () -> Void
+    var copyMarkdown: () -> Void
+    /// Nil while it cannot run, for example while recording or writing notes.
+    var regenerate: (() -> Void)?
+    var findInTranscript: (() -> Void)?
+}
+
+private struct MeetingActionsKey: FocusedValueKey {
+    typealias Value = MeetingActions
+}
+
+extension FocusedValues {
+    var meetingActions: MeetingActions? {
+        get { self[MeetingActionsKey.self] }
+        set { self[MeetingActionsKey.self] = newValue }
+    }
+}
+
 struct MeetingDetailView: View {
     @EnvironmentObject private var state: AppState
     @EnvironmentObject private var liveAnswers: LiveAnswersEngine
+    @Environment(\.undoManager) private var undoManager
     let meetingID: UUID
     @State private var tab: Tab = .notes
     @State private var showInspector = false
     @State private var pane: InspectorPane = .info
+    @State private var editingNotes = false
+    @State private var findRequested = false
 
     enum Tab: String, CaseIterable {
         case notes = "Notes"
         case transcript = "Transcript"
-        case ask = "Ask Grok"
+        case ask = "Ask"
     }
 
     var body: some View {
-        if state.meeting(meetingID) != nil {
+        if let meeting = state.meeting(meetingID) {
             NavigationStack {
-                VStack(alignment: .leading, spacing: 0) {
-                    Picker("", selection: $tab) {
-                        ForEach(Tab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .padding(.horizontal, GrokSpacing.lg)
-                    .padding(.vertical, GrokSpacing.sm)
-
+                Group {
                     switch tab {
-                    case .notes: NotesTab(meetingID: meetingID)
-                    case .transcript: TranscriptTab(meetingID: meetingID)
+                    case .notes: NotesTab(meetingID: meetingID, editing: $editingNotes)
+                    case .transcript: TranscriptTab(meetingID: meetingID, findRequested: $findRequested)
                     case .ask: AskTab(meetingID: meetingID)
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .safeAreaInset(edge: .bottom, spacing: 0) {
                     if state.canPlayClips(meetingID) {
                         MeetingPlayerBar(meetingID: meetingID) { chapter in
@@ -52,15 +69,23 @@ struct MeetingDetailView: View {
                     if focus?.meetingID == meetingID { tab = .transcript }
                 }
                 .navigationTitle("")
+                .focusedSceneValue(\.meetingActions, actions(meeting))
                 .toolbar {
+                    ToolbarItem(placement: .navigation) {
+                        TextField("Title", text: state.titleBinding(meetingID))
+                            .textFieldStyle(.plain)
+                            .font(GrokTypography.meetingTitle())
+                            .frame(minWidth: 160, idealWidth: 300, maxWidth: 380)
+                            .accessibilityLabel("Meeting title")
+                    }
                     ToolbarItem(placement: .principal) {
-                        HStack(spacing: GrokSpacing.sm) {
-                            TextField("Title", text: state.titleBinding(meetingID))
-                                .textFieldStyle(.plain)
-                                .font(GrokTypography.meetingTitle())
-                                .frame(minWidth: 200, maxWidth: 420)
-                            TemplatePickerMenu(meetingID: meetingID)
+                        Picker("View", selection: $tab) {
+                            ForEach(Tab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                         }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .fixedSize()
+                        .help("Notes (Command-1), Transcript (Command-2), Ask (Command-3)")
                     }
                     ToolbarItemGroup(placement: .automatic) {
                         if state.recordingID == meetingID {
@@ -82,18 +107,26 @@ struct MeetingDetailView: View {
                             .help(liveAnswers.enabled ? "Live answers are on. Click to turn them off." : "Answer questions heard in the call")
                         }
                     }
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            if showInspector, pane == .answers, hasAnswersPane {
-                                pane = .info
-                            } else {
-                                pane = .info
-                                showInspector.toggle()
+                    if !recording {
+                        ToolbarItem(placement: .primaryAction) {
+                            ShareLink(
+                                item: meeting.markdown(myName: Prefs.myName),
+                                subject: Text(meeting.title),
+                                preview: SharePreview(meeting.title)
+                            ) {
+                                Label("Share", systemImage: "square.and.arrow.up")
                             }
-                        } label: {
+                            .help("Share the notes and transcript as Markdown")
+                        }
+                    }
+                    ToolbarItem(placement: .primaryAction) {
+                        moreMenu(meeting)
+                    }
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(action: toggleInspector) {
                             Label("Meeting info", systemImage: "info.circle")
                         }
-                        .help("Tags, speakers, attendees, and attribution")
+                        .help("Tags, speakers, attendees, and attribution (Option-Command-I)")
                     }
                 }
                 .inspector(isPresented: $showInspector) {
@@ -131,6 +164,74 @@ struct MeetingDetailView: View {
     }
 
     private var recording: Bool { state.recordingID == meetingID }
+    private var processing: Bool { state.processing.contains(meetingID) }
+
+    private func canWriteNotes(_ meeting: Meeting) -> Bool {
+        !recording && !processing && (!meeting.utterances.isEmpty || !meeting.userNotes.isEmpty)
+    }
+
+    private func regenerate() {
+        editingNotes = false
+        Task { await state.regenerateNotes(meetingID) }
+    }
+
+    private func findInTranscript() {
+        tab = .transcript
+        findRequested = true
+    }
+
+    private func toggleInspector() {
+        if showInspector, pane == .answers, hasAnswersPane {
+            pane = .info
+        } else {
+            pane = .info
+            showInspector.toggle()
+        }
+    }
+
+    private func actions(_ meeting: Meeting) -> MeetingActions {
+        MeetingActions(
+            selectTab: { tab = $0 },
+            toggleInspector: toggleInspector,
+            copyMarkdown: { state.copyMarkdown(meetingID) },
+            regenerate: canWriteNotes(meeting) ? regenerate : nil,
+            findInTranscript: meeting.utterances.isEmpty ? nil : findInTranscript
+        )
+    }
+
+    /// Everything that used to sit in a row above the notes, plus the transcript copy.
+    private func moreMenu(_ meeting: Meeting) -> some View {
+        let enhanced = meeting.enhancedNotes != nil
+        return Menu {
+            if enhanced, let pending = state.pendingTemplate(for: meetingID) {
+                Button("Regenerate with \(pending.name)", action: regenerate)
+                    .disabled(!canWriteNotes(meeting))
+            }
+            Button(enhanced ? "Regenerate Notes" : "Write Notes", action: regenerate)
+                .disabled(!canWriteNotes(meeting))
+            if enhanced {
+                Button(editingNotes ? "Stop Editing Notes" : "Edit Notes") {
+                    tab = .notes
+                    editingNotes.toggle()
+                }
+                .disabled(recording || processing)
+            }
+            Divider()
+            Button("Copy Markdown") { state.copyMarkdown(meetingID) }
+            Button("Copy Transcript") { state.copyTranscript(meetingID, .all) }
+                .disabled(meeting.utterances.isEmpty)
+            Button("Find in Transcript", action: findInTranscript)
+                .disabled(meeting.utterances.isEmpty)
+            Button("Show in Finder") { state.revealInFinder(meetingID) }
+            Divider()
+            Button("Delete Meeting", role: .destructive) { state.moveToTrash(meetingID, undoManager: undoManager) }
+                .disabled(recording)
+        } label: {
+            Label("More", systemImage: "ellipsis.circle")
+        }
+        .menuIndicator(.hidden)
+        .help("Regenerate, edit, copy, find, and delete")
+    }
 
     /// Answers show while recording, and afterwards while pinned cards from this recording remain.
     private var hasAnswersPane: Bool {
@@ -228,13 +329,11 @@ struct MeetingInspectorView: View {
     }
 }
 
-enum SpeakerColor {
-    private static let palette: [Color] = [.blue, .orange, .purple, .pink, .teal, .indigo, .brown, .mint, .cyan, .red]
-
-    static func color(for key: String) -> Color {
-        if key == Meeting.meKey { return .green }
-        let hash = key.utf8.reduce(5381) { ($0 &* 33) &+ Int($1) }
-        return palette[abs(hash) % palette.count]
+extension SpeakerColor {
+    /// The speaker's color in this meeting, by the order speakers first talk.
+    static func color(for key: String, in meeting: Meeting?) -> Color {
+        guard let meeting else { return color(for: key) }
+        return color(for: key, among: meeting.speakerKeys)
     }
 }
 
@@ -248,7 +347,7 @@ struct SpeakerChip: View {
     var body: some View {
         let meeting = state.meeting(meetingID)
         let info = meeting?.speakers[key]
-        let color = SpeakerColor.color(for: key)
+        let color = SpeakerColor.color(for: key, in: meeting)
         Button {
             editing = true
         } label: {
