@@ -3,6 +3,10 @@ import Foundation
 /// Reads the same UserDefaults keys that `SettingsView` binds with `@AppStorage`.
 enum Prefs {
     static let defaultModel = "grok-4.7"
+    /// Models offered in Settings for notes. Any other id can be typed as a custom model.
+    static let notesModels = ["grok-4.7", "grok-4.6", "grok-4.3", "grok-4.20-non-reasoning"]
+    /// Models offered in Settings for live answers, fastest first.
+    static let liveAnswersModels = ["grok-4.20-non-reasoning", "grok-4.3", "grok-4.7"]
     private static var defaults: UserDefaults { .standard }
 
     static var myName: String { nonEmpty(defaults.string(forKey: "myName")) ?? NSFullUserName() }

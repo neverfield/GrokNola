@@ -56,7 +56,7 @@ are heuristics. Meeting apps change their labels, so add a pattern there if name
 
 Grok Notes uses your calendar to title a meeting, list its invitees, and show
 **Up next** on Home (today's remaining events with **Join** and **Start notes**).
-Pick the source in **Settings > Calendar**:
+Pick the source in **Settings > Calendar & Drive**:
 
 | Source | Reads |
 | --- | --- |
@@ -75,7 +75,7 @@ no Google sign-in and no network access in the app.
 1. Install the skill: `mkdir -p ~/.cursor/skills && cp -R skills/grok-notes-calendar-sync ~/.cursor/skills/`
 2. Connect a Google Calendar MCP server in Cursor Settings > MCP.
 3. In Cursor, say **"Sync my calendar for Grok Notes"**
-   (Settings > Calendar > **Copy sync prompt** copies it).
+   (Settings > Calendar & Drive > **Copy sync prompt** copies it).
 4. To keep it fresh while Cursor is open: `/loop 30m sync my calendar for Grok Notes`.
 
 Grok Notes watches the file and reloads it within a minute of a change.
@@ -134,7 +134,7 @@ filters by title, notes, people, and transcript text. The chat history is saved 
 ## Live answers
 
 While recording, the **Answers** pane of the meeting inspector answers questions heard in the call.
-The toolbar bolt button turns it on or off for the current recording; **Settings > Live answers** sets the default.
+The toolbar bolt button turns it on or off for the current recording; **Settings > Live Answers** sets the default.
 
 - Questions are found on the Mac with local rules (`Sources/GrokNotes/LiveAnswers/QuestionDetector.swift`):
   a question mark, a leading question word or auxiliary plus a subject, or cues like "do you know".
@@ -146,7 +146,7 @@ The toolbar bolt button turns it on or off for the current recording; **Settings
 - Each request streams from `grok-4.20-non-reasoning` (no reasoning phase) with the last 3 minutes of
   transcript, your rough notes, and up to 3 past meetings that match the question's keywords, capped at
   about 8,000 characters and 200 output tokens. Change the model, reasoning effort, and priority
-  processing in Settings.
+  processing in **Settings > Models & API**.
 - **Ask now** at the bottom of the pane sends a typed question the same way.
 - Answers are in memory only. **Pin** appends the question and answer to your rough notes as a quote
   block, so they are saved and used in the enhanced notes. Unpinned answers are cleared when recording stops.
@@ -157,7 +157,7 @@ The toolbar bolt button turns it on or off for the current recording; **Settings
 The user guide is `Resources/Help/GrokNotesGuide.md`. The build script copies it into
 `Grok Notes.app/Contents/Resources/Help/`; `swift run` reads the source copy. Ask how the app
 works in **Ask Grok** (Command-K), **Help > Grok Notes Help** (Command-?), or
-**Settings > Help > Ask about Grok Notes**.
+**Settings > General > Ask about Grok Notes**.
 
 - A local keyword check routes each question. Clear app questions ("How do I sync Google Calendar?",
   "Why is system audio off?") are answered from the guide alone, with no meeting-selection request.
@@ -189,7 +189,7 @@ Audio and text leave the Mac only to reach `api.x.ai`.
 
 With **Google Drive for desktop** installed and signed in, you can mirror exports into synced **My Drive**:
 
-1. Open Settings (Command-comma) → **Google Drive**.
+1. Open Settings (Command-comma) → **Calendar & Drive**.
 2. Turn on **Copy notes to Google Drive when saved**.
 3. Optionally set a **Subfolder under My Drive** (for example `Grok Notes`). Leave it blank to write at the top level of My Drive.
 

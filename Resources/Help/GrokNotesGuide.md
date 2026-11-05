@@ -5,9 +5,9 @@ Grok Notes is a meeting notepad for macOS. No bot joins your call. The app liste
 ## Getting started
 
 1. Open **Settings** (Command-comma, or **Settings** in the menu bar menu).
-2. Under **xAI API**, paste your key into **API key** and click **Save key**. The key is stored in the macOS Keychain. Click **Test connection** to check it. ("Connected. N models available." means it works.) The app also reads an `XAI_API_KEY` environment variable when no key is saved.
-3. Under **You**, check **Your name**. It defaults to your macOS account name. The app uses it for your speaker label and never gives your name to another speaker.
-4. Under **Permissions**, click **Allow** next to each permission you want (see [Permissions](#permissions)). After you grant **Screen & System Audio Recording**, quit and reopen Grok Notes.
+2. In the **Models & API** pane, under **xAI API**, paste your key into **API key** and click **Save key**. The key is stored in the macOS Keychain. Click **Test connection** to check it. ("Connected. N models available." means it works.) The app also reads an `XAI_API_KEY` environment variable when no key is saved.
+3. In the **General** pane, under **You**, check **Your name**. It defaults to your macOS account name. The app uses it for your speaker label and never gives your name to another speaker.
+4. In the **Recording** pane, under **Permissions**, click **Allow** next to each permission you want (see [Permissions](#permissions)). After you grant **Screen & System Audio Recording**, click **Relaunch Grok Notes**.
 5. Click **Refresh status** to update the check marks.
 
 Home also shows a setup checklist (xAI API key, Microphone, Screen & System Audio Recording, Accessibility, Calendar) with an **Open Settings** link until you have recorded a meeting.
@@ -25,9 +25,9 @@ Grok Notes asks for four macOS permissions. Only the microphone is required.
 
 To grant a permission:
 
-1. Open **Settings > Permissions** and click **Allow**. macOS shows a prompt, or opens **System Settings > Privacy & Security**.
+1. Open **Settings > Recording** and click **Allow**. macOS shows a prompt, or opens **System Settings > Privacy & Security**.
 2. In System Settings, turn on **Grok Notes** in the matching list (**Microphone**, **Screen & System Audio Recording**, **Accessibility**, or **Calendars**).
-3. For Screen & System Audio Recording, quit and reopen Grok Notes. macOS applies it only on relaunch.
+3. For Screen & System Audio Recording, click **Relaunch Grok Notes** (or quit and reopen the app). macOS applies it only on relaunch.
 
 ### Keep permissions across rebuilds
 
@@ -67,13 +67,13 @@ Every few seconds, the app checks for a call in Zoom, Microsoft Teams, Slack (hu
 
 While recording, the inspector on the right opens to **Answers** (switch to **Info** for tags and speakers). When someone in the call asks a question, a card shows who asked, when, and a short answer from Grok.
 
-- Turn it off or on for this recording with the **Live answers** bolt button in the toolbar. Set the default in **Settings > Live answers > Answer questions heard during calls**.
+- Turn it off or on for this recording with the **Live answers** bolt button in the toolbar. Set the default in **Settings > Live Answers > Answer questions heard during calls**.
 - Small talk ("Can you hear me?", "Does that make sense?") and repeats from the last 2 minutes are ignored. Grok also skips questions that need no answer.
 - Answers use the last few minutes of the transcript, your rough notes, and matching past meetings, which are named in a **From** line.
 - Type in **Ask now…** at the bottom of the pane for a quick question of your own.
 - **Pin** adds the question and answer to your rough notes, so they are kept and used in the enhanced notes. **Unpin** removes them. **Copy** copies them. **Dismiss** removes the card.
 - Answers are not saved unless pinned. Unpinned cards are cleared when you stop.
-- **Settings > Live answers** also sets the **Live answers model**, **Reasoning effort**, **Include relevant past meetings**, **Priority processing**, and **Show answer latency**.
+- **Settings > Live Answers** also sets **Include relevant past meetings** and **Show answer latency**. **Settings > Models & API** sets the **Live answers model**, **Reasoning effort** (shown only for models that reason), and **Priority processing**.
 
 ### Stop
 
@@ -93,9 +93,9 @@ Your microphone and your Mac's audio are recorded on separate streams. Your mic 
 
 1. **Your corrections.** A name you set is never overwritten.
 2. **Active speaker** (needs Accessibility and system audio). While you record, the app reads the meeting app's accessibility labels once a second, such as "Talking: Ana" or "Ana is speaking". A voice gets a name when that name was shown in at least 3 samples and in 60% or more of the samples during that voice's speech. Label: "active speaker".
-3. **Window snapshots** (needs Screen & System Audio Recording). While remote participants talk, the app saves a snapshot of the meeting window every 4 seconds. After the meeting, Grok vision reads the highlighted tile and participant names. It accepts a name at 70% confidence or more. The snapshots are sent to xAI and deleted after processing. Label: "seen on screen". Turn this off in **Settings > Speaker names > Identify speakers from meeting-window snapshots**.
+3. **Window snapshots** (needs Screen & System Audio Recording). While remote participants talk, the app saves a snapshot of the meeting window every 4 seconds. After the meeting, Grok vision reads the highlighted tile and participant names. It accepts a name at 70% confidence or more. The snapshots are sent to xAI and deleted after processing. Label: "seen on screen". Turn this off in **Settings > Speakers > Identify speakers from meeting-window snapshots**.
 4. **One-on-one rule.** When there is exactly one remote voice and exactly one other invitee (or one other participant visible in the call window), that voice gets that name.
-5. **Transcript inference.** Grok reads the transcript for introductions ("This is Dana from finance") and people addressed by name, matched against calendar invitees, names seen in the meeting app, and people from past meetings. It needs 75% confidence for a known name and 85% for any other name. Label: "inferred by Grok". Turn this off in **Settings > Speaker names > Let Grok infer names from the conversation**.
+5. **Transcript inference.** Grok reads the transcript for introductions ("This is Dana from finance") and people addressed by name, matched against calendar invitees, names seen in the meeting app, and people from past meetings. It needs 75% confidence for a known name and 85% for any other name. Label: "inferred by Grok". Turn this off in **Settings > Speakers > Let Grok infer names from the conversation**.
 
 A remote speaker without strong evidence stays **Them**. When permissions are missing or the app is not supported, you fall back to Me / Them. Without system audio, the microphone alone is diarized and the voice that talks most is labeled as you.
 
@@ -105,7 +105,7 @@ A remote speaker without strong evidence stays **Them**. When permissions are mi
 2. In "Who is this?", type a name or click a suggestion (invitees and remembered people).
 3. Click **Save**. **Clear name** goes back to Me or Them.
 
-Names you set, and names confirmed by the active speaker or snapshots, are remembered. They help name speakers and spell names in later meetings. **Settings > Speaker names** shows the count under **Remembered people**.
+Names you set, and names confirmed by the active speaker or snapshots, are remembered. They help name speakers and spell names in later meetings. **Settings > Speakers** shows the count under **Remembered people**.
 
 **Meeting info > Attribution > Mode** shows how a meeting was named: **Identifying speakers** (still working), **Named speakers**, **Me / Them**, or **Microphone only** (system audio was off). Each speaker shows its source and confidence, for example "active speaker 92%". Hover a name to see the evidence.
 
@@ -139,11 +139,11 @@ To pick a template for one meeting:
 2. Choose a template. You can do this before, during, or after the call.
 3. If the notes were already written with another template, click **Regenerate with <template>**. Changing the template does not rewrite the notes by itself.
 
-Meetings without a choice use the default. Set it in **Settings > Summary templates > Default template**.
+Meetings without a choice use the default. Set it in **Settings > Templates > Default template**.
 
 ### Custom templates
 
-1. Open **Settings > Summary templates** (or **Manage Templates…** at the bottom of the template menu).
+1. Open **Settings > Templates** (or **Manage Templates…** at the bottom of the template menu).
 2. Click **New template**, or the duplicate button on any template to start from a copy.
 3. Set the icon and **Name**, the **Instructions** (what Grok should focus on and how to write each section), the **Sections, in order** (each becomes a heading; empty sections are left out), and the **Topic focus** (what counts as a topic for this kind of meeting).
 4. Click **Save**.
@@ -154,7 +154,7 @@ Built-in templates cannot be edited, only duplicated. Custom templates have edit
 
 Facts and action items in enhanced notes end with transcript timestamps, such as [12:04]. Click a timestamp to open the **Transcript** tab at that moment, highlighted. When the meeting's audio is kept, a ▶ link follows each timestamp. Click it to play that clip, and click again to pause. Answers in **Ask Grok** have the same links.
 
-Clips need **Settings > Privacy > Keep audio recordings after notes are written** to be on before the meeting. If it was off, a hint says "Turn on Keep audio in Settings to play clips from future meetings." Audio of past meetings cannot be recovered.
+Clips need **Settings > Privacy & Data > Keep audio recordings after notes are written** to be on before the meeting. If it was off, a hint says "Turn on Keep audio in Settings to play clips from future meetings." Audio of past meetings cannot be recovered.
 
 ## Call summary
 
@@ -216,7 +216,7 @@ Click **New chat** (toolbar) to start over. The chat history is saved in `librar
 
 Ask how the app works in the same chat, for example "How do speaker names work?" or "Why is system audio off?". Questions that are clearly about the app are answered from this guide only, without reading your meetings, which costs less. Questions that could be about both get both. Answers about the app can include links that open **Settings**, **Usage & Cost**, **Home**, or a **System Settings** privacy pane.
 
-Open this help any time with **Help > Grok Notes Help** (Command-?), or **Settings > Help > Ask about Grok Notes**. **Open user guide** opens this guide as a file.
+Open this help any time with **Help > Grok Notes Help** (Command-?), or **Settings > General > Ask about Grok Notes**. **Open user guide** opens this guide as a file.
 
 ## Home
 
@@ -258,7 +258,7 @@ You cannot delete a meeting while it is recording.
 
 ## Calendar
 
-The calendar gives a meeting its title and invitees, helps name speakers, and fills **Up next** on Home. Pick the source in **Settings > Calendar > Source**:
+The calendar gives a meeting its title and invitees, helps name speakers, and fills **Up next** on Home. Pick the source in **Settings > Calendar & Drive > Source**:
 
 | Source | Reads |
 | --- | --- |
@@ -275,21 +275,21 @@ Grok Notes has no Google sign-in. A Cursor agent reads Google Calendar and write
 
 1. Install the skill: `mkdir -p ~/.cursor/skills && cp -R skills/grok-notes-calendar-sync ~/.cursor/skills/` (from the Grok Notes source folder).
 2. Connect a Google Calendar MCP server in **Cursor Settings > MCP**.
-3. In Cursor, say **"Sync my calendar for Grok Notes"**. (**Settings > Calendar > Copy sync prompt** copies it.)
+3. In Cursor, say **"Sync my calendar for Grok Notes"**. (**Settings > Calendar & Drive > Copy sync prompt** copies it.)
 4. To keep it fresh while Cursor is open, run `/loop 30m sync my calendar for Grok Notes` in Cursor.
 
 Grok Notes watches the file and reloads it within a minute. Events you declined are ignored.
 
 ### Apple Calendar
 
-1. Set **Settings > Calendar > Source** to **Apple Calendar** (or **Automatic**).
-2. In **Settings > Permissions**, click **Allow** next to **Apple Calendar**.
+1. Set **Settings > Calendar & Drive > Source** to **Apple Calendar** (or **Automatic**).
+2. In **Settings > Recording**, click **Allow** next to **Apple Calendar**.
 
 ## Google Drive export
 
 With **Google Drive for desktop** installed and signed in, Grok Notes can copy each meeting into your synced My Drive. There is no Google sign-in in the app.
 
-1. Open **Settings > Google Drive**.
+1. Open **Settings > Calendar & Drive**.
 2. Turn on **Copy notes to Google Drive when saved**.
 3. Optionally set **Subfolder under My Drive (optional)**, for example `Grok Notes`. Leave it blank to write at the top of My Drive.
 
@@ -297,7 +297,7 @@ On each save, the app copies `notes.md` and `meeting.json` to `My Drive/<subfold
 
 ## Usage and cost
 
-**Meeting > Usage & Cost** (Shift-Command-U), the menu bar menu (**Usage · $X mo.**), or **Settings > Usage** opens the **Usage & Cost** window. It shows your xAI spend for **Today**, **Last 7 days**, **This month**, or **All time**, **By feature** and **By meeting**. Each meeting's **Meeting info** shows its **API cost**, and Home shows **API spend** this week.
+**Meeting > Usage & Cost** (Shift-Command-U), the menu bar menu (**Usage · $X mo.**), or **Settings > Privacy & Data > Usage & Cost** opens the **Usage & Cost** window. It shows your xAI spend for **Today**, **Last 7 days**, **This month**, or **All time**, **By feature** and **By meeting**. Each meeting's **Meeting info** shows its **API cost**, and Home shows **API spend** this week.
 
 - **Exact**: Grok requests (notes, names, topics, tags, answers, help questions) use the exact cost xAI returns.
 - **Estimated**: transcription is estimated from recorded audio at list price: $0.20 per hour for live streaming, $0.10 per hour for the full-recording pass. Requests without a reported cost are estimated from tokens.
@@ -306,7 +306,7 @@ Help questions answered from this guide are listed as **Help questions**. The lo
 
 ## Privacy and data
 
-Everything is stored on your Mac in `~/Library/Application Support/GrokNotes/` (**Settings > Privacy > Show data folder** opens it):
+Everything is stored on your Mac in `~/Library/Application Support/GrokNotes/` (**Settings > Privacy & Data > Show data folder** opens it):
 
 - `Meetings/<id>/`: `meeting.json`, `notes.md`, and the audio (`mic.wav`, `system.wav`) if you keep it.
 - `library-chat.json` (Ask Grok history), `usage.jsonl`, `templates.json`, `tags.json`, and `calendar.json`.
@@ -318,7 +318,7 @@ What is sent to xAI (`api.x.ai`), and nowhere else:
 - Transcripts, rough notes, invitee names, and notes, to write notes, find names, topics, chapters, and tags, and to answer questions.
 - Meeting-window snapshots, when snapshot naming is on. They are deleted after processing.
 
-Audio settings in **Settings > Privacy**:
+Audio settings in **Settings > Privacy & Data**:
 
 - **Keep audio recordings after notes are written** (off by default). When off, the audio is deleted after the notes are written, and clips and the player are not available.
 - **Delete kept audio after**: **Never**, **7 days**, **30 days**, or **90 days**. Old recordings are removed when Grok Notes opens. Notes and transcripts stay.
@@ -326,9 +326,9 @@ Audio settings in **Settings > Privacy**:
 ## Models and language
 
 - Transcription always uses `grok-voice-transcribe-2.0`.
-- Notes, names, tags, and answers use the model in **Settings > xAI API > Notes model** (default `grok-4.7`).
-- Live answers use **Settings > Live answers > Live answers model** (default `grok-4.20-non-reasoning`, chosen for speed).
-- **Language code** (default `en`) sets the transcription language.
+- Notes, names, tags, and answers use the model in **Settings > Models & API > Notes model** (default `grok-4.7`).
+- Live answers use **Settings > Models & API > Live answers model** (default `grok-4.20-non-reasoning`, chosen for speed). Both model menus have **Custom…** to type any other model ID.
+- **Settings > General > Meeting language** (default English, `en`) sets the transcription language. Pick **Custom…** to type another language code.
 - Transcription gets your invitees and remembered people as key terms, so names are spelled right.
 
 ## Keyboard shortcuts
@@ -353,14 +353,14 @@ Audio settings in **Settings > Privacy**:
 The banner "System audio is off (…). Recording the microphone only." means macOS refused system audio. This happens when the permission is missing, when the app was not relaunched after granting it, or after a rebuild changed the app's signature (macOS then declines silently, even though the switch looks on).
 
 1. Open **System Settings > Privacy & Security > Screen & System Audio Recording**.
-2. Select **Grok Notes** and remove it with the minus button. Add it again with the plus button (or click **Allow** in **Settings > Permissions**), and turn it on.
+2. Select **Grok Notes** and remove it with the minus button. Add it again with the plus button (or click **Allow** in **Settings > Recording**), and turn it on.
 3. Quit and reopen Grok Notes.
 4. If you build the app yourself, run `./scripts/create-signing-cert.sh` once so later rebuilds keep the permission.
 
 ### Microphone error or echo cancellation message
 
 - With system audio on, the app uses echo cancellation so remote voices from your speakers are not transcribed as you. Some devices (for example Bluetooth headsets, or input and output at different sample rates) refuse it with error -10875. Then the app falls back to the plain microphone and shows "Echo cancellation is not supported by your current audio devices. Use headphones so other voices are not transcribed as you."
-- If you always wear headphones, turn off **Settings > You > Echo cancellation**.
+- If you always wear headphones, turn off **Settings > Recording > Echo cancellation**.
 - "Could not start the microphone" means no input device is available or another app holds it. Check **System Settings > Sound > Input**, then start again.
 - "Grok Notes needs microphone access" means the Microphone permission is off. Turn it on in **System Settings > Privacy & Security > Microphone**.
 
@@ -370,7 +370,7 @@ The app automatically raises a quiet microphone by up to 12 dB while recording. 
 
 ### Names are not detected (everyone is "Them")
 
-- Check **Accessibility** and **Screen & System Audio Recording** in **Settings > Permissions**. Active-speaker names and snapshots need system audio.
+- Check **Accessibility** and **Screen & System Audio Recording** in **Settings > Recording**. Active-speaker names and snapshots need system audio.
 - Start notes while the call is open, so the meeting app is detected (the button reads **Start notes · <App>**).
 - Make sure **Identify speakers from meeting-window snapshots** and **Let Grok infer names from the conversation** are on.
 - A calendar event with invitees helps a lot, especially in one-on-ones.
@@ -378,7 +378,7 @@ The app automatically raises a quiet microphone by up to 12 dB while recording. 
 
 ### Calendar is stale or empty
 
-- Check the status line in **Settings > Calendar**. "Stale: last synced …" means `calendar.json` is older than 24 hours. Say "Sync my calendar for Grok Notes" in Cursor, or run `/loop 30m sync my calendar for Grok Notes`, then click **Reload**.
+- Check the status line in **Settings > Calendar & Drive**. "Stale: last synced …" means `calendar.json` is older than 24 hours. Say "Sync my calendar for Grok Notes" in Cursor, or run `/loop 30m sync my calendar for Grok Notes`, then click **Reload**.
 - "calendar.json could not be read" means the file is malformed. Sync again.
 - For Apple Calendar, allow the Calendar permission and set the source to **Apple Calendar** or **Automatic**.
 
