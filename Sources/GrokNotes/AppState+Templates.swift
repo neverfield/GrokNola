@@ -34,7 +34,7 @@ extension AppState {
             client: client.tracking(.notes, m),
             model: Prefs.model
         )
-        m.enhancedNotes = notes.markdown
+        m.setGeneratedNotes(notes.markdown)
         m.notesTemplateID = template.id
         if let chapters = notes.chapters {
             m.chapters = chapters

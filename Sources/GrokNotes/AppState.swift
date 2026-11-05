@@ -80,6 +80,10 @@ final class AppState: ObservableObject {
     @Published private(set) var libraryAsking = false
     /// What the question in flight is answered from, for the progress line.
     @Published private(set) var libraryRoute: HelpRouter.Route = .meetings
+    /// The meeting whose regenerate waits for the user to choose what happens to their edited notes.
+    @Published var regenerateConfirmation: UUID?
+    /// The notes each meeting had before its last regenerate this session, for Undo regenerate.
+    var regenerateUndo: [UUID: RegenerateUndo] = [:]
 
     let store = MeetingStore()
     let usage = UsageLedger()
@@ -556,13 +560,12 @@ final class AppState: ObservableObject {
 
     // MARK: Live answers
 
-    /// Appends a card's question and answer to the meeting's rough notes as a quote block.
+    /// Appends a card's question and answer to the meeting's rough notes as a plain-text block.
     func pinLiveAnswer(_ cardID: UUID) {
         guard let card = liveAnswers.card(cardID), !card.isPinned, card.status == .done else { return }
-        var block = "> **Q (\(card.asker), \(Meeting.timestamp(card.askedAt))):** \(card.question)\n"
-        block += card.answer.split(separator: "\n", omittingEmptySubsequences: false).map { "> \($0)" }.joined(separator: "\n")
+        let block = PinnedAnswers.block(asker: card.asker, time: Meeting.timestamp(card.askedAt), question: card.question, answer: card.answer)
         update(card.meetingID) { m in
-            let notes = m.userNotes.trimmingCharacters(in: .newlines)
+            let notes = (PinnedAnswers.migrateLegacy(m.userNotes) ?? m.userNotes).trimmingCharacters(in: .newlines)
             m.userNotes = notes.isEmpty ? block + "\n" : notes + "\n\n" + block + "\n"
         }
         liveAnswers.setPinnedBlock(cardID, block)
@@ -572,16 +575,18 @@ final class AppState: ObservableObject {
     /// Removes a pinned block from the notes when it is still there unchanged.
     func unpinLiveAnswer(_ cardID: UUID) {
         guard let card = liveAnswers.card(cardID), let block = card.pinnedBlock else { return }
-        update(card.meetingID) { m in
-            for variant in ["\n\n" + block + "\n", block + "\n", block] {
-                if let range = m.userNotes.range(of: variant) {
-                    m.userNotes.removeSubrange(range)
-                    break
-                }
-            }
+        if let notes = meeting(card.meetingID)?.userNotes, let updated = PinnedAnswers.removing(block, from: notes) {
+            update(card.meetingID) { $0.userNotes = PinnedAnswers.migrateLegacy(updated) ?? updated }
         }
         liveAnswers.setPinnedBlock(cardID, nil)
         scheduleSave(card.meetingID)
+    }
+
+    /// Rewrites old Markdown pinned answers in the rough notes as plain text, once, when the notes are shown.
+    func migratePinnedAnswers(_ id: UUID) {
+        guard let notes = meeting(id)?.userNotes, let migrated = PinnedAnswers.migrateLegacy(notes) else { return }
+        update(id) { $0.userNotes = migrated }
+        scheduleSave(id)
     }
 
     private func tick() {
@@ -792,10 +797,10 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// Runs one failed step again.
-    func retry(_ step: ProcessingProgress.Step, for id: UUID) async {
+    /// Runs one failed step again. Rewriting notes the user edited asks first.
+    func retry(_ step: ProcessingProgress.Step, for id: UUID, undoManager: UndoManager? = nil) async {
         switch step {
-        case .writing: await regenerateNotes(id)
+        case .writing: requestRegenerate(id, undoManager: undoManager)
         case .naming: await renameSpeakers(id)
         case .tagging: await retagMeeting(id)
         case .transcribing: break
@@ -855,8 +860,11 @@ final class AppState: ObservableObject {
 
     // MARK: Notes and questions
 
-    func regenerateNotes(_ id: UUID) async {
+    /// Writes the notes again without asking. Use `requestRegenerate` from the UI, which protects edited notes.
+    /// When notes were replaced, offers Undo regenerate.
+    func regenerateNotes(_ id: UUID, undoManager: UndoManager? = nil, previous: NotesVersion? = nil) async {
         guard var m = meeting(id), !processing.contains(id) else { return }
+        let before = previous ?? NotesVersion(m)
         let client: XAIClient
         do {
             client = try XAIClient.fromSettings()
@@ -875,7 +883,7 @@ final class AppState: ObservableObject {
             return
         }
         update(id) {
-            $0.enhancedNotes = m.enhancedNotes
+            $0.setGeneratedNotes(m.enhancedNotes)
             $0.notesTemplateID = m.notesTemplateID
             if gotTopics { $0.topics = m.topics }
             if m.chapters != nil { $0.chapters = m.chapters }
@@ -883,6 +891,7 @@ final class AppState: ObservableObject {
         save(id)
         processing.remove(id)
         endStep(id, .writing, .done)
+        offerUndoRegenerate(id, before: before, undoManager: undoManager)
         if !gotTopics { await findTopics(id) }
     }
 

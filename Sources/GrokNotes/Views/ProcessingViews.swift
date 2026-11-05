@@ -3,6 +3,7 @@ import SwiftUI
 /// The after-meeting steps as one row: done, running, waiting, or failed with Retry.
 struct ProcessingStepsRow: View {
     @EnvironmentObject private var state: AppState
+    @Environment(\.undoManager) private var undoManager
     let meetingID: UUID
 
     var body: some View {
@@ -44,7 +45,7 @@ struct ProcessingStepsRow: View {
                 .textSelection(.enabled)
             Spacer(minLength: GrokSpacing.sm)
             if step.isRetryable {
-                Button("Retry") { Task { await state.retry(step, for: meetingID) } }
+                Button("Retry") { Task { await state.retry(step, for: meetingID, undoManager: undoManager) } }
                     .controlSize(.small)
                     .disabled(busy)
                     .help("Run \(step.title.lowercased()) again")

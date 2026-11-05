@@ -45,6 +45,8 @@ enum NotesGenerator {
         - Leave out a section that would be empty. Do not add other "## " sections; use "### " subheadings inside a section when it helps.
         - Short "- " bullets. Write action items, next steps, and follow-ups as "- [ ] Owner: task, due date if stated".
         - The user's rough notes are the backbone. Keep every point they wrote, in their order, placed in the section where it fits, and add specifics from the transcript under each.
+        - A rough-notes line starting with "📌 Q (" is a question the user pinned during the call, followed by an "A:" answer. The user highlighted it: include the question and the answer's facts in the section where they fit. Do not copy the 📌 marker.
+        - A rough-notes section "\(Meeting.previousEditsHeading) (…)" holds earlier notes the user corrected by hand. Treat its names, facts, and wording as authoritative and keep its points, but write fresh notes in the format above rather than copying it, and do not output that heading.
 
         Topics:
         - After the notes, write exactly one plain line: "Topics: Theme One; Theme Two; Theme Three".

@@ -8,7 +8,10 @@ extension AppState {
             showBanner("That action item changed since the list was loaded. Open the meeting to edit it.", severity: .warning)
             return
         }
-        update(item.meetingID) { $0.enhancedNotes = updated }
+        update(item.meetingID) {
+            $0.enhancedNotes = updated
+            $0.markNotesEdited()
+        }
         save(item.meetingID)
     }
 

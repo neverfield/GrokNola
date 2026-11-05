@@ -152,6 +152,19 @@ struct MeetingDetailView: View {
                     }
                     .inspectorColumnWidth(min: 260, ideal: 320, max: 420)
                 }
+                .confirmationDialog("Regenerate notes?", isPresented: confirmingRegenerate) {
+                    Button("Regenerate", role: .destructive) {
+                        editingNotes = false
+                        state.confirmRegenerate(meetingID, saveEdits: false, undoManager: undoManager)
+                    }
+                    Button("Save edits to My notes, then regenerate") {
+                        editingNotes = false
+                        state.confirmRegenerate(meetingID, saveEdits: true, undoManager: undoManager)
+                    }
+                    Button("Keep my edits", role: .cancel) { state.regenerateConfirmation = nil }
+                } message: {
+                    Text("Your edits to the enhanced notes will be replaced.")
+                }
                 .onAppear(perform: openAnswersIfRecording)
                 .onChange(of: state.recordingID) { openAnswersIfRecording() }
             }
@@ -172,7 +185,14 @@ struct MeetingDetailView: View {
 
     private func regenerate() {
         editingNotes = false
-        Task { await state.regenerateNotes(meetingID) }
+        state.requestRegenerate(meetingID, undoManager: undoManager)
+    }
+
+    private var confirmingRegenerate: Binding<Bool> {
+        Binding(
+            get: { state.regenerateConfirmation == meetingID },
+            set: { if !$0, state.regenerateConfirmation == meetingID { state.regenerateConfirmation = nil } }
+        )
     }
 
     private func findInTranscript() {

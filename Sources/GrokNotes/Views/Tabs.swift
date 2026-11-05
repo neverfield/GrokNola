@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NotesTab: View {
     @EnvironmentObject private var state: AppState
+    @Environment(\.undoManager) private var undoManager
     let meetingID: UUID
     /// Editing the enhanced notes' Markdown. Owned by the meeting view so its menu can start an edit.
     @Binding var editing: Bool
@@ -124,13 +125,13 @@ struct NotesTab: View {
             } else if enhanced != nil, !recording, let pending = state.pendingTemplate(for: meetingID) {
                 Button("Regenerate with \(pending.name)") {
                     editing = false
-                    Task { await state.regenerateNotes(meetingID) }
+                    state.requestRegenerate(meetingID, undoManager: undoManager)
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
                 .help("These notes were written with another template")
             } else if enhanced == nil, !recording, let meeting, !meeting.utterances.isEmpty || !meeting.userNotes.isEmpty {
-                Button("Write notes") { Task { await state.regenerateNotes(meetingID) } }
+                Button("Write notes") { state.requestRegenerate(meetingID, undoManager: undoManager) }
                     .controlSize(.small)
             }
             Spacer(minLength: 0)
@@ -166,6 +167,7 @@ struct NotesTab: View {
                         .allowsHitTesting(false)
                 }
             }
+            .onAppear { state.migratePinnedAnswers(meetingID) }
     }
 }
 

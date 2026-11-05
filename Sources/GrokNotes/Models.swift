@@ -92,6 +92,10 @@ struct Meeting: Codable, Identifiable {
     var audioOffsets: [String: Double]?
     /// Invitee emails from the calendar event, excluding you.
     var attendeeEmails: [String]?
+    /// The enhanced notes exactly as Grok last wrote them.
+    var generatedNotes: String?
+    /// When the user last changed the enhanced notes after Grok wrote them. Cleared when Grok writes notes.
+    var notesEditedAt: Date?
 }
 
 struct TalkStat: Hashable {
@@ -108,6 +112,35 @@ extension Meeting {
 
     var tagList: [String] { tags ?? [] }
     var isPinned: Bool { pinned ?? false }
+
+    /// The user changed the enhanced notes since Grok wrote them, so a regenerate would lose work.
+    /// Notes edited back to exactly what Grok wrote do not count.
+    var hasEditedNotes: Bool {
+        guard notesEditedAt != nil, let enhancedNotes, !enhancedNotes.isEmpty else { return false }
+        return generatedNotes.map { $0 != enhancedNotes } ?? true
+    }
+
+    /// Records a user change to the enhanced notes.
+    mutating func markNotesEdited(at date: Date = Date()) {
+        notesEditedAt = date
+    }
+
+    /// Records notes Grok just wrote.
+    mutating func setGeneratedNotes(_ markdown: String?) {
+        enhancedNotes = markdown
+        generatedNotes = markdown
+        notesEditedAt = nil
+    }
+
+    /// Appends the edited enhanced notes to the rough notes, so the next regenerate keeps their changes.
+    mutating func saveEditedNotesToUserNotes(at date: Date = Date()) {
+        guard let enhancedNotes, !enhancedNotes.isEmpty else { return }
+        let block = "\(Meeting.previousEditsHeading) (\(date.formatted(date: .abbreviated, time: .shortened)))\n\n\(enhancedNotes.trimmingCharacters(in: .whitespacesAndNewlines))"
+        let notes = userNotes.trimmingCharacters(in: .newlines)
+        userNotes = notes.isEmpty ? block + "\n" : notes + "\n\n" + block + "\n"
+    }
+
+    static let previousEditsHeading = "## Previous edited notes"
 
     func hasTag(_ name: String) -> Bool {
         tagList.contains { $0.caseInsensitiveCompare(name) == .orderedSame }

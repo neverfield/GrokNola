@@ -76,7 +76,8 @@ While recording, the inspector on the right opens to **Answers** (switch to **In
 - Small talk ("Can you hear me?", "Does that make sense?") and repeats from the last 2 minutes are ignored. Grok also skips questions that need no answer.
 - Answers use the last few minutes of the transcript, your rough notes, and matching past meetings, which are named in a **From** line.
 - Type in **Ask now…** at the bottom of the pane for a quick question of your own.
-- **Pin** adds the question and answer to your rough notes, so they are kept and used in the enhanced notes. **Unpin** removes them. **Copy** copies them. **Dismiss** removes the card.
+- **Pin** adds the question and answer to your rough notes as plain text, so they are kept and used in the enhanced notes. The block starts with a pin, for example `📌 Q (Alex, 12:04): What does it cost?` and then `A: $40 per seat`. Grok treats pinned questions as points you highlighted. **Unpin** removes the block, unless you changed it. **Copy** copies them. **Dismiss** removes the card.
+- Notes from older versions showed pinned answers as Markdown quotes (`> **Q …**`). They change to the plain form when you open **My notes**.
 - Answers are not saved unless pinned. Unpinned cards are cleared when you stop.
 - **Settings > Live Answers** also sets **Include relevant past meetings** and **Show answer latency**. **Settings > Models & API** sets the **Live answers model**, **Reasoning effort** (shown only for models that reason), and **Priority processing**.
 
@@ -139,13 +140,25 @@ Each meeting has three tabs in the toolbar, next to the title: **Notes**, **Tran
 - Use the **Enhanced** / **My notes** switch at the top left of the notes to go between them. You can keep editing your rough notes.
 - You can select and copy enhanced notes across lines. Copied text keeps bullets, checkboxes, and timestamps as Markdown, such as `- [ ] ` and `[05:17]`.
 - Click a checkbox in the enhanced notes to mark an action item done or open.
-- To fix a name or a line, click **Edit** at the top right of the notes (or **Edit Notes** in the **More** menu). The notes show as Markdown with light styling. Type your changes. They save by themselves. Click **Done** to see the formatted notes again. Editing is off while Grok writes notes. **Regenerate** replaces your edits with new notes.
+- To fix a name or a line, click **Edit** at the top right of the notes (or **Edit Notes** in the **More** menu). The notes show as Markdown with light styling. Type your changes. They save by themselves. Click **Done** to see the formatted notes again. Editing is off while Grok writes notes. Checking a box also counts as an edit.
+
+### Regenerate and your edits
+
+**Regenerate Notes**, **Regenerate with <template>**, and **Retry** on a failed **Writing notes** step write new enhanced notes. If you edited the enhanced notes since Grok wrote them, the app asks "Regenerate notes?" first:
+
+- **Regenerate** replaces your edits.
+- **Save edits to My notes, then regenerate** adds your edited notes to the end of your rough notes, under `## Previous edited notes (<date>)`, and then regenerates. Grok treats that section as your corrections, so fixes like names carry over.
+- **Keep my edits** cancels.
+
+The notes written when you click **Stop & Write Notes** never ask, because there are no edits yet.
+
+After a regenerate replaces notes, a message offers **Undo regenerate**. **Edit > Undo Regenerate Notes** (Command-Z) does the same. Undo brings back the previous notes, and your rough notes as they were if you saved edits to them and did not change them since. Undo works for the last regenerate of each meeting until you quit. The **Undo regenerate** button does nothing once you change the new notes.
 
 ### The More menu and Share
 
 The **More** button (**…**) in the meeting toolbar has:
 
-- **Regenerate Notes** (Option-Command-R) writes the enhanced notes again, for example after you add rough notes or rename speakers. It reads **Write Notes** when a meeting has no enhanced notes yet. **Regenerate with <template>** appears when you picked another template.
+- **Regenerate Notes** (Option-Command-R) writes the enhanced notes again, for example after you add rough notes or rename speakers. It asks first when you edited the notes (see [Regenerate and your edits](#regenerate-and-your-edits)). It reads **Write Notes** when a meeting has no enhanced notes yet. **Regenerate with <template>** appears when you picked another template.
 - **Edit Notes**.
 - **Copy Markdown** (Shift-Command-C) copies the whole meeting (title, attendees, call summary, notes, transcript) as Markdown.
 - **Copy Transcript** copies the transcript as plain text (see [Transcript](#transcript)).

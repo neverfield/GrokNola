@@ -7,7 +7,10 @@ extension AppState {
             get: { self.meeting(id)?.enhancedNotes ?? "" },
             set: { value in
                 guard self.meeting(id)?.enhancedNotes != value else { return }
-                self.update(id) { $0.enhancedNotes = value }
+                self.update(id) {
+                    $0.enhancedNotes = value
+                    $0.markNotesEdited()
+                }
                 self.scheduleSave(id)
             }
         )
@@ -17,7 +20,10 @@ extension AppState {
     func toggleNotesCheckbox(_ id: UUID, line: Int) {
         guard !processing.contains(id), let notes = meeting(id)?.enhancedNotes,
               let updated = NotesMarkdown.togglingCheckbox(atLine: line, in: notes) else { return }
-        update(id) { $0.enhancedNotes = updated }
+        update(id) {
+            $0.enhancedNotes = updated
+            $0.markNotesEdited()
+        }
         save(id)
     }
 
