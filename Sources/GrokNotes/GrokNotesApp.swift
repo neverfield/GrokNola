@@ -5,7 +5,7 @@ struct GrokNotesApp: App {
     @StateObject private var state = AppState()
 
     var body: some Scene {
-        Window("Grok Notes", id: "main") {
+        Window("GrokNola", id: "main") {
             ContentView()
                 .environmentObject(state)
                 .environmentObject(state.usage)
@@ -38,7 +38,7 @@ struct GrokNotesApp: App {
                 MeetingViewCommands()
             }
             CommandGroup(replacing: .help) {
-                AskHelpButton(state: state, title: "Grok Notes Help")
+                AskHelpButton(state: state, title: "GrokNola Help")
                     .keyboardShortcut("?", modifiers: .command)
             }
         }

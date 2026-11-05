@@ -33,7 +33,7 @@ enum NotesGenerator {
         \(Chapters.rules)
         """
         let system = """
-        You are Grok Notes, an expert meeting note-taker. Turn the transcript and the user's rough notes into clean, skimmable Markdown.
+        You are GrokNola, an expert meeting note-taker. Turn the transcript and the user's rough notes into clean, skimmable Markdown.
 
         Meeting type: \(template.name)
         \(instructions.isEmpty ? "Write balanced, skimmable notes." : instructions)

@@ -15,7 +15,7 @@ struct PrivacySettingsPane: View {
                     Text("30 days").tag(30)
                     Text("90 days").tag(90)
                 }
-                SettingsCaption("Kept audio lets you play clips from citations and the transcript. Old recordings are removed when Grok Notes opens.")
+                SettingsCaption("Kept audio lets you play clips from citations and the transcript. Old recordings are removed when GrokNola opens.")
             }
 
             Section("Data") {

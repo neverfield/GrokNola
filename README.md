@@ -1,6 +1,6 @@
 # GrokNola
 
-Grok Notes is a Granola-style meeting notepad for macOS that runs entirely on the xAI API.
+GrokNola is a Granola-style meeting notepad for macOS that runs entirely on the xAI API.
 No bot joins the call. It listens to your microphone and your Mac's audio,
 transcribes live with `grok-voice-transcribe-2.0`, and writes notes with `grok-4.7`.
 
@@ -8,7 +8,7 @@ transcribes live with `grok-voice-transcribe-2.0`, and writes notes with `grok-4
 
 ```bash
 ./scripts/build-app.sh
-open "build/Grok Notes.app"
+open "build/GrokNola.app"
 ```
 
 Requires macOS 14+ and Xcode command-line tools. Open Settings (Command-comma),
@@ -66,7 +66,7 @@ are heuristics. Meeting apps change their labels, so add a pattern there if name
 
 ## Calendar
 
-Grok Notes uses your calendar to title a meeting, list its invitees, and show
+GrokNola uses your calendar to title a meeting, list its invitees, and show
 **Up next** on Home (today's remaining events with **Join** and **Start notes**).
 Pick the source in **Settings > Calendar & Drive**:
 
@@ -81,16 +81,16 @@ Pick the source in **Settings > Calendar & Drive**:
 
 When Apple Calendar is not available (for example on a managed Mac) and
 Google's private iCal link is off, a Cursor agent can read Google Calendar
-through an MCP server and write a local file. Grok Notes only reads the file:
+through an MCP server and write a local file. GrokNola only reads the file:
 no Google sign-in and no network access in the app.
 
 1. Install the skill: `mkdir -p ~/.cursor/skills && cp -R skills/grok-notes-calendar-sync ~/.cursor/skills/`
 2. Connect a Google Calendar MCP server in Cursor Settings > MCP.
-3. In Cursor, say **"Sync my calendar for Grok Notes"**
+3. In Cursor, say **"Sync my calendar for GrokNola"**
    (Settings > Calendar & Drive > **Copy sync prompt** copies it).
-4. To keep it fresh while Cursor is open: `/loop 30m sync my calendar for Grok Notes`.
+4. To keep it fresh while Cursor is open: `/loop 30m sync my calendar for GrokNola`.
 
-Grok Notes watches the file and reloads it within a minute of a change.
+GrokNola watches the file and reloads it within a minute of a change.
 Settings shows the status, for example "Google via Cursor · synced 12 min ago · 14 events".
 
 ### calendar.json contract
@@ -167,9 +167,9 @@ The toolbar bolt button turns it on or off for the current recording; **Settings
 ## Help
 
 The user guide is `Resources/Help/GrokNotesGuide.md`. The build script copies it into
-`Grok Notes.app/Contents/Resources/Help/`; `swift run` reads the source copy. Ask how the app
-works in **Ask Grok** (Command-K), **Help > Grok Notes Help** (Command-?), or
-**Settings > General > Ask about Grok Notes**.
+`GrokNola.app/Contents/Resources/Help/`; `swift run` reads the source copy. Ask how the app
+works in **Ask Grok** (Command-K), **Help > GrokNola Help** (Command-?), or
+**Settings > General > Ask about GrokNola**.
 
 - A local keyword check routes each question. Clear app questions ("How do I sync Google Calendar?",
   "Why is system audio off?") are answered from the guide alone, with no meeting-selection request.
@@ -203,9 +203,9 @@ With **Google Drive for desktop** installed and signed in, you can mirror export
 
 1. Open Settings (Command-comma) → **Calendar & Drive**.
 2. Turn on **Copy notes to Google Drive when saved**.
-3. Optionally set a **Subfolder under My Drive** (for example `Grok Notes`). Leave it blank to write at the top level of My Drive.
+3. Optionally set a **Subfolder under My Drive** (for example `GrokNola`). Leave it blank to write at the top level of My Drive.
 
-On each save, Grok Notes copies `notes.md` and `meeting.json` into:
+On each save, GrokNola copies `notes.md` and `meeting.json` into:
 
 `~/Library/CloudStorage/GoogleDrive-<account>/My Drive/<subfolder>/<yyyy-MM-dd Meeting title>/`
 

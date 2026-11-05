@@ -26,7 +26,7 @@ struct MenuBarView: View {
             Text(state.processing.count == 1 ? "Writing notes…" : "Writing notes for \(state.processing.count) meetings…")
         }
         Divider()
-        Button("Open Grok Notes") { showWindow() }
+        Button("Open GrokNola") { showWindow() }
         Button("Usage · \(usage.total(since: Calendar.current.dateInterval(of: .month, for: Date())?.start).usd) mo.") {
             openWindow(id: "usage")
             NSApp.activate(ignoringOtherApps: true)

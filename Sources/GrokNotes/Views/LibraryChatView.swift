@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// One chat pane that answers across every meeting and about how Grok Notes works.
+/// One chat pane that answers across every meeting and about how GrokNola works.
 struct LibraryChatView: View {
     @EnvironmentObject private var state: AppState
     @Environment(\.openWindow) private var openWindow
@@ -36,7 +36,7 @@ struct LibraryChatView: View {
                         if state.libraryAsking {
                             HStack(spacing: GrokSpacing.sm) {
                                 ProgressView().controlSize(.small)
-                                Text(state.libraryRoute == .help ? "Checking the Grok Notes guide…" : "Searching \(state.meetings.count) meetings…")
+                                Text(state.libraryRoute == .help ? "Checking the GrokNola guide…" : "Searching \(state.meetings.count) meetings…")
                                     .foregroundStyle(.secondary)
                             }
                             .id("thinking")
@@ -57,7 +57,7 @@ struct LibraryChatView: View {
             composer
         }
         .navigationTitle("Ask Grok")
-        .navigationSubtitle("Your meetings and how Grok Notes works")
+        .navigationSubtitle("Your meetings and how GrokNola works")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -92,13 +92,13 @@ struct LibraryChatView: View {
             Image(systemName: "sparkle.magnifyingglass")
                 .font(.system(size: 36, weight: .light))
                 .foregroundStyle(.secondary)
-            Text("Ask about your meetings or Grok Notes")
+            Text("Ask about your meetings or GrokNola")
                 .font(.title2.weight(.semibold))
             Text("Grok finds the relevant meetings, reads their notes and transcripts, and links each answer back to its source. Ask how the app works, too: answers come from the built-in guide.")
                 .foregroundStyle(.secondary)
             suggestionGroup("Your meetings", meetingSuggestions)
                 .disabled(state.meetings.isEmpty)
-            suggestionGroup("How Grok Notes works", helpSuggestions)
+            suggestionGroup("How GrokNola works", helpSuggestions)
         }
         .padding(.top, GrokSpacing.xl)
     }
@@ -137,7 +137,7 @@ struct LibraryChatView: View {
 
     private var composer: some View {
         HStack(spacing: GrokSpacing.sm) {
-            TextField("Ask about your meetings or Grok Notes…", text: $question, axis: .vertical)
+            TextField("Ask about your meetings or GrokNola…", text: $question, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...5)
                 .focused($composerFocused)

@@ -24,7 +24,7 @@ enum HelpGuide {
     }
 
     private static let fallback = """
-    # Grok Notes (short guide)
+    # GrokNola (short guide)
 
     The full user guide is missing from this build, so only the basics are known.
 

@@ -742,7 +742,7 @@ private struct OnboardingCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: GrokSpacing.lg) {
-            Label("Welcome to Grok Notes", systemImage: "note.text")
+            Label("Welcome to GrokNola", systemImage: "note.text")
                 .font(.title2.weight(.semibold))
             Text("Start notes when a call begins. Type rough thoughts while you talk, and Grok turns them into polished notes, action items, and topics when you stop. This page fills in as you record meetings.")
                 .foregroundStyle(.secondary)

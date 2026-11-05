@@ -11,7 +11,7 @@ enum HelpRouter {
 
     /// Feature names and settings that almost always mean a question about the app.
     private static let appTerms: [String] = [
-        "grok notes", "groknotes", "this app", "the app", "in the app", "user guide",
+        "groknola", "grok nola", "grok notes", "groknotes", "this app", "the app", "in the app", "user guide",
         "setting", "settings", "preferences", "permission", "permissions", "accessibility",
         "screen recording", "screen & system audio", "system audio", "system settings", "privacy pane",
         "api key", "xai key", "keychain", "test connection", "echo cancellation", "10875", "diarization", "diarize",

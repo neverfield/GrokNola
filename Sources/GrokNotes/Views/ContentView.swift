@@ -107,7 +107,7 @@ struct ContentView: View {
                 .buttonStyle(.plain)
                 .padding(.vertical, GrokSpacing.xs)
                 .listRowBackground(state.showLibraryChat ? Color.accentColor.opacity(0.15) : Color.clear)
-                .help("Your meetings and how Grok Notes works (Command-K)")
+                .help("Your meetings and how GrokNola works (Command-K)")
             }
             if state.meetings.isEmpty {
                 ContentUnavailableView {

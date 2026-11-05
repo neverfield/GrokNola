@@ -328,7 +328,7 @@ final class AppState: ObservableObject {
         }
         guard await MicCapture.requestPermission() else {
             showBanner(
-                "Grok Notes needs microphone access. Turn it on in System Settings > Privacy & Security > Microphone.",
+                "GrokNola needs microphone access. Turn it on in System Settings > Privacy & Security > Microphone.",
                 severity: .error,
                 action: BannerItem.Action(label: "Open Privacy Settings") { [weak self] in self?.openPrivacyPane("Privacy_Microphone") }
             )

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds "build/Grok Notes.app".
+# Builds "build/GrokNola.app".
 # macOS ties privacy permissions to the code signature. An ad-hoc signature
 # changes on every rebuild, so permissions are lost. The script signs with
 # CODESIGN_IDENTITY, else the certificate from create-signing-cert.sh, else ad-hoc.
@@ -12,7 +12,7 @@ IDENTITY="${CODESIGN_IDENTITY:-${LOCAL_CERT_HASH:--}}"
 if [ "$IDENTITY" = "-" ]; then
   echo "warning: ad-hoc signing. Run scripts/create-signing-cert.sh to keep permissions across rebuilds." >&2
 fi
-APP="build/Grok Notes.app"
+APP="build/GrokNola.app"
 
 swift build -c "$CONFIG"
 BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"

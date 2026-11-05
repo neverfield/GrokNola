@@ -1,16 +1,16 @@
 ---
 name: grok-notes-calendar-sync
 description: >-
-  Sync Google Calendar events into Grok Notes by reading a Google Calendar
+  Sync Google Calendar events into GrokNola by reading a Google Calendar
   MCP server and writing ~/Library/Application Support/GrokNotes/calendar.json.
-  Use when the user says "sync my calendar", "sync my calendar for Grok Notes",
-  "update Grok Notes calendar", "refresh calendar for Grok Notes", or asks
-  Grok Notes to see their meetings.
+  Use when the user says "sync my calendar", "sync my calendar for GrokNola",
+  "update GrokNola calendar", "refresh calendar for GrokNola", or asks
+  GrokNola to see their meetings.
 ---
 
-# Sync Google Calendar for Grok Notes
+# Sync Google Calendar for GrokNola
 
-Grok Notes reads meeting titles, invitees, and Meet/Zoom links from a local
+GrokNola reads meeting titles, invitees, and Meet/Zoom links from a local
 file. You fill that file from Google Calendar through MCP. The app never
 signs in to Google.
 
@@ -98,7 +98,7 @@ python3 -m json.tool "$TMP" >/dev/null && mv -f "$TMP" "$DIR/calendar.json" || {
 
 Generate the JSON with `python3` (`json.dump(..., ensure_ascii=False)`), not
 by hand-escaping strings in the shell. Set `syncedAt` to the current UTC time.
-Grok Notes reloads the file within a minute.
+GrokNola reloads the file within a minute.
 
 ## 5. Report
 
@@ -114,5 +114,5 @@ than the file above.
 
 ## Keep it fresh
 
-Suggest `/loop 30m sync my calendar for Grok Notes` to resync every 30
-minutes while Cursor is open. Grok Notes marks the file stale after 24 hours.
+Suggest `/loop 30m sync my calendar for GrokNola` to resync every 30
+minutes while Cursor is open. GrokNola marks the file stale after 24 hours.

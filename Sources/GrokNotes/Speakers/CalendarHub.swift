@@ -31,7 +31,7 @@ final class CalendarHub: ObservableObject {
 
     /// A file synced longer ago than this is stale. Automatic then prefers Apple Calendar.
     static let freshness: TimeInterval = 24 * 3600
-    static let syncPrompt = "Sync my calendar for Grok Notes"
+    static let syncPrompt = "Sync my calendar for GrokNola"
 
     let apple = CalendarService()
     let fileURL = CalendarFile.defaultURL

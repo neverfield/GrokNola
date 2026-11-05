@@ -48,7 +48,7 @@ struct CalendarDriveSettingsPane: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                SettingsCaption("Uses the synced My Drive folder, so there is no Google sign-in in Grok Notes. Each meeting gets a folder with notes.md and meeting.json.")
+                SettingsCaption("Uses the synced My Drive folder, so there is no Google sign-in in GrokNola. Each meeting gets a folder with notes.md and meeting.json.")
             }
         }
         .onAppear { calendars.reload() }

@@ -1,20 +1,20 @@
-# Grok Notes user guide
+# GrokNola user guide
 
-Grok Notes is a meeting notepad for macOS. No bot joins your call. The app listens to your microphone and to your Mac's audio, transcribes live with `grok-voice-transcribe-2.0`, and writes notes with `grok-4.7`. Everything runs on the xAI API with your own API key.
+GrokNola is a meeting notepad for macOS. No bot joins your call. The app listens to your microphone and to your Mac's audio, transcribes live with `grok-voice-transcribe-2.0`, and writes notes with `grok-4.7`. Everything runs on the xAI API with your own API key.
 
 ## Getting started
 
 1. Open **Settings** (Command-comma, or **Settings** in the menu bar menu).
 2. In the **Models & API** pane, under **xAI API**, paste your key into **API key** and click **Save key**. The key is stored in the macOS Keychain. Click **Test connection** to check it. ("Connected. N models available." means it works.) The app also reads an `XAI_API_KEY` environment variable when no key is saved.
 3. In the **General** pane, under **You**, check **Your name**. It defaults to your macOS account name. The app uses it for your speaker label and never gives your name to another speaker.
-4. In the **Recording** pane, under **Permissions**, click **Allow** next to each permission you want (see [Permissions](#permissions)). After you grant **Screen & System Audio Recording**, click **Relaunch Grok Notes**.
+4. In the **Recording** pane, under **Permissions**, click **Allow** next to each permission you want (see [Permissions](#permissions)). After you grant **Screen & System Audio Recording**, click **Relaunch GrokNola**.
 5. Click **Refresh status** to update the check marks.
 
 Home also shows a setup checklist (xAI API key, Microphone, Screen & System Audio Recording, Accessibility, Calendar) with an **Open Settings** link until you have recorded a meeting.
 
 ## Permissions
 
-Grok Notes asks for four macOS permissions. Only the microphone is required.
+GrokNola asks for four macOS permissions. Only the microphone is required.
 
 | Permission | Why it matters | Without it |
 | --- | --- | --- |
@@ -26,8 +26,8 @@ Grok Notes asks for four macOS permissions. Only the microphone is required.
 To grant a permission:
 
 1. Open **Settings > Recording** and click **Allow**. macOS shows a prompt, or opens **System Settings > Privacy & Security**.
-2. In System Settings, turn on **Grok Notes** in the matching list (**Microphone**, **Screen & System Audio Recording**, **Accessibility**, or **Calendars**).
-3. For Screen & System Audio Recording, click **Relaunch Grok Notes** (or quit and reopen the app). macOS applies it only on relaunch.
+2. In System Settings, turn on **GrokNola** in the matching list (**Microphone**, **Screen & System Audio Recording**, **Accessibility**, or **Calendars**).
+3. For Screen & System Audio Recording, click **Relaunch GrokNola** (or quit and reopen the app). macOS applies it only on relaunch.
 
 ### Keep permissions across rebuilds
 
@@ -53,7 +53,7 @@ When you start, the app uses the current calendar event (from 10 minutes before 
 
 Every few seconds, the app checks for a call in Zoom, Microsoft Teams, Slack (huddles), Webex, FaceTime, or Google Meet in a browser (Chrome, Safari, Arc, Edge, Brave, Firefox, Vivaldi). When it finds one, the menu bar icon changes and the menu offers **Start Notes · <App>**. Detection never starts recording by itself.
 
-The first time a call is detected, macOS asks whether Grok Notes may send notifications. If you allow it, a notification "<App> call detected — Start notes for this call?" appears once per call; click **Start Notes** on it to begin. If you deny it, nothing else changes. To turn this notification off, run `defaults write dev.local.groknotes notifyOnMeetingDetected -bool false` and relaunch.
+The first time a call is detected, macOS asks whether GrokNola may send notifications. If you allow it, a notification "<App> call detected — Start notes for this call?" appears once per call; click **Start Notes** on it to begin. If you deny it, nothing else changes. To turn this notification off, run `defaults write dev.local.groknotes notifyOnMeetingDetected -bool false` and relaunch.
 
 - Google Meet is found from the browser tab title, which needs **Screen & System Audio Recording**.
 - With that permission, Zoom and Slack count only when a call window is open ("Zoom Meeting", "Huddle"). Otherwise an app counts while another app is using the microphone.
@@ -98,7 +98,7 @@ If you stop without any transcript or notes, a message says "Nothing was recorde
 
 ### Notifications
 
-When processing finishes and you are not looking at that meeting, a notification says "Notes ready — <title>". Click it to open the meeting. If writing the notes failed, the notification says so instead, and the meeting keeps its step list with **Retry**. Notifications need permission, which macOS asks for the first time one is sent. Change it later in **System Settings > Notifications > Grok Notes**.
+When processing finishes and you are not looking at that meeting, a notification says "Notes ready — <title>". Click it to open the meeting. If writing the notes failed, the notification says so instead, and the meeting keeps its step list with **Retry**. Notifications need permission, which macOS asks for the first time one is sent. Change it later in **System Settings > Notifications > GrokNola**.
 
 ### Messages
 
@@ -196,7 +196,7 @@ Clips need **Settings > Privacy & Data > Keep audio recordings after notes are w
 
 ## Call summary
 
-After the meeting, the call summary shows beside the notes, in a column on the right. It stays in view while you scroll the notes. When the window is narrow (for example with **Meeting info** open), it shows above the notes instead. Click **Call summary** to collapse or expand it there; Grok Notes remembers your choice.
+After the meeting, the call summary shows beside the notes, in a column on the right. It stays in view while you scroll the notes. When the window is narrow (for example with **Meeting info** open), it shows above the notes instead. Click **Call summary** to collapse or expand it there; GrokNola remembers your choice.
 
 The call summary shows:
 
@@ -251,7 +251,7 @@ To copy the transcript as plain text:
 There are two chats:
 
 - **Ask in a meeting** (the meeting's **Ask** tab). Questions about that one meeting, for example "What did we decide about pricing?" or "Draft a follow-up email." Answers cite timestamps.
-- **Ask Grok in the sidebar** (Command-K, or **Meeting > Ask Grok**). One chat over every meeting, and help with Grok Notes itself.
+- **Ask Grok in the sidebar** (Command-K, or **Meeting > Ask Grok**). One chat over every meeting, and help with GrokNola itself.
 
 ### Across your meetings
 
@@ -259,11 +259,11 @@ Grok ranks your meetings by keywords, names, tags, and recency, picks up to 8 re
 
 Click **New chat** (toolbar) to start over. The chat history is saved in `library-chat.json`.
 
-### Help with Grok Notes
+### Help with GrokNola
 
 Ask how the app works in the same chat, for example "How do speaker names work?" or "Why is system audio off?". Questions that are clearly about the app are answered from this guide only, without reading your meetings, which costs less. Questions that could be about both get both. Answers about the app can include links that open **Settings**, **Usage & Cost**, **Home**, or a **System Settings** privacy pane.
 
-Open this help any time with **Help > Grok Notes Help** (Command-?), or **Settings > General > Ask about Grok Notes**. **Open user guide** opens this guide as a file.
+Open this help any time with **Help > GrokNola Help** (Command-?), or **Settings > General > Ask about GrokNola**. **Open user guide** opens this guide as a file.
 
 ## Home
 
@@ -307,8 +307,8 @@ Delete a meeting from the sidebar (swipe or right-click) or from **More > Delete
 
 1. The meeting moves to `~/Library/Application Support/GrokNotes/Trash/` with its notes, transcript, and audio.
 2. A bar at the bottom says "Deleted “<title>”" for a few seconds. Click **Undo** to restore it.
-3. Or press Command-Z (**Edit > Undo Delete Meeting**) while Grok Notes is open. Shift-Command-Z deletes it again.
-4. Grok Notes removes meetings from the Trash folder 30 days after you delete them, when it opens. To restore one later, quit Grok Notes and move its folder from `Trash` back to `Meetings`.
+3. Or press Command-Z (**Edit > Undo Delete Meeting**) while GrokNola is open. Shift-Command-Z deletes it again.
+4. GrokNola removes meetings from the Trash folder 30 days after you delete them, when it opens. To restore one later, quit GrokNola and move its folder from `Trash` back to `Meetings`.
 
 You cannot delete a meeting while it is recording.
 
@@ -327,14 +327,14 @@ The status line shows the active source, for example "Google via Cursor · synce
 
 ### Google Calendar through Cursor
 
-Grok Notes has no Google sign-in. A Cursor agent reads Google Calendar and writes `~/Library/Application Support/GrokNotes/calendar.json`. Grok Notes only reads that file.
+GrokNola has no Google sign-in. A Cursor agent reads Google Calendar and writes `~/Library/Application Support/GrokNotes/calendar.json`. GrokNola only reads that file.
 
-1. Install the skill: `mkdir -p ~/.cursor/skills && cp -R skills/grok-notes-calendar-sync ~/.cursor/skills/` (from the Grok Notes source folder).
+1. Install the skill: `mkdir -p ~/.cursor/skills && cp -R skills/grok-notes-calendar-sync ~/.cursor/skills/` (from the GrokNola source folder).
 2. Connect a Google Calendar MCP server in **Cursor Settings > MCP**.
-3. In Cursor, say **"Sync my calendar for Grok Notes"**. (**Settings > Calendar & Drive > Copy sync prompt** copies it.)
-4. To keep it fresh while Cursor is open, run `/loop 30m sync my calendar for Grok Notes` in Cursor.
+3. In Cursor, say **"Sync my calendar for GrokNola"**. (**Settings > Calendar & Drive > Copy sync prompt** copies it.)
+4. To keep it fresh while Cursor is open, run `/loop 30m sync my calendar for GrokNola` in Cursor.
 
-Grok Notes watches the file and reloads it within a minute. Events you declined are ignored.
+GrokNola watches the file and reloads it within a minute. Events you declined are ignored.
 
 ### Apple Calendar
 
@@ -343,11 +343,11 @@ Grok Notes watches the file and reloads it within a minute. Events you declined 
 
 ## Google Drive export
 
-With **Google Drive for desktop** installed and signed in, Grok Notes can copy each meeting into your synced My Drive. There is no Google sign-in in the app.
+With **Google Drive for desktop** installed and signed in, GrokNola can copy each meeting into your synced My Drive. There is no Google sign-in in the app.
 
 1. Open **Settings > Calendar & Drive**.
 2. Turn on **Copy notes to Google Drive when saved**.
-3. Optionally set **Subfolder under My Drive (optional)**, for example `Grok Notes`. Leave it blank to write at the top of My Drive.
+3. Optionally set **Subfolder under My Drive (optional)**, for example `GrokNola`. Leave it blank to write at the top of My Drive.
 
 On each save, the app copies `notes.md` and `meeting.json` to `My Drive/<subfolder>/<yyyy-MM-dd Meeting title>/`. Settings shows "Google Drive for desktop is mounted." or "Drive not found. Install Google Drive for desktop and sign in." If Drive is not mounted, the app keeps saving locally and does not show an error.
 
@@ -378,7 +378,7 @@ What is sent to xAI (`api.x.ai`), and nowhere else:
 Audio settings in **Settings > Privacy & Data**:
 
 - **Keep audio recordings after notes are written** (off by default). When off, the audio is deleted after the notes are written, and clips and the player are not available.
-- **Delete kept audio after**: **Never**, **7 days**, **30 days**, or **90 days**. Old recordings are removed when Grok Notes opens. Notes and transcripts stay.
+- **Delete kept audio after**: **Never**, **7 days**, **30 days**, or **90 days**. Old recordings are removed when GrokNola opens. Notes and transcripts stay.
 
 ## Models and language
 
@@ -397,7 +397,7 @@ Audio settings in **Settings > Privacy & Data**:
 | Shift-Command-H | Home |
 | Shift-Command-U | Usage & Cost |
 | Command-comma | Settings |
-| Command-? | Grok Notes Help |
+| Command-? | GrokNola Help |
 | Command-Return | Send in Ask Grok (sidebar chat) |
 | Command-1 / 2 / 3 | Notes, Transcript, or Ask tab of the open meeting |
 | Option-Command-I | Show or hide Meeting info |
@@ -419,8 +419,8 @@ Audio settings in **Settings > Privacy & Data**:
 The banner "System audio is off (…). Recording the microphone only." means macOS refused system audio. This happens when the permission is missing, when the app was not relaunched after granting it, or after a rebuild changed the app's signature (macOS then declines silently, even though the switch looks on).
 
 1. Open **System Settings > Privacy & Security > Screen & System Audio Recording**.
-2. Select **Grok Notes** and remove it with the minus button. Add it again with the plus button (or click **Allow** in **Settings > Recording**), and turn it on.
-3. Quit and reopen Grok Notes.
+2. Select **GrokNola** and remove it with the minus button. Add it again with the plus button (or click **Allow** in **Settings > Recording**), and turn it on.
+3. Quit and reopen GrokNola.
 4. If you build the app yourself, run `./scripts/create-signing-cert.sh` once so later rebuilds keep the permission.
 
 ### No audio from your mic, or no call audio
@@ -444,7 +444,7 @@ Both warnings are hints. A quiet listener or a long monologue can trigger them; 
 - With system audio on, the app uses echo cancellation so remote voices from your speakers are not transcribed as you. Some devices (for example Bluetooth headsets, or input and output at different sample rates) refuse it with error -10875. Then the app falls back to the plain microphone and shows "Echo cancellation is not supported by your current audio devices. Use headphones so other voices are not transcribed as you."
 - If you always wear headphones, turn off **Settings > Recording > Echo cancellation**.
 - "Could not start the microphone" means no input device is available or another app holds it. Check **System Settings > Sound > Input**, then start again.
-- "Grok Notes needs microphone access" means the Microphone permission is off. Turn it on in **System Settings > Privacy & Security > Microphone**.
+- "GrokNola needs microphone access" means the Microphone permission is off. Turn it on in **System Settings > Privacy & Security > Microphone**.
 
 ### My voice is quiet
 
@@ -460,7 +460,7 @@ The app automatically raises a quiet microphone by up to 12 dB while recording. 
 
 ### Calendar is stale or empty
 
-- Check the status line in **Settings > Calendar & Drive**. "Stale: last synced …" means `calendar.json` is older than 24 hours. Say "Sync my calendar for Grok Notes" in Cursor, or run `/loop 30m sync my calendar for Grok Notes`, then click **Reload**.
+- Check the status line in **Settings > Calendar & Drive**. "Stale: last synced …" means `calendar.json` is older than 24 hours. Say "Sync my calendar for GrokNola" in Cursor, or run `/loop 30m sync my calendar for GrokNola`, then click **Reload**.
 - "calendar.json could not be read" means the file is malformed. Sync again.
 - For Apple Calendar, allow the Calendar permission and set the source to **Apple Calendar** or **Automatic**.
 

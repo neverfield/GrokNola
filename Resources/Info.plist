@@ -9,9 +9,9 @@
 	<key>CFBundleIdentifier</key>
 	<string>dev.local.groknotes</string>
 	<key>CFBundleName</key>
-	<string>Grok Notes</string>
+	<string>GrokNola</string>
 	<key>CFBundleDisplayName</key>
-	<string>Grok Notes</string>
+	<string>GrokNola</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIconName</key>
@@ -29,14 +29,14 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Grok Notes transcribes your side of the meeting from the microphone.</string>
+	<string>GrokNola transcribes your side of the meeting from the microphone.</string>
 	<key>NSAudioCaptureUsageDescription</key>
-	<string>Grok Notes transcribes the other participants from your computer's audio.</string>
+	<string>GrokNola transcribes the other participants from your computer's audio.</string>
 	<key>NSScreenCaptureUsageDescription</key>
-	<string>Grok Notes records system audio from your meeting app. It does not record your screen.</string>
+	<string>GrokNola records system audio from your meeting app. It does not record your screen.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>Grok Notes reads the current calendar event to title the meeting and know who was invited.</string>
+	<string>GrokNola reads the current calendar event to title the meeting and know who was invited.</string>
 	<key>NSCalendarsUsageDescription</key>
-	<string>Grok Notes reads the current calendar event to title the meeting and know who was invited.</string>
+	<string>GrokNola reads the current calendar event to title the meeting and know who was invited.</string>
 </dict>
 </plist>

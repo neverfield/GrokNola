@@ -58,7 +58,7 @@ private struct PermissionRow: View {
             }
             Spacer()
             if !granted {
-                if offerRelaunch { Button("Relaunch Grok Notes", action: relaunch) }
+                if offerRelaunch { Button("Relaunch GrokNola", action: relaunch) }
                 Button("Allow", action: request)
             }
         }

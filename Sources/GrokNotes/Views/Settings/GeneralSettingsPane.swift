@@ -25,7 +25,7 @@ struct GeneralSettingsPane: View {
 
             Section("Help") {
                 HStack {
-                    AskHelpButton(state: state, title: "Ask about Grok Notes")
+                    AskHelpButton(state: state, title: "Ask about GrokNola")
                     if let guide = HelpGuide.url {
                         Button("Open user guide") { NSWorkspace.shared.open(guide) }
                     }

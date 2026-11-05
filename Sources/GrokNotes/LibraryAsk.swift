@@ -52,7 +52,7 @@ enum LibraryAsk {
             Be concise. Use short bullets for lists.
             """ + (route == .both ? """
 
-            The question may be about the meetings, about how Grok Notes works, or both. \
+            The question may be about the meetings, about how GrokNola works, or both. \
             Answer app questions from the user guide with the rules above, and meeting questions from the meetings. \
             Leave out the part that does not apply.
             """ : "")))
@@ -66,8 +66,8 @@ enum LibraryAsk {
     /// The guide comes first and does not change between questions, so xAI can cache it.
     private static func helpPrompt(hasMeetings: Bool) -> String {
         """
-        You are the built-in help for Grok Notes, a macOS meeting notepad. Answer questions about how the app works \
-        (features, settings, permissions, troubleshooting) using only the Grok Notes user guide below.
+        You are the built-in help for GrokNola, a macOS meeting notepad. Answer questions about how the app works \
+        (features, settings, permissions, troubleshooting) using only the GrokNola user guide below.
         - Give concrete numbered steps. Name the exact UI labels from the guide in bold, for example **Settings > Privacy > Keep audio recordings after notes are written**, and include the keyboard shortcut when the guide lists one.
         - If the guide does not cover something, say that the guide does not cover it and point to the closest topic it does cover. Never invent features, settings, menu items, file paths, or shortcuts.
         - These Markdown links open places in the app; add one when it saves the user a step: \(AppLink.promptList). Use no other groknotes:// links in help answers.
