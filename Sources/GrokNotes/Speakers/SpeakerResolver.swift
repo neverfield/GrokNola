@@ -19,18 +19,112 @@ enum SpeakerResolver {
         }
 
         for (key, tally) in votes {
-            if let existing = meeting.speakers[key], existing.attribution == .manual { continue }
+            let existing = meeting.speakers[key]
+            if existing?.attribution == .manual { continue }
             let total = tally.values.reduce(0, +)
             guard let (name, count) = tally.max(by: { $0.value < $1.value }),
                   count >= 3, Double(count) / Double(total) >= 0.6
             else { continue }
+            // A name found during recording is replaced only by clearly stronger evidence for someone else.
+            if let existing, existing.identifiedLiveAt != nil, let liveName = existing.name,
+               liveName.caseInsensitiveCompare(name) != .orderedSame,
+               count < 5 || Double(count) / Double(total) < 0.8 {
+                continue
+            }
             meeting.speakers[key] = SpeakerInfo(
                 name: name,
                 attribution: .activeSpeaker,
                 confidence: Double(count) / Double(total),
-                evidence: "Shown as talking in \(count) of \(total) samples"
+                evidence: "Shown as talking in \(count) of \(total) samples",
+                identifiedLiveAt: existing?.identifiedLiveAt
             )
         }
+    }
+
+    /// Carries names from a transcript's speaker keys onto the keys of a re-diarized transcript of the same audio.
+    /// A new key takes a name when most of its speech overlaps speech that had that name. Manual names in `meeting`
+    /// are kept unless `includeManualTargets`; provisional names are not carried.
+    static func carryNames(from old: Meeting, into meeting: inout Meeting, onlyManual: Bool = false, includeManualTargets: Bool = false) {
+        let named = old.utterances.filter { u in
+            guard u.speakerKey != Meeting.meKey, let info = old.speakers[u.speakerKey],
+                  let name = info.name, !name.isEmpty, !info.isProvisional
+            else { return false }
+            return !onlyManual || info.attribution == .manual
+        }
+        guard !named.isEmpty else { return }
+        for key in meeting.speakerKeys where key != Meeting.meKey {
+            if !includeManualTargets, meeting.speakers[key]?.attribution == .manual { continue }
+            let turns = meeting.utterances.filter { $0.speakerKey == key }
+            let total = turns.reduce(0) { $0 + max(0, $1.end - $1.start) }
+            guard total > 0 else { continue }
+            var overlap: [String: (seconds: Double, info: SpeakerInfo)] = [:]
+            for turn in turns {
+                for u in named {
+                    let seconds = min(turn.end, u.end) - max(turn.start, u.start)
+                    guard seconds > 0, let info = old.speakers[u.speakerKey], let name = info.name else { continue }
+                    let slot = name.lowercased()
+                    let previous = overlap[slot]
+                    // Keep the earliest evidence for a name, unless a later one is a name you set.
+                    let kept = previous.map { info.attribution == .manual && $0.info.attribution != .manual ? info : $0.info } ?? info
+                    overlap[slot] = ((previous?.seconds ?? 0) + seconds, kept)
+                }
+            }
+            let covered = overlap.values.reduce(0) { $0 + $1.seconds }
+            guard let best = overlap.values.max(by: { $0.seconds < $1.seconds }),
+                  best.seconds >= 0.5 * total, best.seconds >= 0.7 * covered
+            else { continue }
+            var info = best.info
+            info.provisional = nil
+            if info.attribution != .manual {
+                info.evidence = [info.evidence, "matched to the full-recording voice"].compactMap { $0 }.joined(separator: "; ")
+            }
+            meeting.speakers[key] = info
+        }
+    }
+
+    /// Asks Grok whose tile is highlighted in a few snapshots taken while one voice talked alone.
+    /// Used during recording for a voice that is still unnamed. Nil when the reply is unclear.
+    static func identifyLive(
+        key: String,
+        frames: [WindowSnapshotter.Frame],
+        appName: String?,
+        myName: String,
+        client: XAIClient,
+        model: String
+    ) async throws -> (name: String, confidence: Double, evidence: String?)? {
+        var parts: [XAIClient.Part] = [.text("Meeting app: \(appName ?? "unknown"). Labels: \(key).")]
+        for (index, frame) in frames.enumerated() {
+            guard let data = try? Data(contentsOf: frame.url) else { continue }
+            parts.append(.text("Label \(key), screenshot \(index + 1) at \(Meeting.timestamp(frame.time)):"))
+            parts.append(.jpeg(data))
+        }
+        guard parts.count > 1 else { return nil }
+        let reply = try await client.chat(model: model, system: snapshotPrompt(myName: myName), parts: parts)
+        guard let json = extractJSONObject(reply),
+              let parsed = try? JSONDecoder().decode(SnapshotReply.self, from: Data(json.utf8)),
+              let mapping = parsed.mappings?.first(where: { $0.speaker == key }),
+              let name = mapping.name?.trimmingCharacters(in: .whitespaces), !name.isEmpty,
+              !isLikelyUser(name, myName: myName),
+              let confidence = mapping.confidence
+        else { return nil }
+        return (name, confidence, mapping.evidence)
+    }
+
+    private static func snapshotPrompt(myName: String) -> String {
+        """
+        You read screenshots of a video-call window (Zoom, Microsoft Teams, Google Meet, Slack huddle, Webex).
+        Each screenshot was taken while one remote participant was talking. That speaker has a voice label like r0.
+        Apps show the current speaker with a highlighted or colored tile border, a large speaker-view tile,
+        a moving audio or microphone indicator, or a "Talking:" label. Tiles show participant names.
+
+        For each label, decide who is talking from its screenshots. Agreement across screenshots raises confidence.
+        The user, \(myName.isEmpty ? "the local participant" : myName), is not any of these labels. Never give a label the user's name.
+        If no speaker indicator is clear, return null for that label. Do not guess from tile position alone.
+        Also list every participant name you can read anywhere in the screenshots.
+
+        Reply with JSON only:
+        {"participants":["<name>"],"mappings":[{"speaker":"<label>","name":"<name or null>","confidence":<0 to 1>,"evidence":"<what you saw>"}]}
+        """
     }
 
     /// Shows Grok meeting-window snapshots taken while each unidentified voice was talking alone,
@@ -53,20 +147,7 @@ enum SpeakerResolver {
         let rosterFrames = picked.isEmpty ? evenlySpaced(frames, count: 3) : []
         guard !picked.isEmpty || !rosterFrames.isEmpty else { return [] }
 
-        let system = """
-        You read screenshots of a video-call window (Zoom, Microsoft Teams, Google Meet, Slack huddle, Webex).
-        Each screenshot was taken while one remote participant was talking. That speaker has a voice label like r0.
-        Apps show the current speaker with a highlighted or colored tile border, a large speaker-view tile,
-        a moving audio or microphone indicator, or a "Talking:" label. Tiles show participant names.
-
-        For each label, decide who is talking from its screenshots. Agreement across screenshots raises confidence.
-        The user, \(myName.isEmpty ? "the local participant" : myName), is not any of these labels. Never give a label the user's name.
-        If no speaker indicator is clear, return null for that label. Do not guess from tile position alone.
-        Also list every participant name you can read anywhere in the screenshots.
-
-        Reply with JSON only:
-        {"participants":["<name>"],"mappings":[{"speaker":"<label>","name":"<name or null>","confidence":<0 to 1>,"evidence":"<what you saw>"}]}
-        """
+        let system = snapshotPrompt(myName: myName)
         var parts: [XAIClient.Part] = [.text("Meeting app: \(meeting.appName ?? "unknown"). Labels: \(picked.map(\.key).joined(separator: ", ")).")]
         for (key, chosen) in picked {
             for (index, frame) in chosen.enumerated() {
@@ -115,7 +196,7 @@ enum SpeakerResolver {
 
     /// The user's own tile may show their full name, their bare first name, or "(me)".
     /// Another participant who shares the user's first name ("Andrew Parsons") is not the user.
-    private static func isLikelyUser(_ name: String, myName: String) -> Bool {
+    static func isLikelyUser(_ name: String, myName: String) -> Bool {
         let n = name.lowercased().trimmingCharacters(in: .whitespaces)
         if n.contains("(me)") || n == "me" || n == "you" { return true }
         let mine = myName.lowercased()
@@ -129,7 +210,7 @@ enum SpeakerResolver {
 
     /// Up to `limit` frames taken in the middle of this speaker's longer turns while nobody else spoke,
     /// spread at least 15 seconds apart when possible.
-    private static func pickFrames(for key: String, in meeting: Meeting, from frames: [WindowSnapshotter.Frame], limit: Int = 3) -> [WindowSnapshotter.Frame] {
+    static func pickFrames(for key: String, in meeting: Meeting, from frames: [WindowSnapshotter.Frame], limit: Int = 3) -> [WindowSnapshotter.Frame] {
         let turns = meeting.utterances.filter { $0.speakerKey == key && $0.end - $0.start >= 1.5 }
         var scored: [(frame: WindowSnapshotter.Frame, turnLength: Double)] = []
         for frame in frames {

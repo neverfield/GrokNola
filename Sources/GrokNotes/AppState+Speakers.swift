@@ -40,6 +40,7 @@ extension AppState {
             m.refreshAttributionMode()
             if m.enhancedNotes != nil { m.speakersEditedAt = Date() }
         }
+        liveSpeakersMerged(from: from, into: target, in: id)
         save(id)
         registerSpeakerUndo(id, restoring: before, actionName: Self.mergeSpeakersActionName, undoManager: undoManager)
         let targetName = meeting(id)?.displayName(for: target, myName: Prefs.myName) ?? target

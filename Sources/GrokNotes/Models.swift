@@ -56,6 +56,13 @@ struct SpeakerInfo: Codable, Hashable {
     var attribution: Attribution
     var confidence: Double?
     var evidence: String?
+    // Added after the first release: keep these Optional so older meeting.json files still decode.
+    /// True while a name found during recording is still a guess. Nil reads as confirmed.
+    var provisional: Bool?
+    /// Meeting time when the name was first found during recording. Nil for names found after the meeting.
+    var identifiedLiveAt: Double?
+
+    var isProvisional: Bool { provisional ?? false }
 }
 
 struct ChatMessage: Codable, Identifiable, Hashable {

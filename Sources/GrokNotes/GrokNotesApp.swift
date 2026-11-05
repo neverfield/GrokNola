@@ -15,6 +15,7 @@ struct GrokNotesApp: App {
                 .environmentObject(state.calendars)
                 .environmentObject(state.liveAnswers)
                 .environmentObject(state.recording)
+                .environmentObject(state.recording.speakers)
                 .tint(GrokColors.accent)
                 .frame(minWidth: 900, minHeight: 600)
         }

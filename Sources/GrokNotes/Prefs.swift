@@ -48,6 +48,10 @@ enum Prefs {
     }
     static var inferNames: Bool { defaults.object(forKey: "inferNames") as? Bool ?? true }
     static var useSnapshots: Bool { defaults.object(forKey: "useSnapshots") as? Bool ?? true }
+    /// Put names on speakers while recording, not only after the meeting.
+    static var liveSpeakerID: Bool { defaults.object(forKey: "liveSpeakerID") as? Bool ?? true }
+    /// While recording, ask Grok about snapshots for a voice that stays unnamed, at most once a minute.
+    static var liveSpeakerSnapshots: Bool { defaults.object(forKey: "liveSpeakerSnapshots") as? Bool ?? true }
     static var exportToGoogleDrive: Bool { defaults.object(forKey: "exportToGoogleDrive") as? Bool ?? false }
     static var googleDriveSubfolder: String? { nonEmpty(defaults.string(forKey: "googleDriveSubfolder")) }
     static var autoTag: Bool { defaults.object(forKey: "autoTag") as? Bool ?? true }

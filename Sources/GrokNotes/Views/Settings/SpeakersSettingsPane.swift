@@ -3,6 +3,8 @@ import SwiftUI
 struct SpeakersSettingsPane: View {
     @AppStorage("useSnapshots") private var useSnapshots = true
     @AppStorage("inferNames") private var inferNames = true
+    @AppStorage("liveSpeakerID") private var liveSpeakerID = true
+    @AppStorage("liveSpeakerSnapshots") private var liveSpeakerSnapshots = true
 
     var body: some View {
         Form {
@@ -13,6 +15,12 @@ struct SpeakersSettingsPane: View {
                 if !Prefs.knownPeople.isEmpty {
                     LabeledContent("Remembered people", value: "\(Prefs.knownPeople.count)")
                 }
+            }
+            Section("While recording") {
+                Toggle("Identify speakers live", isOn: $liveSpeakerID)
+                Toggle("Read snapshots for unnamed speakers during the call", isOn: $liveSpeakerSnapshots)
+                    .disabled(!liveSpeakerID || !useSnapshots)
+                SettingsCaption("Names appear in the transcript as people talk. A name with \"?\" is still a guess; click any name to correct it. Live snapshot reads go to Grok at most once a minute, only for a voice that is still unnamed, and count toward Usage & Cost. The full pass after the meeting checks every name again.")
             }
         }
     }
