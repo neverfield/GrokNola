@@ -17,33 +17,60 @@ struct NotesTab: View {
                 Divider()
             }
 
-            let showSummary = !recording && !(meeting?.utterances.isEmpty ?? true)
-            if let enhanced, !recording, !showMyNotes {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: GrokSpacing.lg) {
-                        if showSummary { CallSummaryCard(meetingID: meetingID) }
-                        let playable = state.canPlayClips(meetingID)
-                        MarkdownView(markdown: enhanced, citationMeetingID: meetingID, playable: playable)
-                        if !playable, !Prefs.keepAudio, Citations.contains(enhanced) {
-                            KeepAudioHint().padding(.top, GrokSpacing.sm)
+            let hasTranscript = !recording && !(meeting?.utterances.isEmpty ?? true)
+            let showEnhanced = enhanced != nil && !recording && !showMyNotes
+            // The editor shows the summary only when there are no enhanced notes to switch to.
+            let showSummary = hasTranscript && (showEnhanced || enhanced == nil)
+            GeometryReader { geo in
+                let wide = showSummary && geo.size.width >= Self.sideColumnMinWidth
+                HStack(spacing: 0) {
+                    VStack(spacing: 0) {
+                        if showSummary, !wide, !showEnhanced {
+                            CallSummaryCard(meetingID: meetingID)
+                                .padding([.horizontal, .top], GrokSpacing.contentInset)
+                                .frame(maxWidth: 680, alignment: .leading)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                                .background(GrokColors.notesSurface)
+                        }
+                        if showEnhanced, let enhanced {
+                            enhancedNotes(enhanced, summaryAbove: showSummary && !wide)
+                        } else {
+                            notesEditor(meeting: meeting, recording: recording)
                         }
                     }
-                    .padding(GrokSpacing.contentInset)
-                    .frame(maxWidth: 680, alignment: .leading)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    if wide {
+                        Divider()
+                        ScrollView {
+                            CallSummaryCard(meetingID: meetingID, style: .sidebar)
+                        }
+                        .frame(width: Self.sideColumnWidth)
+                        .background(.quaternary.opacity(0.18))
+                    }
                 }
-                .background(Color(nsColor: .textBackgroundColor))
-            } else {
-                if showSummary, enhanced == nil {
-                    CallSummaryCard(meetingID: meetingID)
-                        .padding([.horizontal, .top], GrokSpacing.contentInset)
-                        .frame(maxWidth: 680, alignment: .leading)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .background(GrokColors.notesSurface)
-                }
-                notesEditor(meeting: meeting, recording: recording)
             }
         }
+    }
+
+    /// Below this pane width the call summary goes above the notes instead of beside them.
+    private static let sideColumnMinWidth: CGFloat = 900
+    private static let sideColumnWidth: CGFloat = 290
+
+    private func enhancedNotes(_ enhanced: String, summaryAbove: Bool) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: GrokSpacing.lg) {
+                if summaryAbove { CallSummaryCard(meetingID: meetingID) }
+                let playable = state.canPlayClips(meetingID)
+                MarkdownView(markdown: enhanced, citationMeetingID: meetingID, playable: playable)
+                if !playable, !Prefs.keepAudio, Citations.contains(enhanced) {
+                    KeepAudioHint().padding(.top, GrokSpacing.sm)
+                }
+            }
+            .padding(GrokSpacing.contentInset)
+            .frame(maxWidth: 680, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .background(Color(nsColor: .textBackgroundColor))
     }
 
     @ViewBuilder

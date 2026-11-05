@@ -101,7 +101,7 @@ A remote speaker without strong evidence stays **Them**. When permissions are mi
 
 ### Rename a speaker
 
-1. Click a speaker name: in the transcript, on the call summary card, or in **Meeting info** (the info button in the toolbar) > **Speakers**.
+1. Click a speaker name: in the transcript, in the call summary, or in **Meeting info** (the info button in the toolbar) > **Speakers**.
 2. In "Who is this?", type a name or click a suggestion (invitees and remembered people).
 3. Click **Save**. **Clear name** goes back to Me or Them.
 
@@ -156,13 +156,15 @@ Facts and action items in enhanced notes end with transcript timestamps, such as
 
 Clips need **Settings > Privacy > Keep audio recordings after notes are written** to be on before the meeting. If it was off, a hint says "Turn on Keep audio in Settings to play clips from future meetings." Audio of past meetings cannot be recovered.
 
-## Call summary card
+## Call summary
 
-Above the enhanced notes, a card shows:
+After the meeting, the call summary shows beside the notes, in a column on the right. It stays in view while you scroll the notes. When the window is narrow (for example with **Meeting info** open), it shows above the notes instead. Click **Call summary** to collapse or expand it there; Grok Notes remembers your choice.
+
+The call summary shows:
 
 - The duration, start time, and meeting app.
-- Each speaker's talk time as a bar, a percent, and a duration. Hover for the word count. Click a name to rename it.
-- **Chapters**: the meeting split into topic chapters, with start time and share of the meeting. Click a chapter to play from its start (or to show it in the transcript when the audio was not kept).
+- **Speakers**: each speaker's talk time as a bar, a percent, and a duration. Hover for the word count. Click a name to rename it.
+- **Chapters**: the meeting split into topic chapters, with start time and share of the meeting. Click a chapter to play from its start (or to show it in the transcript when the audio was not kept). While the meeting plays, the current chapter is highlighted.
 
 Older meetings without chapters show their topics and a **Find chapters** button. It asks Grok to split the meeting into chapters ("Finding chapters…").
 

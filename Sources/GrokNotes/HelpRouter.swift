@@ -18,7 +18,7 @@ enum HelpRouter {
         "speaker names", "speaker name", "name speakers", "rename a speaker", "rename speaker", "who is talking",
         "active speaker", "snapshots", "snapshot", "me them", "remembered people",
         "template", "templates", "regenerate", "enhanced notes", "rough notes", "my notes tab",
-        "find chapters", "chapter timeline", "call summary card", "citation", "citations", "timestamps",
+        "find chapters", "chapter timeline", "call summary card", "call summary", "citation", "citations", "timestamps",
         "clip", "clips", "keep audio", "playback", "player", "playback speed", "balance voices", "my voice",
         "transcript tab", "ask grok tab", "ask across notes", "new chat", "up next", "home dashboard",
         "trending topics", "suggest tags", "auto tag", "auto tagging", "tag all untagged", "suggested by grok",
