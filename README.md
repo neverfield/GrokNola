@@ -21,6 +21,8 @@ rebuilds keep their permissions. Set `CODESIGN_IDENTITY` to use another certific
 
 The app icon is `Resources/AppIcon.icns`, built from `Resources/AppIcon-master.png` (shaped by `scripts/shape-icon.swift`; other concepts in `Resources/icon-options/`).
 
+`Resources/Assets.xcassets` holds the amber `AccentColor` that native controls use. The build compiles it with `actool`, which needs Xcode's first-launch setup once per Mac (`sudo xcodebuild -runFirstLaunch`); without it the build warns and falls back to the system accent.
+
 ## Use
 
 1. When a call starts, click **Start notes** (window, menu bar, or Shift-Command-R).

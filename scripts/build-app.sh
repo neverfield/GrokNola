@@ -24,5 +24,30 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp -R Resources/Help "$APP/Contents/Resources/Help"
 
+# The asset catalog gives native controls the amber accent. actool needs
+# Xcode's first-launch setup (sudo xcodebuild -runFirstLaunch).
+ASSETS_TMP="$(mktemp -d -t groknola-assets)"
+PARTIAL_PLIST="$ASSETS_TMP/partial.plist"
+if xcrun --find actool >/dev/null 2>&1 \
+  && xcrun actool Resources/Assets.xcassets \
+    --compile "$APP/Contents/Resources" \
+    --platform macosx \
+    --minimum-deployment-target 14.0 \
+    --accent-color AccentColor \
+    --output-partial-info-plist "$PARTIAL_PLIST" \
+    --output-format human-readable-text --notices --warnings --errors >/dev/null \
+  && [ -f "$APP/Contents/Resources/Assets.car" ]; then
+  :
+else
+  echo "" >&2
+  echo "WARNING: actool could not compile Resources/Assets.xcassets." >&2
+  echo "WARNING: The app will use the system accent color, not amber." >&2
+  echo "WARNING: Run 'sudo xcodebuild -runFirstLaunch', then rebuild." >&2
+  echo "" >&2
+  rm -f "$APP/Contents/Resources/Assets.car"
+  /usr/libexec/PlistBuddy -c "Delete :NSAccentColorName" "$APP/Contents/Info.plist" >/dev/null 2>&1 || true
+fi
+rm -rf "$ASSETS_TMP"
+
 codesign --force --sign "$IDENTITY" "$APP"
 echo "Built $APP"
