@@ -28,8 +28,8 @@ enum HelpGuide {
 
     The full user guide is missing from this build, so only the basics are known.
 
-    - Add your xAI API key in **Settings > xAI API** (Command-comma).
-    - Grant **Microphone**, **Screen & System Audio Recording** (then relaunch), **Accessibility**, and optionally **Apple Calendar** in **Settings > Permissions**.
+    - Add your xAI API key in **Settings > Models & API** (Command-comma).
+    - Grant **Microphone**, **Screen & System Audio Recording** (then relaunch), **Accessibility**, and optionally **Apple Calendar** in **Settings > Recording**.
     - Click **Start notes** (Shift-Command-R) when a call starts, type rough notes, and click **Stop**. Grok writes enhanced notes and names speakers.
     - **Ask Grok** in the sidebar (Command-K) answers across all meetings. **Home** is Shift-Command-H. **Usage & Cost** is Shift-Command-U.
     - Data lives in ~/Library/Application Support/GrokNotes/.
