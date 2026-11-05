@@ -168,7 +168,7 @@ final class AppState: ObservableObject {
             } else {
                 m.speakers[key] = SpeakerInfo(name: name, attribution: .manual, confidence: 1, evidence: nil)
             }
-            if m.mode != .detecting { m.mode = m.hasNamedRemoteSpeaker ? .named : (m.mode == .micOnly ? .micOnly : .meThem) }
+            m.refreshAttributionMode()
         }
         if !name.isEmpty, key != Meeting.meKey { Prefs.remember([name]) }
         save(meetingID)
@@ -540,7 +540,7 @@ final class AppState: ObservableObject {
                 case (.mic, true): key = "m\(epoch)-\(segment.speaker ?? 0)"
                 case (.system, _): key = "s\(epoch)-\(segment.speaker ?? 0)"
                 }
-                let utterance = Utterance(source: source, speakerKey: key, start: segment.start, end: segment.end, text: text)
+                let utterance = Utterance(source: source, speakerKey: m.aliasedKey(key), start: segment.start, end: segment.end, text: text)
                 m.insert(utterance)
                 added.append(utterance)
             }

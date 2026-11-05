@@ -7,6 +7,7 @@ struct CallSummaryCard: View {
 
     @EnvironmentObject private var state: AppState
     @EnvironmentObject private var clips: ClipPlayer
+    @Environment(\.undoManager) private var undoManager
     let meetingID: UUID
     var style: Style = .card
     @AppStorage("callSummaryExpanded") private var expanded = true
@@ -147,6 +148,14 @@ struct CallSummaryCard: View {
         .help("\(stat.words) words")
         .accessibilityElement(children: .combine)
         .accessibilityLabel(spokenTalkTime(stat))
+        .contextMenu { mergeMenu(stat) }
+    }
+
+    @ViewBuilder
+    private func mergeMenu(_ stat: TalkStat) -> some View {
+        if stat.key != Meeting.meKey {
+            MergeSpeakerMenu(meetingID: meetingID, key: stat.key, undoManager: undoManager)
+        }
     }
 
     /// "Sani Yo, 47 percent, 25 minutes" for VoiceOver.
@@ -176,6 +185,7 @@ struct CallSummaryCard: View {
         .help("\(stat.words) words")
         .accessibilityElement(children: .combine)
         .accessibilityLabel(spokenTalkTime(stat))
+        .contextMenu { mergeMenu(stat) }
     }
 
     // MARK: Chapters

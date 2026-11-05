@@ -123,6 +123,17 @@ A remote speaker without strong evidence stays **Them**. When permissions are mi
 2. In "Who is this?", type a name or click a suggestion (invitees and remembered people).
 3. Click **Save**. **Clear name** goes back to Me or Them.
 
+If you type a name another speaker in the meeting already has, GrokNola asks whether to merge the two speakers. **Keep separate** saves the name on both.
+
+### Merge speakers and move lines
+
+Sometimes one person shows up as several speakers, for example two or three **Them**s. Speakers that share a name show a number and when they first talk, such as "Them 2 · 03:12".
+
+- **Merge two speakers.** Click a speaker name and choose **Merge with…**, or Control-click a speaker block in the transcript, or a speaker row in the call summary, and choose **Merge into**. All lines of the first speaker go to the second. The second speaker keeps its name, or takes the first speaker's name when it has none. Your own lines always stay yours.
+- **Move one block.** Control-click a block in the transcript and choose **This line is** and the right speaker.
+
+While recording, later lines from a merged voice join the speaker you merged it into. Edit > Undo (Command-Z) takes back a merge or a move. When the meeting already has enhanced notes, a banner offers **Regenerate notes**, and **Regenerate for new speakers** shows above the notes until you do.
+
 Names you set, and names confirmed by the active speaker or snapshots, are remembered. They help name speakers and spell names in later meetings. **Settings > Speakers** shows the count under **Remembered people**.
 
 **Meeting info > Attribution > Mode** shows how a meeting was named: **Identifying speakers** (still working), **Named speakers**, **Me / Them**, or **Microphone only** (system audio was off). Each speaker shows its source and confidence, for example "active speaker 92%". Hover a name to see the evidence.

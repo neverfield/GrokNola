@@ -96,6 +96,10 @@ struct Meeting: Codable, Identifiable {
     var generatedNotes: String?
     /// When the user last changed the enhanced notes after Grok wrote them. Cleared when Grok writes notes.
     var notesEditedAt: Date?
+    /// Live speaker keys merged into another key while recording, so later segments of that voice join the target.
+    var speakerAliases: [String: String]?
+    /// When speakers were last merged or lines moved after Grok wrote the notes. Cleared when Grok writes notes.
+    var speakersEditedAt: Date?
 }
 
 struct TalkStat: Hashable {
@@ -130,6 +134,7 @@ extension Meeting {
         enhancedNotes = markdown
         generatedNotes = markdown
         notesEditedAt = nil
+        speakersEditedAt = nil
     }
 
     /// Appends the edited enhanced notes to the rough notes, so the next regenerate keeps their changes.

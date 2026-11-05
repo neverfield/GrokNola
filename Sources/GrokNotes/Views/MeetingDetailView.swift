@@ -326,7 +326,7 @@ struct MeetingInspectorView: View {
 
                 if !meeting.speakerKeys.isEmpty {
                     Section("Speakers") {
-                        Text("Click a name to rename.")
+                        Text("Click a name to rename it or merge it with another speaker.")
                             .font(.caption)
                             .foregroundStyle(GrokColors.inkMuted)
                         ForEach(meeting.speakerKeys, id: \.self) { key in
@@ -359,6 +359,7 @@ extension SpeakerColor {
 
 struct SpeakerChip: View {
     @EnvironmentObject private var state: AppState
+    @Environment(\.undoManager) private var undoManager
     let meetingID: UUID
     let key: String
     var showDetail = false
@@ -384,9 +385,10 @@ struct SpeakerChip: View {
             }
         }
         .buttonStyle(.plain)
-        .help(info?.evidence ?? "Click to name this speaker")
+        .help(info?.evidence ?? "Click to name or merge this speaker")
         .popover(isPresented: $editing) {
-            RenameSpeakerView(meetingID: meetingID, key: key, initial: info?.name ?? "") { editing = false }
+            // The popover has its own window, so it gets the meeting window's undo manager from here.
+            RenameSpeakerView(meetingID: meetingID, key: key, initial: info?.name ?? "", undoManager: undoManager) { editing = false }
         }
     }
 
@@ -403,12 +405,27 @@ private struct RenameSpeakerView: View {
     let meetingID: UUID
     let key: String
     let initial: String
+    let undoManager: UndoManager?
     let done: () -> Void
     @State private var name = ""
+    /// The other speaker who already has the typed name, while asking whether to merge.
+    @State private var conflict: String?
 
     var body: some View {
+        Group {
+            if let conflict {
+                conflictView(conflict)
+            } else {
+                renameView
+            }
+        }
+        .padding()
+        .onAppear { name = initial }
+    }
+
+    private var renameView: some View {
         let suggestions = uniqueNames((state.meeting(meetingID)?.attendees ?? []) + Prefs.knownPeople.reversed()).prefix(8)
-        VStack(alignment: .leading, spacing: GrokSpacing.sidebarInset) {
+        return VStack(alignment: .leading, spacing: GrokSpacing.sidebarInset) {
             Text("Who is this?").font(.headline)
             TextField("Name", text: $name).onSubmit(save).frame(width: 240)
             if !suggestions.isEmpty {
@@ -416,17 +433,101 @@ private struct RenameSpeakerView: View {
             }
             HStack {
                 Button("Clear name") { name = ""; save() }
+                MergeSpeakerMenu(meetingID: meetingID, key: key, title: "Merge with…", undoManager: undoManager, before: done)
+                    .fixedSize()
                 Spacer()
                 Button("Save", action: save).keyboardShortcut(.defaultAction)
             }
         }
-        .padding()
-        .onAppear { name = initial }
+    }
+
+    private func conflictView(_ other: String) -> some View {
+        let meeting = state.meeting(meetingID)
+        let otherName = meeting?.distinctName(for: other, myName: Prefs.myName) ?? name
+        let thisName = meeting?.distinctName(for: key, myName: Prefs.myName) ?? key
+        return VStack(alignment: .leading, spacing: GrokSpacing.sidebarInset) {
+            Text("\(otherName) is already a speaker").font(.headline)
+            Text("Merge \(thisName) into \(otherName), so all their lines are one person?")
+                .font(.callout)
+                .foregroundStyle(GrokColors.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(width: 260, alignment: .leading)
+            HStack {
+                Button("Keep separate") { rename() }
+                Spacer()
+                Button("Merge") { merge(into: other) }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!state.canEditSpeakers(meetingID))
+            }
+        }
     }
 
     private func save() {
+        if let other = state.meeting(meetingID)?.speaker(named: name, except: key) {
+            conflict = other
+        } else {
+            rename()
+        }
+    }
+
+    private func rename() {
         state.renameSpeaker(meetingID, key: key, to: name)
         done()
+    }
+
+    private func merge(into other: String) {
+        done()
+        // Your own key survives a merge, so it takes the typed name first.
+        if key == Meeting.meKey { state.renameSpeaker(meetingID, key: key, to: name) }
+        state.mergeSpeakers(from: key, into: other, in: meetingID, undoManager: undoManager)
+    }
+}
+
+/// The other speakers in a meeting, to give all of `key`'s lines to. In menus, popovers, and context menus.
+struct MergeSpeakerMenu: View {
+    @EnvironmentObject private var state: AppState
+    let meetingID: UUID
+    let key: String
+    var title = "Merge into"
+    let undoManager: UndoManager?
+    /// Runs before the merge, for example to close the popover the menu sits in.
+    var before: () -> Void = {}
+
+    var body: some View {
+        let meeting = state.meeting(meetingID)
+        let others = (meeting?.speakerKeys ?? []).filter { $0 != key }
+        Menu(title) {
+            ForEach(others, id: \.self) { other in
+                Button(meeting?.distinctName(for: other, myName: Prefs.myName) ?? other) {
+                    before()
+                    state.mergeSpeakers(from: key, into: other, in: meetingID, undoManager: undoManager)
+                }
+            }
+        }
+        .disabled(others.isEmpty || !state.canEditSpeakers(meetingID))
+        .help("Make this speaker and another one the same person")
+    }
+}
+
+/// Every speaker but the block's own, to give just that block's lines to.
+struct ReassignBlockMenu: View {
+    @EnvironmentObject private var state: AppState
+    let meetingID: UUID
+    let block: TranscriptBlock
+    let undoManager: UndoManager?
+
+    var body: some View {
+        let meeting = state.meeting(meetingID)
+        let keys = meeting?.speakerKeys ?? []
+        let targets = (keys.contains(Meeting.meKey) ? keys : [Meeting.meKey] + keys).filter { $0 != block.speakerKey }
+        Menu("This line is") {
+            ForEach(targets, id: \.self) { other in
+                Button(meeting?.distinctName(for: other, myName: Prefs.myName) ?? other) {
+                    state.reassignBlock(Set(block.lines.map(\.id)), to: other, in: meetingID, undoManager: undoManager)
+                }
+            }
+        }
+        .disabled(targets.isEmpty || !state.canEditSpeakers(meetingID))
     }
 }
 

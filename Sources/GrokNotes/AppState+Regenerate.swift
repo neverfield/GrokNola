@@ -6,6 +6,7 @@ struct NotesVersion {
     var generatedNotes: String?
     var notesEditedAt: Date?
     var notesTemplateID: String?
+    var speakersEditedAt: Date?
     /// Rough notes to put back, applied only while the rough notes still read `ifUserNotes`.
     var userNotes: String?
     var ifUserNotes: String?
@@ -15,6 +16,7 @@ struct NotesVersion {
         generatedNotes = m.generatedNotes
         notesEditedAt = m.notesEditedAt
         notesTemplateID = m.notesTemplateID
+        speakersEditedAt = m.speakersEditedAt
     }
 }
 
@@ -100,6 +102,7 @@ extension AppState {
             $0.generatedNotes = version.generatedNotes
             $0.notesEditedAt = version.notesEditedAt
             $0.notesTemplateID = version.notesTemplateID
+            $0.speakersEditedAt = version.speakersEditedAt
             if restoreRough, let rough = version.userNotes { $0.userNotes = rough }
         }
         save(id)

@@ -135,6 +135,14 @@ struct NotesTab: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
                 .help("These notes were written with another template")
+            } else if !recording, meeting?.speakersChangedSinceNotes == true {
+                Button("Regenerate for new speakers") {
+                    editing = false
+                    state.requestRegenerate(meetingID, undoManager: undoManager)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .help("Speakers were merged or lines moved after these notes were written")
             } else if enhanced == nil, !recording, let meeting, !meeting.utterances.isEmpty || !meeting.userNotes.isEmpty {
                 Button("Write notes") { state.requestRegenerate(meetingID, undoManager: undoManager) }
                     .controlSize(.small)
@@ -461,6 +469,7 @@ struct TranscriptTab: View {
 
 private struct TranscriptBlockView: View {
     @EnvironmentObject private var state: AppState
+    @Environment(\.undoManager) private var undoManager
     let meetingID: UUID
     let block: TranscriptBlock
     var playable = false
@@ -528,6 +537,11 @@ private struct TranscriptBlockView: View {
             if inChapter {
                 Button("Copy from Here to End of Chapter") { state.copyTranscript(meetingID, .toChapterEnd(block.id)) }
             }
+            Divider()
+            if block.speakerKey != Meeting.meKey {
+                MergeSpeakerMenu(meetingID: meetingID, key: block.speakerKey, undoManager: undoManager)
+            }
+            ReassignBlockMenu(meetingID: meetingID, block: block, undoManager: undoManager)
         }
     }
 }
