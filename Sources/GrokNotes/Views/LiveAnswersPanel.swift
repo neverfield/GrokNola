@@ -29,9 +29,8 @@ struct LiveAnswersPanel: View {
                     if cards.isEmpty, pending == nil {
                         emptyState(recording: recording)
                     }
-                    ForEach(Array(cards.enumerated()), id: \.element.id) { index, card in
+                    ForEach(cards) { card in
                         LiveAnswerCardView(card: card, showLatency: showLatency)
-                            .opacity(card.isPinned ? 1 : max(0.5, 1 - Double(index) * 0.09))
                     }
                 }
                 .padding(GrokSpacing.md)
@@ -111,8 +110,7 @@ private struct LiveAnswerCardView: View {
             case .failed(let message):
                 Text(message).font(.caption).foregroundStyle(.red).lineLimit(3)
             case .streaming, .done:
-                MarkdownView(markdown: card.answer)
-                    .font(.callout)
+                MarkdownView(markdown: card.answer, textStyle: .callout)
             }
 
             if !card.citedSources.isEmpty {

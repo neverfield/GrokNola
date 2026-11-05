@@ -25,7 +25,13 @@ enum GrokTypography {
     static func placeholder() -> Font { .title3.weight(.regular) }
     static func emptyStateTitle() -> Font { .largeTitle.weight(.semibold) }
     static func emptyStateBody() -> Font { .body }
-    static func citation() -> Font { .caption2.monospacedDigit() }
+    /// One step above caption on macOS, where caption and footnote are both 10 points.
+    static func citation() -> Font { .subheadline.monospacedDigit().weight(.medium) }
+}
+
+enum GrokOpacity {
+    /// Hover-revealed controls when the pointer is elsewhere: visible enough to find, quiet enough to read past.
+    static let idleControl: Double = 0.35
 }
 
 // MARK: - Semantic colors (system)

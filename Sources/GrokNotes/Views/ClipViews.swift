@@ -1,14 +1,25 @@
 import SwiftUI
 
 extension Citations {
-    /// Small, raised styling for citation and play links in rendered Markdown.
+    /// Tinted, padded styling for citation links in SwiftUI text, matching the pills in rendered notes.
     static func style(_ attributed: inout AttributedString) {
         let ranges = attributed.runs.filter { run in
             run.link.map { target(from: $0) != nil || playTarget(from: $0) != nil } ?? false
         }.map(\.range)
-        for range in ranges {
+        // Indices go stale after an insert, so work from character offsets, last citation first.
+        let offsets = ranges.map {
+            (attributed.characters.distance(from: attributed.startIndex, to: $0.lowerBound),
+             attributed.characters.distance(from: attributed.startIndex, to: $0.upperBound))
+        }
+        for (lower, upper) in offsets.reversed() {
+            let range = attributed.index(attributed.startIndex, offsetByCharacters: lower)..<attributed.index(attributed.startIndex, offsetByCharacters: upper)
             attributed[range].font = GrokTypography.citation()
-            attributed[range].baselineOffset = 2
+            attributed[range].foregroundColor = .accentColor
+            attributed[range].backgroundColor = Color.accentColor.opacity(0.13)
+            let container = attributed[range].runs.first?.attributes ?? AttributeContainer()
+            let pad = AttributedString("\u{2009}", attributes: container)
+            attributed.insert(pad, at: attributed.index(attributed.startIndex, offsetByCharacters: upper))
+            attributed.insert(pad, at: attributed.index(attributed.startIndex, offsetByCharacters: lower))
         }
     }
 }
@@ -75,7 +86,7 @@ struct NowPlayingBar: View {
     }
 }
 
-/// Plays the recording from a transcript block on, shown on hover and while playback is in that block.
+/// Plays the recording from a transcript block on. Faint until hovered, focused, or playing that block.
 struct ClipPlayButton: View {
     @EnvironmentObject private var state: AppState
     @EnvironmentObject private var clips: ClipPlayer
@@ -84,6 +95,7 @@ struct ClipPlayButton: View {
     var visible: Bool
     /// Whether playback is inside this block.
     var current = false
+    @FocusState private var focused: Bool
 
     var body: some View {
         let playing = current && clips.isPlaying && clips.loadedID == meetingID
@@ -99,8 +111,9 @@ struct ClipPlayButton: View {
         }
         .buttonStyle(.plain)
         .help(playing ? "Pause" : "Play from here")
-        .accessibilityLabel(playing ? "Pause" : "Play from here")
-        .opacity(visible || playing ? 1 : 0)
+        .accessibilityLabel(playing ? "Pause" : "Play from \(Citations.label(start))")
+        .focused($focused)
+        .opacity(visible || playing || focused ? 1 : GrokOpacity.idleControl)
     }
 }
 

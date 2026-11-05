@@ -1,12 +1,6 @@
 import AppKit
 import SwiftUI
 
-enum ChapterColor {
-    private static let palette: [Color] = [.blue, .purple, .teal, .orange, .pink, .indigo, .mint, .brown]
-
-    static func color(_ index: Int) -> Color { palette[index % palette.count] }
-}
-
 /// The bottom bar of a meeting with kept audio: transport, rate, and a timeline of the whole meeting with its chapters.
 /// Space plays or pauses and the arrow keys move 5 seconds, unless a text field has focus.
 struct MeetingPlayerBar: View {
@@ -255,6 +249,8 @@ private struct PlayerTimeline: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(.primary)
                 .help("\(c.title) · \(Meeting.timestamp(c.start)) · \(Meeting.durationLabel(c.length))")
+                .accessibilityLabel("Chapter \(i + 1): \(c.title)")
+                .accessibilityHint("Plays from \(Citations.label(c.start))")
                 .offset(x: x)
             }
         }
@@ -344,7 +340,8 @@ private struct PlayerTimeline: View {
     }
 }
 
-/// Watches key presses in one window for the player, leaving them to text fields that are being edited.
+/// Watches key presses in one window for the player, leaving them to whatever has keyboard focus and uses them:
+/// text being edited, buttons and other controls, and with Full Keyboard Access, any focused SwiftUI control.
 @MainActor
 final class PlayerKeyMonitor {
     weak var window: NSWindow?
@@ -354,8 +351,28 @@ final class PlayerKeyMonitor {
         stop()
         token = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, let window = self.window, event.window === window, window.attachedSheet == nil else { return event }
-            if let text = window.firstResponder as? NSTextView, text.isEditable { return event }
+            guard Self.playerMayHandle(event, firstResponder: window.firstResponder) else { return event }
             return handle(event) ? nil : event
+        }
+    }
+
+    /// Space and arrows go to the player only when the focused view does not use them itself.
+    static func playerMayHandle(_ event: NSEvent, firstResponder: NSResponder?) -> Bool {
+        let isSpace = event.keyCode == 49
+        switch firstResponder {
+        case nil, is NSWindow, is NSScrollView, is NSClipView:
+            return true
+        case let text as NSTextView:
+            // Selectable, read-only text uses arrows to move the selection, not Space.
+            return !text.isEditable && isSpace
+        case is NSTableView, is NSCollectionView:
+            // Lists such as the sidebar move their selection with arrows and ignore Space.
+            return isSpace
+        case is NSText, is NSControl:
+            return false
+        default:
+            // A SwiftUI hosting view: with Full Keyboard Access, Space presses the focused control.
+            return !(isSpace && NSApp.isFullKeyboardAccessEnabled)
         }
     }
 

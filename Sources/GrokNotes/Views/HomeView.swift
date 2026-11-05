@@ -3,7 +3,6 @@ import SwiftUI
 /// The landing page: today's calendar, this week at a glance, trends, recent meetings, and open action items.
 struct HomeView: View {
     @EnvironmentObject private var state: AppState
-    @EnvironmentObject private var usage: UsageLedger
     @EnvironmentObject private var catalog: TagCatalog
     @EnvironmentObject private var clips: ClipPlayer
     @AppStorage("homeTrendDays") private var trendDays = 7
@@ -26,26 +25,26 @@ struct HomeView: View {
                 if state.meetings.isEmpty {
                     OnboardingCard()
                 } else {
-                    glance(snapshot)
+                    actionItems(snapshot.actions)
                     recentMeetings(snapshot.recent)
                     LazyVGrid(
                         columns: [GridItem(.adaptive(minimum: 360), spacing: GrokSpacing.lg, alignment: .top)],
                         alignment: .leading,
                         spacing: GrokSpacing.lg
                     ) {
-                        actionItems(snapshot.actions)
                         trends(snapshot)
                         if !snapshot.decisions.isEmpty {
                             decisions(snapshot.decisions)
                         }
                     }
+                    glance(snapshot)
                 }
             }
             .padding(GrokSpacing.xl)
             .frame(maxWidth: Self.maxWidth, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
-        .navigationTitle("Home")
+        .modifier(GreetingIsTitle())
         .safeAreaInset(edge: .bottom, spacing: 0) {
             NowPlayingBar(showsMeetingTitle: true)
         }
@@ -126,7 +125,7 @@ struct HomeView: View {
         HStack(spacing: GrokSpacing.sm) {
             Image(systemName: "sparkle.magnifyingglass")
                 .foregroundStyle(.secondary)
-            TextField("Ask across your notes…", text: $question)
+            TextField("Ask Grok about your meetings…", text: $question)
                 .textFieldStyle(.plain)
                 .onSubmit(ask)
             Button(action: ask) {
@@ -136,6 +135,7 @@ struct HomeView: View {
             .foregroundStyle(canAsk ? Color.accentColor : .secondary)
             .disabled(!canAsk)
             .help("Ask Grok across all meetings")
+            .accessibilityLabel("Ask Grok")
         }
         .padding(GrokSpacing.md)
         .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
@@ -173,11 +173,6 @@ struct HomeView: View {
                     title: "Your talk time", systemImage: "waveform",
                     value: s.week.myShare.map { "\(Int(($0 * 100).rounded()))%" } ?? "—",
                     detail: s.week.myShare == nil ? "No transcripts yet" : "Share of everything said"
-                )
-                StatTile(
-                    title: "API spend", systemImage: "dollarsign.circle",
-                    value: usage.total(since: s.weekStart).usd,
-                    detail: "Since \(s.weekStart.formatted(.dateTime.weekday(.wide)))"
                 )
             }
         }
@@ -299,6 +294,18 @@ struct HomeView: View {
                     }
                 }
             }
+        }
+    }
+}
+
+/// The greeting is the page title, so the toolbar does not repeat "Home". The window keeps the name for
+/// the Window menu and VoiceOver where the toolbar title can be hidden (macOS 15); earlier systems get no title.
+private struct GreetingIsTitle: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 15.0, *) {
+            content.navigationTitle("Home").toolbar(removing: .title)
+        } else {
+            content.navigationTitle("")
         }
     }
 }

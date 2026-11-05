@@ -5,9 +5,12 @@ struct TemplatePickerMenu: View {
     @EnvironmentObject private var state: AppState
     @EnvironmentObject private var catalog: TemplateCatalog
     let meetingID: UUID
+    /// A small borderless "Written with: General ▾" for the top of the notes.
+    var compact = false
 
     var body: some View {
-        let current = catalog.resolve(state.meeting(meetingID)?.templateID)
+        let meeting = state.meeting(meetingID)
+        let current = catalog.resolve(meeting?.templateID)
         Menu {
             Picker("Summary template", selection: Binding(
                 get: { current.id },
@@ -27,11 +30,25 @@ struct TemplatePickerMenu: View {
             Divider()
             SettingsLink { Text("Manage Templates…") }
         } label: {
-            Label(current.name, systemImage: current.icon)
-                .labelStyle(.titleAndIcon)
+            if compact {
+                Text(compactTitle(meeting, current: current))
+                    .font(GrokTypography.captionMuted())
+            } else {
+                Label(current.name, systemImage: current.icon)
+                    .labelStyle(.titleAndIcon)
+            }
         }
+        .menuStyle(.borderlessButton)
         .fixedSize()
+        .foregroundStyle(compact ? .secondary : .primary)
         .help("Summary template: how Grok writes these notes")
+    }
+
+    /// The template the current notes came from, else the one the next notes will use.
+    private func compactTitle(_ meeting: Meeting?, current: SummaryTemplate) -> String {
+        guard meeting?.enhancedNotes != nil else { return "Template: \(current.name)" }
+        let written = catalog.lookup(meeting?.notesTemplateID ?? SummaryTemplate.generalID)?.name ?? current.name
+        return "Written with: \(written)"
     }
 }
 
@@ -74,12 +91,15 @@ struct TemplateSettingsSection: View {
                     } else {
                         Button { editing = template } label: { Image(systemName: "pencil") }
                             .help("Edit template")
+                            .accessibilityLabel("Edit \(template.name)")
                     }
                     Button { editing = template.duplicate() } label: { Image(systemName: "plus.square.on.square") }
                         .help("Duplicate and edit")
+                        .accessibilityLabel("Duplicate \(template.name)")
                     if !template.builtIn {
                         Button { confirmDelete = template } label: { Image(systemName: "trash") }
                             .help("Delete template")
+                            .accessibilityLabel("Delete \(template.name)")
                     }
                 }
                 .buttonStyle(.borderless)
@@ -138,6 +158,7 @@ struct TemplateEditorView: View {
                         .menuIndicator(.hidden)
                         .fixedSize()
                         .help("Icon")
+                        .accessibilityLabel("Icon")
                         TextField("Name", text: $name)
                     }
                 }
@@ -158,11 +179,18 @@ struct TemplateEditorView: View {
                     ForEach($sections) { $section in
                         HStack {
                             TextField("Heading", text: $section.title)
+                            let name = section.title.isEmpty ? "section" : section.title
                             Button { move(section.id, by: -1) } label: { Image(systemName: "arrow.up") }
                                 .disabled(sections.first?.id == section.id)
+                                .help("Move up")
+                                .accessibilityLabel("Move \(name) up")
                             Button { move(section.id, by: 1) } label: { Image(systemName: "arrow.down") }
                                 .disabled(sections.last?.id == section.id)
+                                .help("Move down")
+                                .accessibilityLabel("Move \(name) down")
                             Button { sections.removeAll { $0.id == section.id } } label: { Image(systemName: "minus.circle") }
+                                .help("Remove section")
+                                .accessibilityLabel("Remove \(name)")
                         }
                         .buttonStyle(.borderless)
                     }

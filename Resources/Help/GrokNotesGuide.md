@@ -113,15 +113,30 @@ The active-speaker labels are heuristics for each meeting app. When a meeting ap
 
 ## Notes
 
-Each meeting has three tabs at the top: **Notes**, **Transcript**, and **Ask Grok**.
+Each meeting has three tabs in the toolbar, next to the title: **Notes**, **Transcript**, and **Ask** (Command-1, Command-2, Command-3, or **View > Notes / Transcript / Ask**).
 
 ### Rough notes and enhanced notes
 
 - Before and during the meeting, the Notes tab is a plain editor for your rough notes.
 - After the meeting, Grok writes **enhanced notes**: your rough notes kept in order, filled in with specifics from the transcript, in the sections of the summary template.
-- Use the **Enhanced** / **My notes** switch above the notes to go between them. You can keep editing your rough notes.
-- **Regenerate** writes the enhanced notes again (for example after you add rough notes or rename speakers). **Write notes** appears when a meeting has no enhanced notes yet.
-- **Copy Markdown** copies the whole meeting (title, attendees, call summary, notes, transcript) as Markdown. **Show in Finder** opens the meeting's `notes.md`.
+- Use the **Enhanced** / **My notes** switch at the top left of the notes to go between them. You can keep editing your rough notes.
+- You can select and copy enhanced notes across lines. Copied text keeps bullets, checkboxes, and timestamps as Markdown, such as `- [ ] ` and `[05:17]`.
+- Click a checkbox in the enhanced notes to mark an action item done or open.
+- To fix a name or a line, click **Edit** at the top right of the notes (or **Edit Notes** in the **More** menu). The notes show as Markdown with light styling. Type your changes. They save by themselves. Click **Done** to see the formatted notes again. Editing is off while Grok writes notes. **Regenerate** replaces your edits with new notes.
+
+### The More menu and Share
+
+The **More** button (**…**) in the meeting toolbar has:
+
+- **Regenerate Notes** (Option-Command-R) writes the enhanced notes again, for example after you add rough notes or rename speakers. It reads **Write Notes** when a meeting has no enhanced notes yet. **Regenerate with <template>** appears when you picked another template.
+- **Edit Notes**.
+- **Copy Markdown** (Shift-Command-C) copies the whole meeting (title, attendees, call summary, notes, transcript) as Markdown.
+- **Copy Transcript** copies the transcript as plain text (see [Transcript](#transcript)).
+- **Find in Transcript** (Command-F in the Transcript tab).
+- **Show in Finder** opens the meeting's `notes.md`.
+- **Delete Meeting** (see [Delete and undo](#delete-and-undo)).
+
+**Share** (next to **More**) sends the same Markdown to Mail, Messages, Notes, or another app. The **Meeting** menu has **Copy Markdown**, **Regenerate Notes**, and **Find in Transcript** too. **Meeting info** (Option-Command-I) opens the inspector.
 
 ### Summary templates
 
@@ -135,9 +150,9 @@ A template decides the sections and focus of the enhanced notes. Built-in templa
 
 To pick a template for one meeting:
 
-1. Open the meeting. Click the template menu next to the title in the toolbar.
+1. Open the meeting. Click the template menu at the top left of the notes. It reads **Written with: <template>** after notes are written, and **Template: <template>** before.
 2. Choose a template. You can do this before, during, or after the call.
-3. If the notes were already written with another template, click **Regenerate with <template>**. Changing the template does not rewrite the notes by itself.
+3. If the notes were already written with another template, click **Regenerate with <template>** next to the menu. Changing the template does not rewrite the notes by itself.
 
 Meetings without a choice use the default. Set it in **Settings > Summary templates > Default template**.
 
@@ -152,7 +167,13 @@ Built-in templates cannot be edited, only duplicated. Custom templates have edit
 
 ### Citations and clips
 
-Facts and action items in enhanced notes end with transcript timestamps, such as [12:04]. Click a timestamp to open the **Transcript** tab at that moment, highlighted. When the meeting's audio is kept, a ▶ link follows each timestamp. Click it to play that clip, and click again to pause. Answers in **Ask Grok** have the same links.
+Facts and action items in enhanced notes end with transcript timestamps. Each timestamp shows as a small tinted pill:
+
+- **▶ 5:17** when the meeting's audio is kept. Click it to play that clip, and click again to pause. Option-click it to open the transcript instead.
+- **5:17** when the audio was not kept. Click it to open the **Transcript** tab at that moment, highlighted.
+- Hover a pill to read the transcript line at that time. Right-click a pill for **Play from 5:17** and **Show in Transcript**.
+
+Answers in the **Ask** tab, and action items and decisions on Home, have the same pills.
 
 Clips need **Settings > Privacy > Keep audio recordings after notes are written** to be on before the meeting. If it was off, a hint says "Turn on Keep audio in Settings to play clips from future meetings." Audio of past meetings cannot be recovered.
 
@@ -183,32 +204,41 @@ When a meeting's audio is kept, a player bar appears at the bottom of the meetin
   - Changes apply while the meeting plays and are kept for the next meeting. A limiter keeps boosted voices from clipping.
   - The speaker icon turns blue when a level is changed from its default. It shows one wave when one side is muted, and a slash when both sides are muted.
 
-Keyboard: Space plays or pauses. Left and right arrows move 5 seconds. These keys do nothing while you type in a text field.
+Keyboard: Space plays or pauses. Left and right arrows move 5 seconds. These keys go to the focused control instead when it uses them: a text field you type in, a button, a slider, the tab switch, or the sidebar list (arrows only). With Full Keyboard Access on, Space presses the focused button.
 
-In the **Transcript** tab during playback, the block being played is highlighted. The **Follow** button keeps the transcript scrolled with playback. Clips played outside the meeting (for example from Home) show a small bar with **Stop** (Escape).
+In the **Transcript** tab, the block being played is highlighted. The **Follow** button keeps the transcript scrolled with playback. It stays faint until you point at it or move focus to it. Clips played outside the meeting (for example from Home) show a small bar with **Stop** (Escape).
 
 ## Transcript
 
-The **Transcript** tab shows the conversation in blocks by speaker, each with a timestamp. Chapter titles appear between blocks. Hover a block to show its play button (when audio is kept). Click a speaker chip to rename that speaker. You can select and copy text.
+The **Transcript** tab shows the conversation in blocks by speaker, each with a timestamp. Chapter titles appear between blocks. Each block has a faint play button (when audio is kept) that shows fully when you point at the block. Click a speaker chip to rename that speaker. Each speaker has a different color in a meeting, and you are always green. You can select and copy text.
+
+### Find in the transcript
+
+1. In the Transcript tab, press Command-F (or choose **Find in Transcript** in the **More** menu or the **Meeting** menu).
+2. Type a word or name. Matches are highlighted, and the bar shows "3 of 12".
+3. Press Return for the next match and Shift-Return for the previous one (or Command-G and Shift-Command-G, or the arrow buttons). The transcript scrolls to each match.
+4. Press Escape or click **Done** to close the bar.
+
+### Copy the transcript
 
 To copy the transcript as plain text:
 
-- **Copy transcript** (the copy icon at the top right of the transcript) copies the whole transcript. The first line is the meeting title and date. Each block is a line like `[04:12] Dana: text`, with resolved speaker names. When the meeting has chapters, each chapter starts with a heading like `## Pricing (04:12–10:30)`.
+- **Copy Transcript** in the **More** menu copies the whole transcript. The first line is the meeting title and date. Each block is a line like `[04:12] Dana: text`, with resolved speaker names. When the meeting has chapters, each chapter starts with a heading like `## Pricing (04:12–10:30)`.
 - The copy icon next to a chapter title copies only that chapter, with its heading.
 - Right-click a block for **Copy** (that block) and, when there are chapters, **Copy from Here to End of Chapter**.
 - The icon shows a checkmark for a moment after it copies.
-- While you record, **Copy transcript** copies the finished lines so far, without chapter headings. The live line is left out.
+- While you record, **Copy Transcript** copies the finished lines so far, without chapter headings. The live line is left out.
 
 ## Ask Grok
 
 There are two chats:
 
-- **Ask Grok in a meeting** (the **Ask Grok** tab). Questions about that one meeting, for example "What did we decide about pricing?" or "Draft a follow-up email." Answers cite timestamps.
+- **Ask in a meeting** (the meeting's **Ask** tab). Questions about that one meeting, for example "What did we decide about pricing?" or "Draft a follow-up email." Answers cite timestamps.
 - **Ask Grok in the sidebar** (Command-K, or **Meeting > Ask Grok**). One chat over every meeting, and help with Grok Notes itself.
 
 ### Across your meetings
 
-Grok ranks your meetings by keywords, names, tags, and recency, picks up to 8 relevant ones (with an extra Grok request when you have more than 8 meetings), and answers from their notes and transcripts. Each answer links to its source meetings. Click a link to open the meeting. You can also type a question in the **Ask across your notes…** field on Home.
+Grok ranks your meetings by keywords, names, tags, and recency, picks up to 8 relevant ones (with an extra Grok request when you have more than 8 meetings), and answers from their notes and transcripts. Each answer links to its source meetings. Click a link to open the meeting. You can also type a question in the **Ask Grok about your meetings…** field on Home.
 
 Click **New chat** (toolbar) to start over. The chat history is saved in `library-chat.json`.
 
@@ -222,13 +252,13 @@ Open this help any time with **Help > Grok Notes Help** (Command-?), or **Settin
 
 Home is the start page (click **Home** in the sidebar, or **Meeting > Home**, Shift-Command-H). It shows:
 
-- A greeting, **Start notes**, and an **Ask across your notes…** field.
+- A greeting, **Start notes**, and an **Ask Grok about your meetings…** field.
 - **Up next**: today's remaining calendar events (up to 5, plus "+N more later today", and all-day events). Each has **Join** (when the event has a meeting link) and **Start notes**. If the calendar file is stale, Home says when it was last synced. **Calendar settings** opens Settings.
-- **This week**: **Meetings**, **In meetings** (time), **Your talk time** (your share of everything said), and **API spend**, each compared with last week.
-- **Recent meetings**.
 - **Open action items** from the last 30 days. Check an item to mark it done in that meeting's notes. **Show all** shows more.
+- **Recent meetings**.
 - **Trending topics** for **7 days** or **30 days**, and **Top tags**. Click one to list its meetings.
 - **Recent decisions**, with links to their meetings.
+- **This week**: **Meetings**, **In meetings** (time), and **Your talk time** (your share of everything said), each compared with last week. API spend is in **Usage & Cost**.
 
 ## Tags
 
@@ -251,8 +281,17 @@ In **Settings > Tags**:
 - **Tags**: the most used tags with counts. Click one to filter the list; click it again to clear. Other tags are under "N more tags".
 - **Search meetings** (the search field) filters by title, notes, people, and transcript text. While filtering, a count and **Clear** appear.
 - **Pinned** meetings, then date sections: **Today**, **Yesterday**, **Previous 7 Days**, **Previous 30 Days**, each month of this year, then older years. Click a section header to collapse it.
-- Swipe right on a meeting to **Pin** or **Unpin**. Swipe left to **Delete**.
+- Swipe right on a meeting to **Pin** or **Unpin**. Swipe left and click **Delete**. A full swipe does not delete.
 - Right-click a meeting for **Pin**, **Tags**, **Copy as Markdown**, **Show in Finder**, and **Delete**.
+
+### Delete and undo
+
+Delete a meeting from the sidebar (swipe or right-click) or from **More > Delete Meeting** in the meeting.
+
+1. The meeting moves to `~/Library/Application Support/GrokNotes/Trash/` with its notes, transcript, and audio.
+2. A bar at the bottom says "Deleted “<title>”" for a few seconds. Click **Undo** to restore it.
+3. Or press Command-Z (**Edit > Undo Delete Meeting**) while Grok Notes is open. Shift-Command-Z deletes it again.
+4. Grok Notes removes meetings from the Trash folder 30 days after you delete them, when it opens. To restore one later, quit Grok Notes and move its folder from `Trash` back to `Meetings`.
 
 You cannot delete a meeting while it is recording.
 
@@ -297,7 +336,7 @@ On each save, the app copies `notes.md` and `meeting.json` to `My Drive/<subfold
 
 ## Usage and cost
 
-**Meeting > Usage & Cost** (Shift-Command-U), the menu bar menu (**Usage · $X mo.**), or **Settings > Usage** opens the **Usage & Cost** window. It shows your xAI spend for **Today**, **Last 7 days**, **This month**, or **All time**, **By feature** and **By meeting**. Each meeting's **Meeting info** shows its **API cost**, and Home shows **API spend** this week.
+**Meeting > Usage & Cost** (Shift-Command-U), the menu bar menu (**Usage · $X mo.**), or **Settings > Usage** opens the **Usage & Cost** window. It shows your xAI spend for **Today**, **Last 7 days**, **This month**, or **All time**, **By feature** and **By meeting**. Each meeting's **Meeting info** shows its **API cost**.
 
 - **Exact**: Grok requests (notes, names, topics, tags, answers, help questions) use the exact cost xAI returns.
 - **Estimated**: transcription is estimated from recorded audio at list price: $0.20 per hour for live streaming, $0.10 per hour for the full-recording pass. Requests without a reported cost are estimated from tokens.
@@ -309,6 +348,7 @@ Help questions answered from this guide are listed as **Help questions**. The lo
 Everything is stored on your Mac in `~/Library/Application Support/GrokNotes/` (**Settings > Privacy > Show data folder** opens it):
 
 - `Meetings/<id>/`: `meeting.json`, `notes.md`, and the audio (`mic.wav`, `system.wav`) if you keep it.
+- `Trash/<id>/`: deleted meetings, kept 30 days so you can undo a delete.
 - `library-chat.json` (Ask Grok history), `usage.jsonl`, `templates.json`, `tags.json`, and `calendar.json`.
 - Your API key is in the Keychain. Settings are in the app's preferences.
 
@@ -342,9 +382,18 @@ Audio settings in **Settings > Privacy**:
 | Command-comma | Settings |
 | Command-? | Grok Notes Help |
 | Command-Return | Send in Ask Grok (sidebar chat) |
+| Command-1 / 2 / 3 | Notes, Transcript, or Ask tab of the open meeting |
+| Option-Command-I | Show or hide Meeting info |
+| Shift-Command-C | Copy the meeting as Markdown |
+| Option-Command-R | Regenerate notes |
+| Command-F | Find in the transcript (Transcript tab) |
+| Return / Shift-Return | Next or previous match (find bar) |
+| Command-G / Shift-Command-G | Next or previous match (find bar) |
+| Command-Z | Undo a delete |
+| Option-click a ▶ timestamp | Open the transcript instead of playing |
 | Space | Play or pause (meeting player) |
 | Left / Right arrow | Back or forward 5 seconds (meeting player) |
-| Escape | Stop a playing clip |
+| Escape | Stop a playing clip, or close the find bar |
 
 ## Troubleshooting
 

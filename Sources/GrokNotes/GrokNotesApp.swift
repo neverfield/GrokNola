@@ -25,12 +25,16 @@ struct GrokNotesApp: App {
                     Button("Start Notes") { Task { await state.startMeeting() } }
                         .keyboardShortcut("r", modifiers: [.command, .shift])
                 }
+                MeetingActionCommands()
                 Divider()
                 Button("Home") { state.openHome() }
                     .keyboardShortcut("h", modifiers: [.command, .shift])
                 Button("Ask Grok") { state.openLibraryChat() }
                     .keyboardShortcut("k", modifiers: .command)
                 OpenUsageButton().keyboardShortcut("u", modifiers: [.command, .shift])
+            }
+            CommandGroup(before: .toolbar) {
+                MeetingViewCommands()
             }
             CommandGroup(replacing: .help) {
                 AskHelpButton(state: state, title: "Grok Notes Help")
@@ -76,6 +80,44 @@ struct AskHelpButton: View {
             state.openHelp()
             NSApp.activate(ignoringOtherApps: true)
         }
+    }
+}
+
+/// View menu items for the meeting on screen: its tabs and the inspector.
+private struct MeetingViewCommands: View {
+    @FocusedValue(\.meetingActions) private var actions
+
+    var body: some View {
+        Button("Notes") { actions?.selectTab(.notes) }
+            .keyboardShortcut("1", modifiers: .command)
+            .disabled(actions == nil)
+        Button("Transcript") { actions?.selectTab(.transcript) }
+            .keyboardShortcut("2", modifiers: .command)
+            .disabled(actions == nil)
+        Button("Ask") { actions?.selectTab(.ask) }
+            .keyboardShortcut("3", modifiers: .command)
+            .disabled(actions == nil)
+        Button("Toggle Meeting Inspector") { actions?.toggleInspector() }
+            .keyboardShortcut("i", modifiers: [.command, .option])
+            .disabled(actions == nil)
+        Divider()
+    }
+}
+
+/// Meeting menu items that act on the meeting on screen.
+private struct MeetingActionCommands: View {
+    @FocusedValue(\.meetingActions) private var actions
+
+    var body: some View {
+        Divider()
+        Button("Copy Markdown") { actions?.copyMarkdown() }
+            .keyboardShortcut("c", modifiers: [.command, .shift])
+            .disabled(actions == nil)
+        Button("Regenerate Notes") { actions?.regenerate?() }
+            .keyboardShortcut("r", modifiers: [.command, .option])
+            .disabled(actions?.regenerate == nil)
+        Button("Find in Transcript") { actions?.findInTranscript?() }
+            .disabled(actions?.findInTranscript == nil)
     }
 }
 

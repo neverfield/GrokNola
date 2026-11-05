@@ -18,14 +18,19 @@ struct MeetingStore {
     }
 
     func loadAll() -> [Meeting] {
+        let dirs = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
+        return dirs.compactMap(Self.decode(at:)).sorted { $0.startedAt > $1.startedAt }
+    }
+
+    func load(_ id: UUID) -> Meeting? {
+        Self.decode(at: root.appendingPathComponent(id.uuidString, isDirectory: true))
+    }
+
+    private static func decode(at dir: URL) -> Meeting? {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let dirs = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
-        return dirs.compactMap { dir in
-            guard let data = try? Data(contentsOf: dir.appendingPathComponent("meeting.json")) else { return nil }
-            return try? decoder.decode(Meeting.self, from: data)
-        }
-        .sorted { $0.startedAt > $1.startedAt }
+        guard let data = try? Data(contentsOf: dir.appendingPathComponent("meeting.json")) else { return nil }
+        return try? decoder.decode(Meeting.self, from: data)
     }
 
     func save(_ meeting: Meeting, myName: String) throws {
