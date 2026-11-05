@@ -10,11 +10,16 @@ struct NotesTab: View {
         let recording = state.recordingID == meetingID
         let processing = state.processing.contains(meetingID)
         let enhanced = meeting?.enhancedNotes
+        let awaitingNotes = enhanced == nil && [.pending, .running].contains(state.processingStage[meetingID]?.status(.writing))
 
         VStack(spacing: 0) {
             if !recording {
-                notesToolbar(enhanced: enhanced, processing: processing)
+                notesToolbar(enhanced: enhanced, processing: processing, awaitingNotes: awaitingNotes)
                 Divider()
+                if state.processingStage[meetingID] != nil {
+                    ProcessingStepsRow(meetingID: meetingID)
+                    Divider()
+                }
             }
 
             let hasTranscript = !recording && !(meeting?.utterances.isEmpty ?? true)
@@ -34,8 +39,14 @@ struct NotesTab: View {
                         }
                         if showEnhanced, let enhanced {
                             enhancedNotes(enhanced, summaryAbove: showSummary && !wide)
+                        } else if awaitingNotes, !showMyNotes {
+                            NotesSkeleton(template: state.template(for: meetingID))
                         } else {
                             notesEditor(meeting: meeting, recording: recording)
+                        }
+                        if recording {
+                            Divider()
+                            LiveTranscriptStrip()
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -74,9 +85,9 @@ struct NotesTab: View {
     }
 
     @ViewBuilder
-    private func notesToolbar(enhanced: String?, processing: Bool) -> some View {
+    private func notesToolbar(enhanced: String?, processing: Bool, awaitingNotes: Bool) -> some View {
         HStack(spacing: GrokSpacing.sm) {
-            if enhanced != nil {
+            if enhanced != nil || awaitingNotes {
                 Picker("", selection: $showMyNotes) {
                     Text("Enhanced").tag(false)
                     Text("My notes").tag(true)
@@ -84,12 +95,6 @@ struct NotesTab: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .frame(width: 220)
-            }
-            if processing {
-                ProgressView().controlSize(.small)
-                Text("Writing notes…")
-                    .font(GrokTypography.captionMuted())
-                    .foregroundStyle(.secondary)
             }
             Spacer()
             if enhanced != nil, let pending = state.pendingTemplate(for: meetingID) {
@@ -165,7 +170,7 @@ struct TranscriptTab: View {
         let meeting = state.meeting(meetingID)
         let utterances = meeting?.utterances ?? []
         let recording = state.recordingID == meetingID
-        let blocks = TranscriptText.blocks(from: utterances)
+        let blocks = TranscriptBlockCache.blocks(meetingID: meetingID, revision: state.meetingsRevision, utterances: utterances)
         let playable = state.canPlayClips(meetingID)
         let headers = recording ? [:] : chapterHeaders(meeting?.chapters ?? [], blocks: blocks)
         let hasChapters = !headers.isEmpty
@@ -215,8 +220,9 @@ struct TranscriptTab: View {
                         }
                     }
                 }
-                .onChange(of: state.liveMe) { _, _ in scrollIfStuck(proxy) }
-                .onChange(of: state.liveThem) { _, _ in scrollIfStuck(proxy) }
+                // Subscribe without observing, so interim text scrolls the list but does not re-evaluate it.
+                .onReceive(state.recording.$liveMe.removeDuplicates()) { _ in scrollIfStuck(proxy) }
+                .onReceive(state.recording.$liveThem.removeDuplicates()) { _ in scrollIfStuck(proxy) }
                 .onAppear {
                     if state.transcriptFocus?.meetingID == meetingID {
                         focus(blocks: blocks, proxy: proxy)
@@ -438,7 +444,7 @@ private struct ChapterHeader: View {
 }
 
 private struct LiveTranscriptRegion: View {
-    @EnvironmentObject private var state: AppState
+    @EnvironmentObject private var recording: RecordingModel
     let meetingID: UUID
 
     var body: some View {
@@ -450,13 +456,13 @@ private struct LiveTranscriptRegion: View {
                     .font(GrokTypography.transcriptSpeaker())
                     .foregroundStyle(.secondary)
             }
-            if !state.liveThem.isEmpty {
-                liveLine(label: "Them", text: state.liveThem)
+            if !recording.liveThem.isEmpty {
+                liveLine(label: "Them", text: recording.liveThem)
             }
-            if !state.liveMe.isEmpty {
-                liveLine(label: "Me", text: state.liveMe)
+            if !recording.liveMe.isEmpty {
+                liveLine(label: "Me", text: recording.liveMe)
             }
-            if state.liveThem.isEmpty && state.liveMe.isEmpty {
+            if recording.liveThem.isEmpty && recording.liveMe.isEmpty {
                 Text("Listening…")
                     .font(GrokTypography.liveLine())
                     .foregroundStyle(GrokColors.liveText)

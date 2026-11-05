@@ -66,7 +66,7 @@ struct MeetingDetailView: View {
                         if state.recordingID == meetingID {
                             HStack(spacing: GrokSpacing.xs) {
                                 RecordingPulse()
-                                Text(Meeting.timestamp(state.elapsed))
+                                RecordingElapsedText()
                                     .font(.caption.monospacedDigit())
                                     .foregroundStyle(.secondary)
                             }

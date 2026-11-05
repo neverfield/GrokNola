@@ -42,7 +42,7 @@ Click **Start notes** when the call begins. You can start from:
 - The **Start notes** button at the bottom of the sidebar, or in the window toolbar.
 - The **Start notes** button at the top of **Home**.
 - **Start notes** next to an event in **Up next** on Home. The meeting gets that event's title and invitees.
-- The menu bar icon > **Start notes**.
+- The menu bar icon > **Start Notes** (or **Start Notes · Zoom** when a call is detected).
 - **Meeting > Start Notes** (Shift-Command-R).
 
 When a meeting app is in a call, the buttons read **Start notes · Zoom** (or the app's name).
@@ -51,7 +51,9 @@ When you start, the app uses the current calendar event (from 10 minutes before 
 
 ### Meeting detection
 
-Every few seconds, the app checks for a call in Zoom, Microsoft Teams, Slack (huddles), Webex, FaceTime, or Google Meet in a browser (Chrome, Safari, Arc, Edge, Brave, Firefox, Vivaldi). When it finds one, the menu bar icon changes and the menu shows "<App> detected". Detection never starts recording by itself.
+Every few seconds, the app checks for a call in Zoom, Microsoft Teams, Slack (huddles), Webex, FaceTime, or Google Meet in a browser (Chrome, Safari, Arc, Edge, Brave, Firefox, Vivaldi). When it finds one, the menu bar icon changes and the menu offers **Start Notes · <App>**. Detection never starts recording by itself.
+
+The first time a call is detected, macOS asks whether Grok Notes may send notifications. If you allow it, a notification "<App> call detected — Start notes for this call?" appears once per call; click **Start Notes** on it to begin. If you deny it, nothing else changes. To turn this notification off, run `defaults write dev.local.groknotes notifyOnMeetingDetected -bool false` and relaunch.
 
 - Google Meet is found from the browser tab title, which needs **Screen & System Audio Recording**.
 - With that permission, Zoom and Slack count only when a call window is open ("Zoom Meeting", "Huddle"). Otherwise an app counts while another app is using the microphone.
@@ -59,9 +61,12 @@ Every few seconds, the app checks for a call in Zoom, Microsoft Teams, Slack (hu
 ### While recording
 
 - Type rough notes in the notes editor ("Jot rough notes here while you talk…"). Short phrases are fine. They become the backbone of the enhanced notes.
+- Under the notepad, a **Live** strip shows the last thing heard from **Them** and **You**. Click **Live** to collapse or expand it; the app remembers your choice.
 - The **Transcript** tab shows the live transcript. A **Live** box shows the words being heard now, labeled **Them** and **Me**. If you scroll up, click **Jump to latest** to follow again.
-- A bar at the bottom of the window shows the elapsed time, mic and system audio icons, and **Stop**.
-- If the transcription connection drops, a blue banner shows "Transcription reconnecting". The app reconnects by itself.
+- A bar at the bottom of the window shows the elapsed time, a level meter for your microphone and one for call audio, and **Stop & Write Notes**. The bars move when sound arrives, so you can see that both sides are being captured.
+- A meter turns orange when that side looks silent: your mic has had no signal for 20 seconds while others talk, or there has been no call audio for 20 seconds while you talk. Hover over it for the reason. See [No audio from your mic, or no call audio](#no-audio-from-your-mic-or-no-call-audio).
+- If the transcription connection drops, an orange "Transcription reconnecting" message appears next to the meters. The app reconnects by itself.
+- The menu bar menu shows the meeting title, the elapsed time, **Open Notes**, and **Stop & Write Notes**.
 
 ### Live answers
 
@@ -77,7 +82,7 @@ While recording, the inspector on the right opens to **Answers** (switch to **In
 
 ### Stop
 
-Click **Stop** in the bottom bar, use **Meeting > Stop and Write Notes** (Shift-Command-R), or the menu bar menu > **Stop**. Then the app:
+Click **Stop & Write Notes** in the bottom bar, use **Meeting > Stop & Write Notes** (Shift-Command-R), or the menu bar menu > **Stop & Write Notes**. Then the app:
 
 1. Re-transcribes the full recording with diarization, so speaker numbers are stable for the whole meeting. If this pass fails, the live transcript is kept.
 2. Names the speakers (see [Speaker names](#speaker-names)).
@@ -85,7 +90,19 @@ Click **Stop** in the bottom bar, use **Meeting > Stop and Write Notes** (Shift-
 4. Finds topics and chapters.
 5. Adds tags, when automatic tagging is on.
 
-The sidebar row shows a spinner and the Notes tab shows "Writing notes…" while this runs. If you stop without any transcript or notes, the empty meeting is deleted.
+The Notes tab shows these steps as they run: **Transcribing full recording**, **Naming speakers**, **Writing notes**, and **Tagging**. Each step shows a check mark when done, a spinner while it runs, an empty circle while it waits, or an orange mark when it failed. While Grok writes, the notes area shows the headings of the meeting's template with placeholder lines. Switch to **My notes** to see your rough notes. The sidebar row shows a spinner.
+
+If a step fails, the reason appears under the steps. Click **Retry** to run only that step again (writing notes, naming speakers, or tagging). The full-recording pass cannot be retried; the live transcript is kept. Click the close button to hide the steps.
+
+If you stop without any transcript or notes, a message says "Nothing was recorded, so the meeting was discarded."
+
+### Notifications
+
+When processing finishes and you are not looking at that meeting, a notification says "Notes ready — <title>". Click it to open the meeting. If writing the notes failed, the notification says so instead, and the meeting keeps its step list with **Retry**. Notifications need permission, which macOS asks for the first time one is sent. Change it later in **System Settings > Notifications > Grok Notes**.
+
+### Messages
+
+Messages appear across the top of the window. Blue messages are information and close by themselves. Orange messages are warnings, and red messages are errors; they stay until you close them. Some have a button, such as **Open Settings** when the API key is missing. At most two show at once; "N more messages" and **Dismiss All** appear when there are more.
 
 ## Speaker names
 
@@ -335,7 +352,7 @@ Audio settings in **Settings > Privacy**:
 
 | Shortcut | Action |
 | --- | --- |
-| Shift-Command-R | Start notes / Stop and write notes |
+| Shift-Command-R | Start notes / Stop & write notes |
 | Command-K | Ask Grok (all meetings and app help) |
 | Shift-Command-H | Home |
 | Shift-Command-U | Usage & Cost |
@@ -356,6 +373,22 @@ The banner "System audio is off (…). Recording the microphone only." means mac
 2. Select **Grok Notes** and remove it with the minus button. Add it again with the plus button (or click **Allow** in **Settings > Permissions**), and turn it on.
 3. Quit and reopen Grok Notes.
 4. If you build the app yourself, run `./scripts/create-signing-cert.sh` once so later rebuilds keep the permission.
+
+### No audio from your mic, or no call audio
+
+If the microphone meter stays flat or turns orange with "No audio from your mic":
+
+1. Open **System Settings > Sound > Input** and check that the right device is selected and its input level moves when you talk.
+2. Check that the microphone is not muted on the headset or in hardware.
+3. If you changed devices during the call, stop and start notes again.
+
+If the call-audio meter stays flat or shows "No call audio — is the meeting app playing through this Mac?":
+
+1. Check that you can hear the other side on this Mac. Audio played on a phone or another device is not captured.
+2. Check that **Screen & System Audio Recording** is on (see the next section).
+3. Some apps play to a separate output device. Choose the same output in the meeting app and in **System Settings > Sound > Output**.
+
+Both warnings are hints. A quiet listener or a long monologue can trigger them; the recording continues either way.
 
 ### Microphone error or echo cancellation message
 
@@ -389,6 +422,7 @@ Settings says "Drive not found" when Google Drive for desktop is not installed, 
 ### Other messages
 
 - "Add your xAI API key in Settings" means no key is saved. See [Getting started](#getting-started).
-- "The full-recording pass failed, so the live transcript was kept." The notes still use the live transcript.
-- "Grok could not write the notes" means a request failed. Click **Write notes** or **Regenerate** to try again.
+- "Transcribing full recording failed: Kept the live transcript." The notes still use the live transcript.
+- "Writing notes failed" in the Notes tab means a request failed. Click **Retry** (or **Write notes** / **Regenerate**) to try again.
+- "Tagging failed" or "Naming speakers failed": click **Retry** next to the message.
 - "The audio for this meeting is no longer on this Mac." means the audio was not kept or was deleted by the retention setting.

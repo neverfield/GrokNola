@@ -10,6 +10,8 @@ enum Prefs {
     static var language: String { defaults.string(forKey: "language") ?? "en" }
     static var echoCancellation: Bool { defaults.object(forKey: "echoCancellation") as? Bool ?? true }
     static var keepAudio: Bool { defaults.object(forKey: "keepAudio") as? Bool ?? false }
+    /// Post a notification offering to start notes when a meeting app starts a call.
+    static var notifyOnMeetingDetected: Bool { defaults.object(forKey: "notifyOnMeetingDetected") as? Bool ?? true }
     /// Days to keep audio recordings. Nil keeps them until the meeting is deleted.
     static var audioRetentionDays: Int? {
         let days = defaults.integer(forKey: "audioRetentionDays")
