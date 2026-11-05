@@ -15,6 +15,7 @@ struct GrokNotesApp: App {
                 .environmentObject(state.calendars)
                 .environmentObject(state.liveAnswers)
                 .environmentObject(state.recording)
+                .tint(GrokColors.accent)
                 .frame(minWidth: 900, minHeight: 600)
         }
         .commands {
@@ -47,6 +48,7 @@ struct GrokNotesApp: App {
             UsageView()
                 .environmentObject(state)
                 .environmentObject(state.usage)
+                .tint(GrokColors.accent)
         }
         .defaultSize(width: 820, height: 600)
 
@@ -54,6 +56,7 @@ struct GrokNotesApp: App {
             MenuBarView()
                 .environmentObject(state)
                 .environmentObject(state.usage)
+                .tint(GrokColors.accent)
         } label: {
             Image(systemName: state.recordingID != nil ? "record.circle.fill" : (state.detectedApp != nil ? "waveform.badge.exclamationmark" : "waveform"))
         }
@@ -64,6 +67,7 @@ struct GrokNotesApp: App {
                 .environmentObject(state.tagCatalog)
                 .environmentObject(state.templateCatalog)
                 .environmentObject(state.calendars)
+                .tint(GrokColors.accent)
         }
     }
 }

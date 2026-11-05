@@ -17,6 +17,8 @@ extension NSAttributedString.Key {
 enum NotesRenderer {
     struct Options: Equatable {
         var textStyle: NSFont.TextStyle = .body
+        /// Grok's writing reads in New York; plain UI text uses SF Pro.
+        var serif = true
         /// When set, `[mm:ss]` citations link to this meeting.
         var citationMeetingID: UUID?
         /// Citations play audio instead of opening the transcript.
@@ -37,15 +39,20 @@ enum NotesRenderer {
         return url.pathComponents.last.flatMap { Int($0) }
     }
 
-    static func baseFont(_ style: NSFont.TextStyle) -> NSFont { NSFont.preferredFont(forTextStyle: style) }
+    static func baseFont(_ style: NSFont.TextStyle, serif: Bool = true) -> NSFont {
+        serif ? GrokTypography.readingFont(style) : NSFont.preferredFont(forTextStyle: style)
+    }
 
-    private static func headingFont(_ level: Int, base: NSFont) -> NSFont {
-        let scale = base.pointSize / 13
+    private static func headingFont(_ level: Int, base: NSFont, serif: Bool) -> NSFont {
+        let size = base.pointSize
+        let font: (CGFloat) -> NSFont = { points in
+            serif ? GrokTypography.serif(size: points, weight: .semibold) : .systemFont(ofSize: points, weight: .semibold)
+        }
         switch level {
-        case 1: return .systemFont(ofSize: 20 * scale, weight: .bold)
-        case 2: return .systemFont(ofSize: 16 * scale, weight: .bold)
-        case 3: return .systemFont(ofSize: 13.5 * scale, weight: .semibold)
-        default: return .systemFont(ofSize: base.pointSize, weight: .semibold)
+        case 1: return font((size * 1.6).rounded())
+        case 2: return font((size * 1.27).rounded())
+        case 3: return font((size * 1.07).rounded())
+        default: return font(size)
         }
     }
 
@@ -57,21 +64,22 @@ enum NotesRenderer {
 
     /// `quote` returns the transcript line near a time, shown when hovering a citation.
     static func render(_ markdown: String, options: Options, quote: ((Double) -> String?)? = nil) -> NSAttributedString {
-        let base = baseFont(options.textStyle)
+        let base = baseFont(options.textStyle, serif: options.serif)
+        let lineSpacing = options.serif ? GrokTypography.readingLineSpacing(base) : 2
         let out = NSMutableAttributedString()
         var inFence = false
         let all = NotesMarkdown.lines(markdown)
         for (index, raw) in all.enumerated() {
             let line = NotesMarkdown.parse(raw)
             let paragraph = NSMutableParagraphStyle()
-            paragraph.lineSpacing = 2
-            paragraph.paragraphSpacing = 5
+            paragraph.lineSpacing = lineSpacing
+            paragraph.paragraphSpacing = (lineSpacing * 1.6).rounded()
             let quoteX = CGFloat(line.quote) * quoteIndent
             paragraph.firstLineHeadIndent = quoteX
             paragraph.headIndent = quoteX
-            var lineAttrs: [NSAttributedString.Key: Any] = [.font: base, .foregroundColor: NSColor.labelColor]
+            var lineAttrs: [NSAttributedString.Key: Any] = [.font: base, .foregroundColor: GrokNSColor.ink]
             if line.quote > 0 {
-                lineAttrs[.foregroundColor] = NSColor.secondaryLabelColor
+                lineAttrs[.foregroundColor] = GrokNSColor.inkMuted
                 lineAttrs[.notesQuote] = line.quote
             }
             let text = NSMutableAttributedString()
@@ -82,36 +90,36 @@ enum NotesRenderer {
                 text.append(NSAttributedString(string: "\u{00A0}", attributes: [.font: NSFont.systemFont(ofSize: 4)]))
             } else if inFence || line.kind == .table {
                 paragraph.paragraphSpacing = 0
-                lineAttrs[.font] = NSFont.monospacedSystemFont(ofSize: base.pointSize - 1, weight: .regular)
-                lineAttrs[.foregroundColor] = NSColor.secondaryLabelColor
+                lineAttrs[.font] = NSFont.monospacedSystemFont(ofSize: base.pointSize - 2, weight: .regular)
+                lineAttrs[.foregroundColor] = GrokNSColor.inkMuted
                 text.append(NSAttributedString(string: inFence ? raw : line.text, attributes: lineAttrs))
             } else {
                 switch line.kind {
                 case .heading(let level):
-                    lineAttrs[.font] = headingFont(level, base: base)
-                    paragraph.paragraphSpacingBefore = level <= 2 ? 10 : 6
-                    paragraph.paragraphSpacing = 4
+                    lineAttrs[.font] = headingFont(level, base: base, serif: options.serif)
+                    paragraph.paragraphSpacingBefore = level <= 2 ? (base.pointSize * 0.6).rounded() : (base.pointSize * 0.3).rounded()
+                    paragraph.paragraphSpacing = (lineSpacing * 1.2).rounded()
                     text.append(inline(line.text, attrs: lineAttrs, base: base, options: options, quote: quote))
                 case .checkbox(let done):
-                    listParagraph(paragraph, x: quoteX, indent: line.indent)
+                    listParagraph(paragraph, x: quoteX, indent: line.indent, base: base, width: (base.pointSize * 1.6).rounded())
                     text.append(checkbox(done: done, line: index, base: base, clickable: options.checkboxes))
                     var tab = lineAttrs
                     tab[.notesCopyText] = ""
                     text.append(NSAttributedString(string: "\t", attributes: tab))
-                    if done { lineAttrs[.foregroundColor] = NSColor.secondaryLabelColor }
+                    if done { lineAttrs[.foregroundColor] = GrokNSColor.inkMuted }
                     text.append(inline(line.text, attrs: lineAttrs, base: base, options: options, quote: quote))
                 case .bullet:
-                    listParagraph(paragraph, x: quoteX, indent: line.indent)
+                    listParagraph(paragraph, x: quoteX, indent: line.indent, base: base)
                     var marker = lineAttrs
-                    marker[.foregroundColor] = NSColor.secondaryLabelColor
+                    marker[.foregroundColor] = GrokNSColor.amber
                     marker[.notesCopyText] = "- "
                     text.append(NSAttributedString(string: line.indent > 0 ? "◦\t" : "•\t", attributes: marker))
                     text.append(inline(line.text, attrs: lineAttrs, base: base, options: options, quote: quote))
                 case .numbered(let number):
-                    listParagraph(paragraph, x: quoteX, indent: line.indent, width: 24)
+                    listParagraph(paragraph, x: quoteX, indent: line.indent, base: base, width: (base.pointSize * 1.8).rounded())
                     var marker = lineAttrs
-                    marker[.font] = NSFont.monospacedDigitSystemFont(ofSize: base.pointSize, weight: .regular)
-                    marker[.foregroundColor] = NSColor.secondaryLabelColor
+                    marker[.font] = NSFont.monospacedDigitSystemFont(ofSize: base.pointSize - 1, weight: .medium)
+                    marker[.foregroundColor] = GrokNSColor.amberText
                     marker[.notesCopyText] = number + " "
                     text.append(NSAttributedString(string: number + "\t", attributes: marker))
                     text.append(inline(line.text, attrs: lineAttrs, base: base, options: options, quote: quote))
@@ -142,19 +150,23 @@ enum NotesRenderer {
         return out
     }
 
-    private static func listParagraph(_ p: NSMutableParagraphStyle, x: CGFloat, indent: Int, width: CGFloat = listIndent) {
-        let start = x + CGFloat(indent) * listIndent
+    /// The marker sits at the indent and the text at a tab stop `width` after it. Both scale with the font,
+    /// and `width` must clear the marker, or the text wraps onto its own line.
+    private static func listParagraph(_ p: NSMutableParagraphStyle, x: CGFloat, indent: Int, base: NSFont, width: CGFloat? = nil) {
+        let step = max(listIndent, (base.pointSize * 1.35).rounded())
+        let width = width ?? step
+        let start = x + CGFloat(indent) * step
         p.firstLineHeadIndent = start
         p.headIndent = start + width
         p.tabStops = [NSTextTab(textAlignment: .left, location: start + width)]
-        p.paragraphSpacing = 3
+        p.paragraphSpacing = max(3, p.lineSpacing)
     }
 
     private static func checkbox(done: Bool, line: Int, base: NSFont, clickable: Bool) -> NSAttributedString {
         let attachment = NSTextAttachment()
-        let size = base.pointSize + 1
+        let size = base.pointSize - 1
         attachment.image = tintedSymbol(done ? "checkmark.square.fill" : "square", pointSize: size,
-                                        color: done ? .controlAccentColor : .secondaryLabelColor)
+                                        color: done ? GrokNSColor.accent : GrokNSColor.inkMuted)
         let imageSize = attachment.image?.size ?? NSSize(width: size, height: size)
         attachment.bounds = NSRect(x: 0, y: base.descender + 1, width: imageSize.width, height: imageSize.height)
         let s = NSMutableAttributedString(attachment: attachment)
@@ -210,7 +222,9 @@ enum NotesRenderer {
                     continue
                 }
                 a[.link] = url
-                a[.foregroundColor] = NSColor.linkColor
+                a[.foregroundColor] = GrokNSColor.amberText
+                a[.underlineStyle] = NSUnderlineStyle.single.rawValue
+                a[.underlineColor] = GrokNSColor.amber.withAlphaComponent(0.5)
             }
             out.append(NSAttributedString(string: runText, attributes: a))
         }
@@ -221,11 +235,11 @@ enum NotesRenderer {
         let plays = Citations.playTarget(from: url) != nil
         let action = plays ? "Click to play · Option-click for the transcript" : "Click to show in the transcript"
         let help = quote.map { "\($0)\n\n\(action)" } ?? action
-        // Thin spaces pad the capsule.
-        return NSAttributedString(string: "\u{2009}\(Citations.displayText(seconds, playable: plays))\u{2009}", attributes: [
+        // Narrow no-break spaces pad the capsule without letting a line break split it.
+        return NSAttributedString(string: "\u{202F}\(Citations.displayText(seconds, playable: plays))\u{202F}", attributes: [
             .font: pillFont(base: base),
-            .foregroundColor: NSColor.controlAccentColor,
-            .backgroundColor: NSColor.controlAccentColor.withAlphaComponent(0.13),
+            .foregroundColor: GrokNSColor.ink,
+            .backgroundColor: GrokNSColor.amberSoft,
             .notesPill: true,
             .link: url,
             .toolTip: help,
@@ -240,10 +254,10 @@ enum NotesRenderer {
         let base = baseFont(textStyle)
         let string = storage.string as NSString
         let paragraph = NSMutableParagraphStyle()
-        paragraph.lineSpacing = 3
+        paragraph.lineSpacing = GrokTypography.readingLineSpacing(base)
         storage.beginEditing()
         storage.setAttributes(
-            [.font: base, .foregroundColor: NSColor.labelColor, .paragraphStyle: paragraph],
+            [.font: base, .foregroundColor: GrokNSColor.ink, .paragraphStyle: paragraph],
             range: NSRange(location: 0, length: string.length)
         )
         string.enumerateSubstrings(in: NSRange(location: 0, length: string.length), options: [.byLines, .substringNotRequired]) { _, range, _, _ in
@@ -252,16 +266,16 @@ enum NotesRenderer {
             let marker = NSRange(location: range.location, length: min(line.markerLength, range.length))
             switch line.kind {
             case .heading(let level):
-                storage.addAttribute(.font, value: headingFont(level, base: base), range: range)
+                storage.addAttribute(.font, value: headingFont(level, base: base, serif: true), range: range)
             case .checkbox(let done):
-                if done { storage.addAttribute(.foregroundColor, value: NSColor.secondaryLabelColor, range: range) }
+                if done { storage.addAttribute(.foregroundColor, value: GrokNSColor.inkMuted, range: range) }
             default: break
             }
-            if line.quote > 0 { storage.addAttribute(.foregroundColor, value: NSColor.secondaryLabelColor, range: range) }
-            if marker.length > 0 { storage.addAttribute(.foregroundColor, value: NSColor.tertiaryLabelColor, range: marker) }
+            if line.quote > 0 { storage.addAttribute(.foregroundColor, value: GrokNSColor.inkMuted, range: range) }
+            if marker.length > 0 { storage.addAttribute(.foregroundColor, value: GrokNSColor.inkFaint, range: marker) }
             for span in Citations.spans(in: raw) {
                 let r = NSRange(location: range.location + span.nsRange.location, length: span.nsRange.length)
-                storage.addAttributes([.foregroundColor: NSColor.controlAccentColor, .font: pillFont(base: base)], range: r)
+                storage.addAttributes([.foregroundColor: GrokNSColor.amberText, .font: pillFont(base: base)], range: r)
             }
         }
         storage.endEditing()
@@ -288,17 +302,17 @@ final class NotesLayoutManager: NSLayoutManager {
         let chars = characterRange(forGlyphRange: glyphsToShow, actualGlyphRange: nil)
         storage.enumerateAttribute(.notesQuote, in: chars) { value, range, _ in
             guard let depth = value as? Int, depth > 0 else { return }
-            NSColor.tertiaryLabelColor.setFill()
+            GrokNSColor.amber.withAlphaComponent(0.55).setFill()
             enumerateLineFragments(forGlyphRange: glyphRange(forCharacterRange: range, actualCharacterRange: nil)) { rect, _, _, _, _ in
                 for level in 0..<depth {
                     let x = origin.x + CGFloat(level) * NotesRenderer.quoteIndent + 2
-                    NSRect(x: x, y: origin.y + rect.minY, width: 3, height: rect.height).fill()
+                    NSBezierPath(roundedRect: NSRect(x: x, y: origin.y + rect.minY, width: 3, height: rect.height), xRadius: 1.5, yRadius: 1.5).fill()
                 }
             }
         }
         storage.enumerateAttribute(.notesRule, in: chars) { value, range, _ in
             guard value != nil else { return }
-            NSColor.separatorColor.setFill()
+            GrokNSColor.hairline.setFill()
             enumerateLineFragments(forGlyphRange: glyphRange(forCharacterRange: range, actualCharacterRange: nil)) { rect, _, container, _, _ in
                 NSRect(x: origin.x + rect.minX, y: origin.y + rect.midY, width: container.size.width, height: 1).fill()
             }
@@ -483,7 +497,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
                 let selection = view.selectedRanges
                 NotesRenderer.highlightSource(storage)
                 view.selectedRanges = selection
-                view.typingAttributes = [.font: NotesRenderer.baseFont(.body), .foregroundColor: NSColor.labelColor]
+                view.typingAttributes = [.font: NotesRenderer.baseFont(.body), .foregroundColor: GrokNSColor.ink]
             }
             text.wrappedValue = view.string
         }
@@ -510,7 +524,7 @@ struct MarkdownSourceEditor: NSViewRepresentable {
         view.isIncrementalSearchingEnabled = true
         view.string = text
         if let storage = view.textStorage { NotesRenderer.highlightSource(storage) }
-        view.typingAttributes = [.font: NotesRenderer.baseFont(.body), .foregroundColor: NSColor.labelColor]
+        view.typingAttributes = [.font: NotesRenderer.baseFont(.body), .foregroundColor: GrokNSColor.ink]
         view.delegate = context.coordinator
         view.setAccessibilityLabel("Enhanced notes, Markdown")
 

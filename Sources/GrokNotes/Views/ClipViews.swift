@@ -14,10 +14,10 @@ extension Citations {
         for (lower, upper) in offsets.reversed() {
             let range = attributed.index(attributed.startIndex, offsetByCharacters: lower)..<attributed.index(attributed.startIndex, offsetByCharacters: upper)
             attributed[range].font = GrokTypography.citation()
-            attributed[range].foregroundColor = .accentColor
-            attributed[range].backgroundColor = Color.accentColor.opacity(0.13)
+            attributed[range].foregroundColor = GrokColors.ink
+            attributed[range].backgroundColor = GrokColors.amberSoft
             let container = attributed[range].runs.first?.attributes ?? AttributeContainer()
-            let pad = AttributedString("\u{2009}", attributes: container)
+            let pad = AttributedString("\u{202F}", attributes: container)
             attributed.insert(pad, at: attributed.index(attributed.startIndex, offsetByCharacters: upper))
             attributed.insert(pad, at: attributed.index(attributed.startIndex, offsetByCharacters: lower))
         }
@@ -37,9 +37,7 @@ struct NowPlayingBar: View {
             VStack(spacing: 0) {
                 Divider()
                 HStack(spacing: GrokSpacing.md) {
-                    Image(systemName: "waveform")
-                        .foregroundStyle(Color.accentColor)
-                        .symbolEffect(.variableColor.iterative, options: .repeating)
+                    WaveformMark(bars: 5, height: 14, animating: true)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(title(clip, meeting))
                             .font(.callout.weight(.medium))
@@ -49,17 +47,18 @@ struct NowPlayingBar: View {
                                  ?? "\(Meeting.timestamp(clips.currentTime)) / \(Meeting.timestamp(clips.duration))")
                         }
                         .font(GrokTypography.captionMuted().monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                     }
                     TimelineView(.periodic(from: .now, by: 0.1)) { _ in
                         if let clip {
-                            ProgressView(value: clips.elapsed, total: max(0.1, clip.end - clip.start))
+                            GrokBar(value: clips.elapsed / max(0.1, clip.end - clip.start), color: GrokColors.amber, height: 4)
                         } else {
-                            ProgressView(value: clips.currentTime, total: max(0.1, clips.duration))
+                            GrokBar(value: clips.currentTime / max(0.1, clips.duration), color: GrokColors.amber, height: 4)
                         }
                     }
-                    .progressViewStyle(.linear)
                     .frame(maxWidth: 240)
+                    .accessibilityElement()
+                    .accessibilityLabel("Playback progress")
                     Spacer(minLength: 0)
                     Button {
                         clips.stop()
@@ -107,7 +106,7 @@ struct ClipPlayButton: View {
             }
         } label: {
             Image(systemName: playing ? "pause.circle.fill" : "play.circle")
-                .foregroundStyle(playing ? Color.accentColor : .secondary)
+                .foregroundStyle(playing ? GrokColors.accent : GrokColors.inkMuted)
         }
         .buttonStyle(.plain)
         .help(playing ? "Pause" : "Play from here")
@@ -122,6 +121,6 @@ struct KeepAudioHint: View {
     var body: some View {
         Label("Turn on Keep audio in Settings to play clips from future meetings.", systemImage: "speaker.slash")
             .font(GrokTypography.captionMuted())
-            .foregroundStyle(.tertiary)
+            .foregroundStyle(GrokColors.inkMuted)
     }
 }

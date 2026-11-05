@@ -32,11 +32,12 @@ struct UsageView: View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: GrokSpacing.xs) {
                     Text(total.usd)
-                        .font(.system(size: 40, weight: .bold, design: .rounded))
+                        .font(.system(size: 40, weight: .semibold))
                         .monospacedDigit()
+                        .foregroundStyle(GrokColors.ink)
                     Text("xAI API spend · \(period.rawValue.lowercased())")
-                        .font(GrokTypography.captionMuted())
-                        .foregroundStyle(.secondary)
+                        .font(.callout)
+                        .foregroundStyle(GrokColors.inkMuted)
                 }
                 Spacer()
                 Picker("", selection: $period) {
@@ -54,39 +55,36 @@ struct UsageView: View {
             }
 
             HStack(alignment: .top, spacing: GrokSpacing.lg) {
-                GroupBox {
-                    VStack(alignment: .leading, spacing: GrokSpacing.sm) {
-                        Text("By feature")
-                            .font(GrokTypography.sectionTitle())
+                GrokPanel {
+                    VStack(alignment: .leading, spacing: GrokSpacing.md) {
+                        GrokSectionHeader(title: "By feature", systemImage: "square.stack.3d.up")
                         if kinds.isEmpty {
                             Text("No usage yet.")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(GrokColors.inkMuted)
                         } else {
                             ForEach(kinds, id: \.kind) { item in
-                                VStack(alignment: .leading, spacing: GrokSpacing.xs) {
+                                VStack(alignment: .leading, spacing: 5) {
                                     HStack {
                                         Text(item.kind.label)
                                         Spacer()
                                         Text(item.cost.usd).monospacedDigit()
                                     }
                                     .font(.callout)
-                                    ProgressView(value: total > 0 ? item.cost / total : 0)
+                                    GrokBar(value: total > 0 ? item.cost / total : 0)
                                 }
+                                .accessibilityElement(children: .combine)
                             }
                         }
                     }
-                    .padding(GrokSpacing.sm)
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .frame(width: 320)
 
-                GroupBox {
-                    VStack(alignment: .leading, spacing: GrokSpacing.sm) {
-                        Text("By meeting")
-                            .font(GrokTypography.sectionTitle())
+                GrokPanel {
+                    VStack(alignment: .leading, spacing: GrokSpacing.md) {
+                        GrokSectionHeader(title: "By meeting", systemImage: "list.bullet")
                         if meetings.isEmpty {
                             Text("No meetings in this period.")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(GrokColors.inkMuted)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         } else {
                             List(meetings, id: \.id) { item in
@@ -95,7 +93,7 @@ struct UsageView: View {
                                         Text(state.meeting(item.id)?.title ?? item.title).lineLimit(1)
                                         Text(item.date.formatted(date: .abbreviated, time: .shortened))
                                             .font(GrokTypography.captionMuted())
-                                            .foregroundStyle(.secondary)
+                                            .foregroundStyle(GrokColors.inkMuted)
                                     }
                                     Spacer()
                                     Text(item.cost.usd).monospacedDigit()
@@ -104,30 +102,32 @@ struct UsageView: View {
                                 .onTapGesture { state.selectedID = item.id }
                             }
                             .listStyle(.plain)
+                            .scrollContentBackground(.hidden)
                             .frame(minHeight: 200)
                         }
                     }
-                    .padding(GrokSpacing.sm)
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
 
             Text("Grok requests show the exact cost xAI reports. Transcription is estimated from recorded audio at list prices. Usage from before this page existed is not included.")
                 .font(GrokTypography.captionMuted())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
         }
-        .padding(GrokSpacing.contentInset)
+        .padding(GrokSpacing.xl)
         .frame(minWidth: 760, minHeight: 520)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .foregroundStyle(GrokColors.ink)
+        .background(GrokColors.paper)
     }
 
     private func statCard(_ title: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.title3.bold()).monospacedDigit()
-            Text(title).font(GrokTypography.captionMuted()).foregroundStyle(.secondary)
+        GrokPanel(padding: GrokSpacing.md + 2) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value).font(GrokTypography.figure).foregroundStyle(GrokColors.ink)
+                Text(title).font(.callout).foregroundStyle(GrokColors.inkMuted)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(GrokSpacing.md)
-        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement(children: .combine)
     }
 
     private func hours(_ seconds: Double) -> String {

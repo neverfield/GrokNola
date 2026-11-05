@@ -1,11 +1,21 @@
+import AppKit
 import SwiftUI
 
-/// Speaker colors. You are always green. Remote speakers take palette colors in the order they first
-/// speak in a meeting, so two speakers in one meeting share a color only past the palette's length.
-/// Red is left out because it reads as recording or an error.
+/// Speaker colors: earthy, muted tones that sit on the paper. Each is dark enough for a speaker's name in light
+/// mode and light enough in dark mode (at least 4.5:1 on `paper` and `paper2`). You are always sage.
+/// Remote speakers take palette colors in the order they first speak in a meeting, so two speakers in one
+/// meeting share a color only past the palette's length. Red is left out because it reads as recording.
 enum SpeakerColor {
-    static let me: Color = .green
-    static let palette: [Color] = [.blue, .orange, .purple, .pink, .teal, .indigo, .brown, .mint, .cyan, .yellow]
+    static let me = Color(nsColor: .grok(light: 0x4C7650, dark: 0x93BF96))
+    static let palette: [Color] = [
+        Color(nsColor: .grok(light: 0x3E6890, dark: 0x8EB2D8)), // slate blue
+        Color(nsColor: .grok(light: 0xA4503A, dark: 0xE29A80)), // terracotta
+        Color(nsColor: .grok(light: 0x7A4D78, dark: 0xC99CC6)), // plum
+        Color(nsColor: .grok(light: 0x2D726E, dark: 0x7EC3BC)), // teal
+        Color(nsColor: .grok(light: 0x86630F, dark: 0xD8B35C)), // ochre
+        Color(nsColor: .grok(light: 0x575C9C, dark: 0xA5A8E2)), // indigo
+        Color(nsColor: .grok(light: 0x8A5B3D, dark: 0xD4A27F)), // clay
+    ]
 
     /// The palette slot of a remote speaker among a meeting's speaker keys in first-spoken order.
     static func index(for key: String, among keys: [String]) -> Int? {
@@ -27,17 +37,17 @@ enum SpeakerColor {
     }
 }
 
-/// Chapter colors: muted tones that stay apart from the speaker colors.
+/// Chapter colors: a quieter ramp of the speaker family, for timeline segments, bars, and marks.
 enum ChapterColor {
     private static let palette: [Color] = [
-        Color(red: 0.42, green: 0.53, blue: 0.66),
-        Color(red: 0.62, green: 0.55, blue: 0.40),
-        Color(red: 0.45, green: 0.60, blue: 0.52),
-        Color(red: 0.60, green: 0.47, blue: 0.58),
-        Color(red: 0.52, green: 0.52, blue: 0.62),
-        Color(red: 0.64, green: 0.50, blue: 0.44),
-        Color(red: 0.47, green: 0.58, blue: 0.62),
-        Color(red: 0.57, green: 0.57, blue: 0.47),
+        Color(nsColor: .grok(light: 0x7C97B2, dark: 0x7E98B3)), // slate
+        Color(nsColor: .grok(light: 0xC8A65A, dark: 0xC4A45C)), // ochre
+        Color(nsColor: .grok(light: 0x8FAA88, dark: 0x8DA987)), // sage
+        Color(nsColor: .grok(light: 0xC99075, dark: 0xC48F76)), // terracotta
+        Color(nsColor: .grok(light: 0x6FA6A1, dark: 0x6EA49F)), // teal
+        Color(nsColor: .grok(light: 0xA889A6, dark: 0xA68AA4)), // plum
+        Color(nsColor: .grok(light: 0x8E91BF, dark: 0x8C90BC)), // indigo
+        Color(nsColor: .grok(light: 0xB39176, dark: 0xB09078)), // clay
     ]
 
     static func color(_ index: Int) -> Color { palette[index % palette.count] }

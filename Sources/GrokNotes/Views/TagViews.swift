@@ -7,22 +7,7 @@ struct TagChip: View {
     var onRemove: (() -> Void)?
 
     var body: some View {
-        HStack(spacing: compact ? 3 : GrokSpacing.xs) {
-            Circle().fill(color).frame(width: compact ? 6 : 7, height: compact ? 6 : 7)
-            Text(name).lineLimit(1)
-            if let onRemove {
-                Button(action: onRemove) {
-                    Image(systemName: "xmark").font(.caption2.weight(.semibold))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .accessibilityLabel("Remove tag \(name)")
-            }
-        }
-        .font(compact ? .caption2 : .callout)
-        .padding(.horizontal, compact ? 5 : GrokSpacing.sm)
-        .padding(.vertical, compact ? 1 : 3)
-        .background(color.opacity(0.15), in: Capsule())
+        GrokChip(title: name, style: .tinted(color), size: compact ? .compact : .regular, onRemove: onRemove)
     }
 }
 
@@ -87,7 +72,7 @@ struct MeetingTagsEditor: View {
         if tags.isEmpty {
             Text("No tags yet.")
                 .font(.callout)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
         } else {
             FlowLayout {
                 ForEach(tags, id: \.self) { tag in
@@ -154,7 +139,7 @@ struct TagSettingsSection: View {
             Toggle("Let Grok create new tags", isOn: $dynamicTags)
             Text("Grok prefers your tags and follows their descriptions. New tags it creates appear under Suggested by Grok until you keep or delete them.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
 
             ForEach(catalog.userTags) { tag in
                 TagEditRow(tag: tag, count: counts[tag.name.lowercased()] ?? 0)
@@ -177,7 +162,7 @@ struct TagSettingsSection: View {
                         TagChip(name: tag.name, color: tag.displayColor)
                         Text("\(counts[tag.name.lowercased()] ?? 0) meetings")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(GrokColors.inkMuted)
                         Spacer()
                         Button("Keep") { catalog.keep(tag.id) }
                         Button("Delete", role: .destructive) { state.deleteTag(tag.id) }
@@ -199,12 +184,12 @@ struct TagSettingsSection: View {
                     Button("Tag all untagged meetings") { confirmBackfill = true }
                         .disabled(untagged == 0 || (!dynamicTags && catalog.tags.isEmpty))
                     Text(untagged == 0 ? "Every meeting has tags." : "\(untagged) untagged")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                 }
             }
             Text("Sends each meeting's notes to Grok, one at a time. Existing tags are kept.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
         }
         .confirmationDialog("Tag \(state.untaggedMeetings.count) meetings?", isPresented: $confirmBackfill) {
             Button("Tag meetings") { Task { await state.tagAllUntagged() } }
@@ -254,13 +239,13 @@ private struct TagEditRow: View {
                     .fontWeight(.medium)
                 TextField("When it applies (optional)", text: $detail)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(GrokColors.inkMuted)
                     .onChange(of: detail) { catalog.setDetail(tag.id, detail) }
             }
             .textFieldStyle(.plain)
             Text("\(count)")
                 .monospacedDigit()
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
                 .help("Meetings with this tag")
             Button {
                 if count > 0 { confirmDelete = true } else { state.deleteTag(tag.id) }

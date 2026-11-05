@@ -90,7 +90,7 @@ struct SettingsCaption: View {
     var body: some View {
         Text(text)
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(GrokColors.inkMuted)
     }
 }
 

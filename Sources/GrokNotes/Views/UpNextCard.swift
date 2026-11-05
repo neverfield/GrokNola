@@ -26,13 +26,13 @@ struct UpNextCard: View {
 
     private var setupHint: some View {
         HStack(spacing: GrokSpacing.sm) {
-            Image(systemName: "calendar.badge.plus").foregroundStyle(.secondary)
+            Image(systemName: "calendar.badge.plus").foregroundStyle(GrokColors.inkMuted)
             Text(calendars.fileError.map { "calendar.json could not be read: \($0)" }
                  ?? "See what's next here: in Cursor, say “\(CalendarHub.syncPrompt)”.")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
                 .lineLimit(1)
             SettingsLink { Text("Calendar settings") }
-                .buttonStyle(.link)
+                .buttonStyle(GrokLinkButtonStyle())
         }
         .font(.callout)
     }
@@ -47,29 +47,29 @@ struct UpNextCard: View {
                 if !allDay.isEmpty {
                     Text("All day: \(allDay.map(\.title).joined(separator: ", "))")
                         .font(GrokTypography.captionMuted())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                         .lineLimit(1)
                 }
                 if timed.isEmpty {
                     Text("Nothing else on your calendar today.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                 } else {
                     VStack(spacing: 0) {
                         ForEach(Array(timed.prefix(Self.rowLimit).enumerated()), id: \.element.id) { index, event in
-                            if index > 0 { Divider().padding(.leading, 76) }
+                            if index > 0 { GrokColors.hairline.frame(height: 1).padding(.leading, 76) }
                             UpNextRow(event: event, isNow: event.id == currentID || (event.start <= now && event.end > now))
                         }
                     }
                     if timed.count > Self.rowLimit {
                         Text("+\(timed.count - Self.rowLimit) more later today")
                             .font(GrokTypography.captionMuted())
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(GrokColors.inkMuted)
                     }
                 }
                 if calendars.active == .file, calendars.isStale {
                     Label("Calendar last synced \(CalendarHub.ago(calendars.syncedAt)). Say “\(CalendarHub.syncPrompt)” in Cursor to refresh.", systemImage: "clock.badge.exclamationmark")
                         .font(GrokTypography.captionMuted())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                 }
             }
         }
@@ -84,16 +84,17 @@ private struct UpNextRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: GrokSpacing.md) {
             Text(isNow ? "Now" : event.start.formatted(date: .omitted, time: .shortened))
-                .font(.callout.weight(isNow ? .semibold : .regular).monospacedDigit())
-                .foregroundStyle(isNow ? Color.accentColor : .secondary)
+                .font(.callout.weight(isNow ? .semibold : .medium).monospacedDigit())
+                .foregroundStyle(isNow ? GrokColors.amberText : GrokColors.inkMuted)
                 .frame(width: 64, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.title)
-                    .font(.body.weight(.medium))
+                    .font(.system(size: 15, weight: .semibold, design: .serif))
+                    .foregroundStyle(GrokColors.ink)
                     .lineLimit(1)
                 Text(subtitle)
                     .font(GrokTypography.captionMuted())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(GrokColors.inkMuted)
                     .lineLimit(1)
             }
             Spacer(minLength: GrokSpacing.sm)

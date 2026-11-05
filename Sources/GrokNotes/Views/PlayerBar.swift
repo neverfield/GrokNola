@@ -40,7 +40,7 @@ struct MeetingPlayerBar: View {
                                 .frame(minWidth: 44, alignment: .leading)
                         }
                         .font(GrokTypography.captionMuted().monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                     }
                     rateMenu
                     voiceButton
@@ -67,6 +67,7 @@ struct MeetingPlayerBar: View {
             Button { state.togglePlayback(meetingID) } label: {
                 Image(systemName: playing ? "pause.fill" : "play.fill")
                     .font(.title2)
+                    .foregroundStyle(GrokColors.accent)
                     .frame(width: 22)
             }
             .help(playing ? "Pause (Space)" : "Play (Space)")
@@ -97,7 +98,7 @@ struct MeetingPlayerBar: View {
         Button { showVoices.toggle() } label: {
             Image(systemName: voiceSymbol)
                 .frame(width: 20)
-                .foregroundStyle(clips.voicesAdjusted ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.primary))
+                .foregroundStyle(clips.voicesAdjusted ? AnyShapeStyle(GrokColors.accent) : AnyShapeStyle(.primary))
         }
         .buttonStyle(.borderless)
         .help("Voice levels: set your voice and the other participants separately")
@@ -155,7 +156,7 @@ private struct VoiceLevelsPanel: View {
             HStack {
                 Text(clips.balanceVoices ? "0 dB is the balanced level." : "0 dB is the level as recorded.")
                     .font(GrokTypography.captionMuted())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(GrokColors.inkMuted)
                 Spacer()
                 Button("Reset") { clips.resetVoices() }
                     .controlSize(.small)
@@ -171,7 +172,7 @@ private struct VoiceLevelsPanel: View {
             Button { muted.wrappedValue.toggle() } label: {
                 Image(systemName: muted.wrappedValue ? "speaker.slash" : "speaker.wave.2")
                     .frame(width: 20)
-                    .foregroundStyle(muted.wrappedValue ? AnyShapeStyle(Color.red) : AnyShapeStyle(.secondary))
+                    .foregroundStyle(muted.wrappedValue ? GrokColors.error : GrokColors.inkMuted)
             }
             .buttonStyle(.borderless)
             .help(muted.wrappedValue ? "Unmute \(title.lowercased())" : "Mute \(title.lowercased())")
@@ -185,7 +186,7 @@ private struct VoiceLevelsPanel: View {
                 .accessibilityValue(Self.label(gain.wrappedValue))
             Text(Self.label(gain.wrappedValue))
                 .font(GrokTypography.captionMuted().monospacedDigit())
-                .foregroundStyle(muted.wrappedValue ? .tertiary : .secondary)
+                .foregroundStyle(muted.wrappedValue ? GrokColors.inkFaint : GrokColors.inkMuted)
                 .frame(width: 44, alignment: .trailing)
         }
     }
@@ -243,7 +244,7 @@ private struct PlayerTimeline: View {
                         .truncationMode(.tail)
                         .padding(.horizontal, 4)
                         .frame(width: w, height: Self.labelHeight, alignment: .leading)
-                        .background(ChapterColor.color(i).opacity(0.14), in: RoundedRectangle(cornerRadius: 3))
+                        .background(ChapterColor.color(i).opacity(0.18), in: RoundedRectangle(cornerRadius: 3))
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -265,10 +266,11 @@ private struct PlayerTimeline: View {
             segments(width: width, opacity: 0.9)
                 .mask(alignment: .leading) { Rectangle().frame(width: playedWidth) }
             Circle()
-                .fill(.white)
-                .shadow(color: .black.opacity(0.3), radius: 1)
-                .frame(width: 10, height: 10)
-                .offset(x: playedWidth - 5)
+                .fill(GrokColors.amber)
+                .overlay(Circle().strokeBorder(GrokColors.paper, lineWidth: 2))
+                .shadow(color: .black.opacity(0.25), radius: 1.5, y: 0.5)
+                .frame(width: 12, height: 12)
+                .offset(x: playedWidth - 6)
         }
         .frame(width: width, height: 14)
         .contentShape(Rectangle())
@@ -292,11 +294,11 @@ private struct PlayerTimeline: View {
         }
     }
 
-    /// One colored run per chapter with a one-point gap between them, or a single gray run without chapters.
+    /// One colored run per chapter with a one-point gap between them, or a single amber run without chapters.
     private func segments(width: CGFloat, opacity: Double) -> some View {
         ZStack(alignment: .leading) {
             if chapters.isEmpty {
-                Capsule().fill(Color.secondary.opacity(opacity))
+                Capsule().fill(GrokColors.amber.opacity(opacity))
             } else {
                 ForEach(Array(chapters.enumerated()), id: \.offset) { i, c in
                     let x = position(c.start, width)

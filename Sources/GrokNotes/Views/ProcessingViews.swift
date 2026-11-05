@@ -21,7 +21,9 @@ struct ProcessingStepsRow: View {
             .padding(.horizontal, GrokSpacing.lg)
             .padding(.vertical, GrokSpacing.sm)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.quaternary.opacity(0.25))
+            .background(GrokColors.paper2)
+            .overlay(alignment: .top) { GrokColors.hairline.frame(height: 1) }
+            .overlay(alignment: .bottom) { GrokColors.hairline.frame(height: 1) }
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Processing steps")
         }
@@ -40,7 +42,7 @@ struct ProcessingStepsRow: View {
         HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.sm) {
             Text("\(step.title) failed: \(message)")
                 .font(GrokTypography.captionMuted())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
                 .lineLimit(2)
                 .textSelection(.enabled)
             Spacer(minLength: GrokSpacing.sm)
@@ -56,7 +58,7 @@ struct ProcessingStepsRow: View {
                 Image(systemName: "xmark")
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(GrokColors.inkMuted)
             .disabled(busy)
             .help("Hide these steps")
             .accessibilityLabel("Hide processing steps")
@@ -74,12 +76,12 @@ private struct StepLabel: View {
             icon.frame(width: 14, height: 14)
             Text(short ? shortTitle : step.title)
                 .font(GrokTypography.captionMuted())
-                .foregroundStyle(entry.status == .pending ? .tertiary : .secondary)
+                .foregroundStyle(entry.status == .pending ? GrokColors.inkFaint : GrokColors.inkMuted)
             if entry.status == .running, let started = entry.startedAt {
                 TimelineView(.periodic(from: started, by: 1)) { context in
                     Text("\(max(0, Int(context.date.timeIntervalSince(started))))s")
                         .font(GrokTypography.captionMuted().monospacedDigit())
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(GrokColors.inkFaint)
                 }
             }
         }
@@ -92,13 +94,13 @@ private struct StepLabel: View {
     private var icon: some View {
         switch entry.status {
         case .done, .skipped:
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(GrokColors.success)
         case .running:
             ProgressView().controlSize(.mini)
         case .pending:
-            Image(systemName: "circle").foregroundStyle(.tertiary)
+            Image(systemName: "circle").foregroundStyle(GrokColors.inkFaint)
         case .failed:
-            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.orange)
+            Image(systemName: "exclamationmark.circle.fill").foregroundStyle(GrokColors.warning)
         }
     }
 
@@ -140,24 +142,27 @@ struct NotesSkeleton: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: GrokSpacing.lg) {
-                Label("Grok is writing your notes with \(template.name)…", systemImage: "sparkles")
-                    .font(GrokTypography.captionMuted())
-                    .foregroundStyle(.secondary)
+                HStack(spacing: GrokSpacing.sm) {
+                    WaveformMark(bars: 5, height: 12, animating: true)
+                    Text("Grok is writing your notes with \(template.name)…")
+                        .font(.callout)
+                        .foregroundStyle(GrokColors.inkMuted)
+                }
                 let sections = template.sections.isEmpty ? Self.fallbackSections : template.sections
                 ForEach(Array(sections.enumerated()), id: \.offset) { index, title in
                     VStack(alignment: .leading, spacing: GrokSpacing.sm) {
                         Text(title)
-                            .font(.title3.bold())
-                            .foregroundStyle(.tertiary)
+                            .font(.system(size: 19, weight: .semibold, design: .serif))
+                            .foregroundStyle(GrokColors.inkFaint)
                         placeholderLines(Self.lineWidths[index % Self.lineWidths.count], phase: Double(index) * 0.35)
                     }
                 }
             }
             .padding(GrokSpacing.contentInset)
-            .frame(maxWidth: 680, alignment: .leading)
+            .frame(maxWidth: GrokSpacing.measure + 2 * GrokSpacing.contentInset, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
-        .background(Color(nsColor: .textBackgroundColor))
+        .background(GrokColors.paper)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Writing notes with the \(template.name) template")
     }
@@ -180,7 +185,7 @@ struct NotesSkeleton: View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(Array(widths.enumerated()), id: \.offset) { _, fraction in
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.secondary.opacity(opacity * 0.5))
+                    .fill(GrokColors.ink.opacity(opacity * 0.16))
                     .frame(width: width * fraction, height: 10)
             }
         }
@@ -203,7 +208,7 @@ struct LiveTranscriptStrip: View {
                     Image(systemName: expanded ? "chevron.down" : "chevron.right")
                         .font(.caption2.weight(.semibold))
                         .frame(width: 10)
-                    Image(systemName: "waveform")
+                    WaveformMark(bars: 5, height: 11, animating: true)
                     Text("Live")
                         .font(GrokTypography.captionMuted().weight(.semibold))
                     if !expanded, let latest = [them, me].first(where: { !$0.isEmpty }) {
@@ -214,7 +219,7 @@ struct LiveTranscriptStrip: View {
                     }
                     Spacer()
                 }
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -229,18 +234,19 @@ struct LiveTranscriptStrip: View {
         .padding(.horizontal, GrokSpacing.lg)
         .padding(.vertical, GrokSpacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.3))
+        .background(GrokColors.paper2)
+        .overlay(alignment: .top) { GrokColors.hairline.frame(height: 1) }
     }
 
     private func line(_ label: String, _ text: String, live: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.sm) {
             Text(label)
                 .font(GrokTypography.captionMuted().weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
                 .frame(width: 36, alignment: .trailing)
             Text(text)
                 .font(GrokTypography.liveLine())
-                .foregroundStyle(live ? GrokColors.liveText : .secondary)
+                .foregroundStyle(live ? GrokColors.ink : GrokColors.inkMuted)
                 .lineLimit(1)
                 .truncationMode(.head)
         }

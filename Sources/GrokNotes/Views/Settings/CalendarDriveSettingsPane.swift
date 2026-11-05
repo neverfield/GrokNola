@@ -18,7 +18,7 @@ struct CalendarDriveSettingsPane: View {
                             .foregroundStyle(calendarStatusOK ? .green : .orange)
                         Text(calendars.statusLine)
                             .font(.callout)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(GrokColors.inkMuted)
                             .textSelection(.enabled)
                     }
                 }
@@ -45,7 +45,7 @@ struct CalendarDriveSettingsPane: View {
                              ? "Google Drive for desktop is mounted."
                              : "Drive not found. Install Google Drive for desktop and sign in.")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(GrokColors.inkMuted)
                     }
                 }
                 SettingsCaption("Uses the synced My Drive folder, so there is no Google sign-in in GrokNola. Each meeting gets a folder with notes.md and meeting.json.")

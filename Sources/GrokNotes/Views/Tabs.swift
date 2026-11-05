@@ -26,14 +26,12 @@ struct NotesTab: View {
                 VStack(spacing: 0) {
                     header(meeting: meeting, recording: recording, processing: processing, showEnhanced: showEnhanced, awaitingNotes: awaitingNotes)
                     if !recording, state.processingStage[meetingID] != nil {
-                        Divider()
                         ProcessingStepsRow(meetingID: meetingID)
-                        Divider()
                     }
                     if showSummary, !wide, !showEnhanced {
                         CallSummaryCard(meetingID: meetingID)
                             .padding([.horizontal, .top], GrokSpacing.contentInset)
-                            .frame(maxWidth: 680, alignment: .leading)
+                            .frame(maxWidth: GrokSpacing.measure, alignment: .leading)
                             .frame(maxWidth: .infinity, alignment: .center)
                             .background(GrokColors.notesSurface)
                     }
@@ -48,21 +46,26 @@ struct NotesTab: View {
                         notesEditor(meeting: meeting, recording: recording)
                     }
                     if recording {
-                        Divider()
                         LiveTranscriptStrip()
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 if wide {
-                    Divider()
                     ScrollView {
                         CallSummaryCard(meetingID: meetingID, style: .sidebar)
                     }
                     .frame(width: Self.sideColumnWidth)
-                    .background(.quaternary.opacity(0.18))
+                    .background(GrokColors.paper2)
+                    .overlay(alignment: .leading) {
+                        HStack(spacing: 0) {
+                            GrokColors.hairline.frame(width: 1)
+                            PageEdge()
+                        }
+                    }
                 }
             }
         }
+        .grokPaper()
         .onChange(of: processing) { _, busy in
             if busy { editing = false }
         }
@@ -88,8 +91,10 @@ struct NotesTab: View {
                     KeepAudioHint().padding(.top, GrokSpacing.sm)
                 }
             }
-            .padding(GrokSpacing.contentInset)
-            .frame(maxWidth: 680, alignment: .leading)
+            .padding(.horizontal, GrokSpacing.contentInset)
+            .padding(.top, GrokSpacing.sm)
+            .padding(.bottom, GrokSpacing.xxl)
+            .frame(maxWidth: GrokSpacing.measure + 2 * GrokSpacing.contentInset, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .background(GrokColors.notesSurface)
@@ -120,7 +125,7 @@ struct NotesTab: View {
                         Text("Writing notes…")
                     }
                     .font(GrokTypography.captionMuted())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(GrokColors.inkMuted)
                 }
             } else if enhanced != nil, !recording, let pending = state.pendingTemplate(for: meetingID) {
                 Button("Regenerate with \(pending.name)") {
@@ -151,7 +156,8 @@ struct NotesTab: View {
     @ViewBuilder
     private func notesEditor(meeting: Meeting?, recording: Bool) -> some View {
         TextEditor(text: state.binding(meetingID, \.userNotes, default: ""))
-            .font(.body)
+            .font(.system(size: 14))
+            .foregroundStyle(GrokColors.ink)
             .scrollContentBackground(.hidden)
             .padding(GrokSpacing.notesEditorInset)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -161,8 +167,8 @@ struct NotesTab: View {
                     Text(recording
                          ? "Jot rough notes here while you talk…"
                          : "Jot rough notes here. When the meeting ends, Grok merges them with the transcript.")
-                        .font(.body)
-                        .foregroundStyle(.tertiary)
+                        .font(.system(size: 14))
+                        .foregroundStyle(GrokColors.inkFaint)
                         .padding(GrokSpacing.notesEditorInset + 4)
                         .allowsHitTesting(false)
                 }
@@ -225,13 +231,13 @@ struct TranscriptTab: View {
         VStack(spacing: 0) {
             if finding {
                 findBar(count: matches.count)
-                Divider()
             }
             transcript(
                 blocks: blocks, headers: headers, hasChapters: hasChapters, recording: recording,
                 playable: playable, loaded: loaded, utteranceCount: utterances.count, currentMatch: currentMatch
             )
         }
+        .grokPaper()
         .background {
             Button("Find in Transcript") { openFind() }
                 .keyboardShortcut("f", modifiers: .command)
@@ -268,7 +274,7 @@ struct TranscriptTab: View {
     private func findBar(count: Int) -> some View {
         HStack(spacing: GrokSpacing.sm) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
                 .accessibilityHidden(true)
             TextField("Find in transcript", text: $query)
                 .textFieldStyle(.plain)
@@ -286,7 +292,7 @@ struct TranscriptTab: View {
             if !query.trimmingCharacters(in: .whitespaces).isEmpty {
                 Text(count == 0 ? "No matches" : "\(min(matchIndex, count - 1) + 1) of \(count)")
                     .font(GrokTypography.captionMuted().monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(GrokColors.inkMuted)
                     .accessibilityAddTraits(.updatesFrequently)
             }
             Button { step(-1, count: count) } label: { Image(systemName: "chevron.up") }
@@ -305,7 +311,8 @@ struct TranscriptTab: View {
         .buttonStyle(.borderless)
         .padding(.horizontal, GrokSpacing.lg)
         .padding(.vertical, GrokSpacing.sm)
-        .background(.bar)
+        .background(GrokColors.paper2)
+        .overlay(alignment: .bottom) { GrokColors.hairline.frame(height: 1) }
     }
 
     // MARK: Blocks
@@ -319,9 +326,11 @@ struct TranscriptTab: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: GrokSpacing.lg) {
                         if blocks.isEmpty, !recording {
-                            Text("No transcript yet.")
-                                .foregroundStyle(.secondary)
-                                .padding(GrokSpacing.contentInset)
+                            GrokEmptyState(
+                                title: "No transcript yet",
+                                message: "The transcript appears here as the meeting is recorded."
+                            )
+                            .padding(.top, GrokSpacing.xl)
                         }
                         ForEach(blocks) { block in
                             if let header = headers[block.id] {
@@ -345,7 +354,7 @@ struct TranscriptTab: View {
                         }
                     }
                     .padding(GrokSpacing.contentInset)
-                    .frame(maxWidth: 720, alignment: .leading)
+                    .frame(maxWidth: GrokSpacing.measure + 2 * GrokSpacing.contentInset, alignment: .leading)
                     .frame(maxWidth: .infinity)
                 }
                 .simultaneousGesture(
@@ -467,9 +476,10 @@ private struct TranscriptBlockView: View {
     @State private var hovering = false
 
     var body: some View {
+        let speakerColor = SpeakerColor.color(for: block.speakerKey, in: state.meeting(meetingID))
         VStack(alignment: .leading, spacing: GrokSpacing.xs) {
             HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.sm) {
-                SpeakerChip(meetingID: meetingID, key: block.speakerKey)
+                SpeakerChip(meetingID: meetingID, key: block.speakerKey, plain: true)
                 Text(Meeting.timestamp(block.start))
                     .font(GrokTypography.captionMuted().monospacedDigit())
                     .foregroundStyle(GrokColors.timestamp)
@@ -491,22 +501,26 @@ private struct TranscriptBlockView: View {
                         }
                     }
                     .font(GrokTypography.transcriptBody())
+                    .lineSpacing(3)
+                    .foregroundStyle(GrokColors.ink)
                     .textSelection(.enabled)
                 }
             }
-            .padding(.leading, 2)
         }
-        .padding(GrokSpacing.sm)
+        .padding(.vertical, GrokSpacing.sm)
+        .padding(.leading, GrokSpacing.md + 2)
+        .padding(.trailing, GrokSpacing.sm)
         .background(
-            Color.accentColor.opacity(highlighted ? 0.16 : current ? 0.08 : 0),
-            in: RoundedRectangle(cornerRadius: 8)
+            GrokColors.amberSoft.opacity(highlighted ? 1 : current ? 0.55 : 0),
+            in: RoundedRectangle(cornerRadius: GrokRadius.row)
         )
         .overlay(alignment: .leading) {
-            if current {
-                Capsule().fill(Color.accentColor).frame(width: 3).padding(.vertical, GrokSpacing.xs)
-            }
+            Capsule()
+                .fill(current || highlighted ? GrokColors.amber : speakerColor.opacity(0.35))
+                .frame(width: current || highlighted ? 3 : 2)
+                .padding(.vertical, GrokSpacing.sm)
         }
-        .padding(-GrokSpacing.sm)
+        .padding(.horizontal, -GrokSpacing.sm)
         .animation(.easeOut(duration: 0.2), value: current)
         .onHover { hovering = $0 }
         .contextMenu {
@@ -538,7 +552,7 @@ struct CopyButton: View {
             }
         } label: {
             Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                .foregroundStyle(copied ? AnyShapeStyle(Color.green) : AnyShapeStyle(.secondary))
+                .foregroundStyle(copied ? GrokColors.success : GrokColors.inkMuted)
                 .frame(width: 16, height: 16)
                 .contentTransition(.symbolEffect(.replace))
                 .contentShape(Rectangle())
@@ -561,17 +575,19 @@ private struct ChapterHeader: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.sm) {
             HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.sm) {
-                RoundedRectangle(cornerRadius: 1.5)
+                RoundedRectangle(cornerRadius: 2)
                     .fill(ChapterColor.color(index))
-                    .frame(width: 3, height: 14)
+                    .frame(width: 10, height: 10)
+                    .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
                 Text(chapter.title)
-                    .font(.headline)
+                    .font(GrokTypography.readingHeading)
+                    .foregroundStyle(GrokColors.ink)
                 Button {
                     state.openChapter(meetingID, chapter)
                 } label: {
                     Text("\(Meeting.timestamp(chapter.start)) · \(Meeting.durationLabel(chapter.length))")
                         .font(GrokTypography.captionMuted().monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                 }
                 .buttonStyle(.plain)
                 .help(state.canPlayClips(meetingID) ? "Play this chapter" : "Chapter start")
@@ -582,9 +598,9 @@ private struct ChapterHeader: View {
                 state.copyTranscript(meetingID, .chapter(index))
             }
             .font(GrokTypography.captionMuted())
-            VStack { Divider() }
+            GrokColors.hairline.frame(height: 1).alignmentGuide(.firstTextBaseline) { $0[.top] + 4 }
         }
-        .padding(.top, first ? 0 : GrokSpacing.md)
+        .padding(.top, first ? 0 : GrokSpacing.lg)
     }
 }
 
@@ -594,12 +610,11 @@ private struct LiveTranscriptRegion: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: GrokSpacing.sm) {
-            HStack(spacing: GrokSpacing.xs) {
-                Image(systemName: "waveform")
-                    .foregroundStyle(.secondary)
+            HStack(spacing: GrokSpacing.sm) {
+                WaveformMark(bars: 5, height: 12, animating: true)
                 Text("Live")
                     .font(GrokTypography.transcriptSpeaker())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(GrokColors.inkMuted)
             }
             if !recording.liveThem.isEmpty {
                 liveLine(label: "Them", text: recording.liveThem)
@@ -614,11 +629,11 @@ private struct LiveTranscriptRegion: View {
             }
         }
         .padding(GrokSpacing.md)
-        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+        .background(GrokColors.paper2, in: RoundedRectangle(cornerRadius: GrokRadius.panel, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: GrokRadius.panel, style: .continuous)
                 .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-                .foregroundStyle(.quaternary)
+                .foregroundStyle(GrokColors.amber.opacity(0.6))
         )
     }
 
@@ -626,7 +641,7 @@ private struct LiveTranscriptRegion: View {
         HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.sm) {
             Text(label)
                 .font(GrokTypography.captionMuted().weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
                 .frame(width: 36, alignment: .trailing)
             Text(text)
                 .font(GrokTypography.liveLine())
@@ -647,19 +662,19 @@ struct AskTab: View {
 
         VStack(spacing: 0) {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: GrokSpacing.lg) {
+                LazyVStack(alignment: .leading, spacing: GrokSpacing.xl) {
                     if chat.isEmpty {
-                        Text("Ask anything about this meeting, for example \"What did we decide about pricing?\" or \"Draft a follow-up email.\"")
-                            .foregroundStyle(.secondary)
+                        GrokEmptyState(
+                            title: "Ask about this meeting",
+                            message: "For example, \u{201C}What did we decide about pricing?\u{201D} or \u{201C}Draft a follow-up email.\u{201D}"
+                        )
+                        .padding(.top, GrokSpacing.xl)
                     }
                     ForEach(chat) { message in
-                        VStack(alignment: .leading, spacing: GrokSpacing.xs) {
-                            Text(message.role == "user" ? "You" : "Grok")
-                                .font(GrokTypography.captionMuted().weight(.semibold))
-                                .foregroundStyle(.secondary)
+                        ChatTurnView(isUser: message.role == "user", text: message.content) {
                             MarkdownView(
                                 markdown: message.content,
-                                citationMeetingID: message.role == "assistant" ? meetingID : nil,
+                                citationMeetingID: meetingID,
                                 playable: state.canPlayClips(meetingID),
                                 quote: { state.transcriptQuote(meetingID, at: $0) }
                             )
@@ -668,18 +683,19 @@ struct AskTab: View {
                     if busy { ProgressView().controlSize(.small) }
                 }
                 .padding(GrokSpacing.contentInset)
-                .frame(maxWidth: 680, alignment: .leading)
+                .frame(maxWidth: GrokSpacing.measure + 2 * GrokSpacing.contentInset, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .center)
             }
-            Divider()
-            HStack {
-                TextField("Ask about this meeting…", text: $question)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit(send)
-                Button("Ask", action: send).disabled(busy || question.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-            .padding(GrokSpacing.lg)
+            GrokComposer(placeholder: "Ask about this meeting\u{2026}", text: $question, canSend: canSend, send: send)
+                .padding(GrokSpacing.lg)
+                .frame(maxWidth: GrokSpacing.measure + 2 * GrokSpacing.lg)
+                .frame(maxWidth: .infinity)
         }
+        .grokPaper()
+    }
+
+    private var canSend: Bool {
+        !state.asking.contains(meetingID) && !question.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     private func send() {

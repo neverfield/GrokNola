@@ -74,6 +74,9 @@ struct ContentView: View {
         let content = sidebarContent()
         return List(selection: $state.selectedID) {
             Section {
+                SidebarBrandHeader()
+                    .listRowBackground(Color.clear)
+                    .selectionDisabled()
                 let atHome = state.route == .home
                 Button {
                     state.openHome()
@@ -85,7 +88,7 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.vertical, GrokSpacing.xs)
-                .listRowBackground(atHome ? Color.accentColor.opacity(0.15) : Color.clear)
+                .listRowBackground(atHome ? GrokColors.accent.opacity(0.16) : Color.clear)
                 .help("Your week at a glance (Command-Shift-H)")
                 Button {
                     state.openLibraryChat()
@@ -96,7 +99,7 @@ struct ContentView: View {
                                 .fontWeight(state.showLibraryChat ? .semibold : .regular)
                             Text("Meetings and app help")
                                 .font(GrokTypography.captionMuted())
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(GrokColors.inkMuted)
                         }
                     } icon: {
                         Image(systemName: "sparkle.magnifyingglass")
@@ -106,15 +109,17 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.vertical, GrokSpacing.xs)
-                .listRowBackground(state.showLibraryChat ? Color.accentColor.opacity(0.15) : Color.clear)
+                .listRowBackground(state.showLibraryChat ? GrokColors.accent.opacity(0.16) : Color.clear)
                 .help("Your meetings and how GrokNola works (Command-K)")
             }
             if state.meetings.isEmpty {
-                ContentUnavailableView {
-                    Label("No meetings yet", systemImage: "note.text")
-                } description: {
-                    Text("Start notes when a call begins. Your rough notes guide what Grok writes.")
-                }
+                GrokEmptyState(
+                    title: "No meetings yet",
+                    message: "Start notes when a call begins. Your rough notes guide what Grok writes.",
+                    alignment: .center
+                )
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, GrokSpacing.xl)
                 .listRowBackground(Color.clear)
             } else {
                 if !content.tagCounts.isEmpty {
@@ -125,7 +130,7 @@ struct ContentView: View {
                 }
                 if content.resultCount == 0 {
                     Text(searchText.isEmpty ? "No meetings have this tag." : "No meetings match “\(searchText)”.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                         .listRowBackground(Color.clear)
                 }
                 if !content.pinned.isEmpty {
@@ -173,7 +178,7 @@ struct ContentView: View {
                     }
                     .swipeActions(edge: .leading) {
                         Button(meeting.isPinned ? "Unpin" : "Pin") { state.togglePin(meeting.id) }
-                            .tint(.orange)
+                            .tint(GrokColors.accent)
                     }
                     .contextMenu { MeetingContextMenu(meeting: meeting) }
             }
@@ -182,7 +187,7 @@ struct ContentView: View {
                 Text(title)
                 Text("\(meetings.count)")
                     .monospacedDigit()
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(GrokColors.inkFaint)
             }
         }
     }
@@ -205,7 +210,7 @@ struct ContentView: View {
                     }
                 }
                 .menuStyle(.borderlessButton)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
             }
         } header: {
             Text("Tags")
@@ -225,13 +230,13 @@ struct ContentView: View {
                 Spacer()
                 Text("\(count)")
                     .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(GrokColors.inkMuted)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .listRowBackground(active ? Color.accentColor.opacity(0.15) : Color.clear)
+        .listRowBackground(active ? GrokColors.accent.opacity(0.16) : Color.clear)
         .help(active ? "Show all meetings" : "Show meetings tagged \(name)")
     }
 
@@ -239,7 +244,7 @@ struct ContentView: View {
         HStack(spacing: GrokSpacing.xs) {
             Text(count == 1 ? "1 meeting" : "\(count) meetings")
                 .font(GrokTypography.captionMuted())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
             if let tagFilter {
                 TagChip(name: tagFilter, color: catalog.color(for: tagFilter), compact: true) { self.tagFilter = nil }
             }
@@ -248,7 +253,7 @@ struct ContentView: View {
                 tagFilter = nil
                 searchText = ""
             }
-            .buttonStyle(.link)
+            .buttonStyle(GrokLinkButtonStyle())
             .font(GrokTypography.captionMuted())
         }
         .listRowBackground(Color.clear)
@@ -288,33 +293,34 @@ private struct MeetingRow: View {
     @EnvironmentObject private var catalog: TagCatalog
     let meeting: Meeting
     let dateStyle: SidebarDateStyle
-    private static let maxTags = 2
+    private static let maxTags = 3
 
     var body: some View {
-        HStack(spacing: GrokSpacing.sm) {
+        HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.sm) {
             rowIcon
             VStack(alignment: .leading, spacing: 2) {
                 Text(meeting.title)
                     .lineLimit(1)
-                    .font(.body)
-                HStack(spacing: GrokSpacing.xs) {
+                    .font(.body.weight(.medium))
+                HStack(spacing: 5) {
                     Text(subtitle)
-                        .font(GrokTypography.captionMuted())
-                        .foregroundStyle(.secondary)
+                        .font(GrokTypography.captionMuted().monospacedDigit())
+                        .foregroundStyle(GrokColors.inkMuted)
                         .lineLimit(1)
                         .layoutPriority(1)
-                    ForEach(meeting.tagList.prefix(Self.maxTags), id: \.self) { tag in
-                        TagChip(name: tag, color: catalog.color(for: tag), compact: true)
-                    }
-                    if meeting.tagList.count > Self.maxTags {
-                        Text("+\(meeting.tagList.count - Self.maxTags)")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                    if !meeting.tagList.isEmpty {
+                        HStack(spacing: 3) {
+                            ForEach(meeting.tagList.prefix(Self.maxTags), id: \.self) { tag in
+                                Circle().fill(catalog.color(for: tag)).frame(width: 6, height: 6)
+                            }
+                        }
+                        .accessibilityElement()
+                        .accessibilityLabel("Tags: \(meeting.tagList.joined(separator: ", "))")
                     }
                 }
             }
         }
-        .padding(.vertical, GrokSpacing.xs)
+        .padding(.vertical, 3)
         .help(meeting.tagList.isEmpty ? meeting.title : "\(meeting.title)\nTags: \(meeting.tagList.joined(separator: ", "))")
     }
 
@@ -326,20 +332,18 @@ private struct MeetingRow: View {
 
     @ViewBuilder
     private var rowIcon: some View {
-        if state.recordingID == meeting.id {
-            RecordingPulse()
-                .frame(width: 28, height: 28)
-        } else if state.processing.contains(meeting.id) {
-            ProgressView()
-                .controlSize(.small)
-                .frame(width: 28, height: 28)
-        } else {
-            Image(systemName: MeetingAppIcon.symbol(for: meeting.appName))
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .frame(width: 28, height: 28)
-                .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
+        Group {
+            if state.recordingID == meeting.id {
+                RecordingPulse()
+            } else if state.processing.contains(meeting.id) {
+                ProgressView().controlSize(.small)
+            } else {
+                Image(systemName: MeetingAppIcon.symbol(for: meeting.appName))
+                    .font(.callout)
+                    .foregroundStyle(GrokColors.inkMuted)
+            }
         }
+        .frame(width: 20)
     }
 }
 
@@ -372,11 +376,11 @@ struct RecordingStatusBar: View {
         HStack(spacing: GrokSpacing.md) {
             RecordingPulse()
             RecordingElapsedText()
-                .font(.body.monospacedDigit())
-                .foregroundStyle(.primary)
+                .font(.body.monospacedDigit().weight(.medium))
+                .foregroundStyle(GrokColors.ink)
             Text("Recording")
-                .font(GrokTypography.captionMuted())
-                .foregroundStyle(.secondary)
+                .font(GrokTypography.captionMuted().weight(.medium))
+                .foregroundStyle(GrokColors.recording)
 
             Spacer()
 
@@ -406,7 +410,7 @@ private struct InputMeters: View {
             if let status = levels.system.streamStatus ?? levels.mic.streamStatus {
                 Label(status, systemImage: "arrow.triangle.2.circlepath")
                     .font(GrokTypography.captionMuted())
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(GrokColors.warning)
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .help(status)
@@ -434,7 +438,8 @@ struct RecordingElapsedText: View {
     }
 }
 
-/// A source icon and a five-bar level meter. Orange when the source looks silent or its stream is reconnecting.
+/// A source icon and a five-bar level meter in amber. Brick red when the source looks silent or its stream is reconnecting,
+/// since a warning ochre would be too close to the amber in dark mode.
 private struct InputMeter: View {
     let label: String
     let systemImage: String
@@ -448,7 +453,7 @@ private struct InputMeter: View {
         let warning = source.warning ?? source.streamStatus
         HStack(spacing: 4) {
             Image(systemName: source.active ? systemImage : offImage)
-                .foregroundStyle(warning != nil ? AnyShapeStyle(Color.orange) : AnyShapeStyle(.secondary))
+                .foregroundStyle(warning != nil ? GrokColors.error : GrokColors.inkMuted)
             if source.active {
                 HStack(alignment: .bottom, spacing: 2) {
                     ForEach(0..<Self.bars, id: \.self) { i in
@@ -468,8 +473,8 @@ private struct InputMeter: View {
     }
 
     private func barColor(lit: Bool, warning: Bool) -> Color {
-        guard lit else { return Color.secondary.opacity(0.25) }
-        return warning ? .orange : .green
+        guard lit else { return GrokColors.ink.opacity(0.14) }
+        return warning ? GrokColors.error : GrokColors.amber
     }
 }
 
@@ -487,10 +492,10 @@ private struct BannerStack: View {
                 HStack {
                     Text(hidden == 1 ? "1 more message" : "\(hidden) more messages")
                         .font(GrokTypography.captionMuted())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                     Spacer()
                     Button("Dismiss All") { state.dismissAllBanners() }
-                        .buttonStyle(.link)
+                        .buttonStyle(GrokLinkButtonStyle())
                         .font(GrokTypography.captionMuted())
                 }
                 .padding(.horizontal, GrokSpacing.sidebarInset)
@@ -528,13 +533,15 @@ private struct BannerView: View {
             }
             Button(action: onClose) { Image(systemName: "xmark") }
                 .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
                 .accessibilityLabel("Close")
         }
-        .padding(GrokSpacing.sidebarInset)
-        .background(tint.opacity(item.severity == .info ? 0.06 : 0.12))
-        .background(.bar)
-        .overlay(alignment: .bottom) { Divider() }
+        .padding(.horizontal, GrokSpacing.lg)
+        .padding(.vertical, GrokSpacing.sidebarInset)
+        .background(tint.opacity(item.severity == .info ? 0.07 : 0.12))
+        .background(GrokColors.paper2)
+        .overlay(alignment: .leading) { tint.frame(width: 3) }
+        .overlay(alignment: .bottom) { GrokColors.hairline.frame(height: 1) }
         .accessibilityElement(children: .contain)
     }
 
@@ -548,9 +555,9 @@ private struct BannerView: View {
 
     private var tint: Color {
         switch item.severity {
-        case .info: return .blue
-        case .warning: return .orange
-        case .error: return .red
+        case .info: return GrokColors.info
+        case .warning: return GrokColors.warning
+        case .error: return GrokColors.error
         }
     }
 }
@@ -571,14 +578,17 @@ struct PermissionSummary: View {
         }
         .font(.callout)
         .padding(GrokSpacing.lg)
-        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .grokPanel(fill: GrokColors.paper)
     }
 
     private func row(_ title: String, _ ok: Bool, _ detail: String) -> some View {
         HStack {
-            Image(systemName: ok ? "checkmark.circle.fill" : "circle").foregroundStyle(ok ? .green : .secondary)
-            Text(title)
-            Text("· \(detail)").foregroundStyle(.secondary)
+            Image(systemName: ok ? "checkmark.circle.fill" : "circle").foregroundStyle(ok ? GrokColors.success : GrokColors.inkFaint)
+            Text(title).foregroundStyle(GrokColors.ink)
+            Text("· \(detail)").foregroundStyle(GrokColors.inkMuted)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(ok ? "Ready" : "Not set up")
     }
 }

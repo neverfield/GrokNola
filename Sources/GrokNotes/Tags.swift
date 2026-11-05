@@ -3,18 +3,19 @@ import SwiftUI
 enum TagColor: String, Codable, CaseIterable {
     case gray, red, orange, yellow, green, teal, blue, indigo, purple, pink
 
+    /// Earthy versions of the named colors, so tags sit with the speaker and chapter palettes on the paper.
     var color: Color {
         switch self {
-        case .gray: return .gray
-        case .red: return .red
-        case .orange: return .orange
-        case .yellow: return .yellow
-        case .green: return .green
-        case .teal: return .teal
-        case .blue: return .blue
-        case .indigo: return .indigo
-        case .purple: return .purple
-        case .pink: return .pink
+        case .gray: return Color(nsColor: .grok(light: 0x8C8476, dark: 0x9A9388))
+        case .red: return Color(nsColor: .grok(light: 0xB5533F, dark: 0xE07E6B))
+        case .orange: return Color(nsColor: .grok(light: 0xC27A4E, dark: 0xE0A07A))
+        case .yellow: return Color(nsColor: .grok(light: 0xC9A13E, dark: 0xD8B35C))
+        case .green: return Color(nsColor: .grok(light: 0x6E9470, dark: 0x93BF96))
+        case .teal: return Color(nsColor: .grok(light: 0x4F918C, dark: 0x7EC3BC))
+        case .blue: return Color(nsColor: .grok(light: 0x5B82A8, dark: 0x8EB2D8))
+        case .indigo: return Color(nsColor: .grok(light: 0x6E72AE, dark: 0xA5A8E2))
+        case .purple: return Color(nsColor: .grok(light: 0x93668F, dark: 0xC99CC6))
+        case .pink: return Color(nsColor: .grok(light: 0xC07A8A, dark: 0xE3A3B1))
         }
     }
 

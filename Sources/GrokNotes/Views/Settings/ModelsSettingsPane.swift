@@ -18,7 +18,7 @@ struct ModelsSettingsPane: View {
                         keyStatus = apiKey.isEmpty ? "Key removed." : "Saved to the Keychain."
                     }
                     Button("Test connection") { Task { await test() } }
-                    if let keyStatus { Text(keyStatus).foregroundStyle(.secondary) }
+                    if let keyStatus { Text(keyStatus).foregroundStyle(GrokColors.inkMuted) }
                 }
             }
 

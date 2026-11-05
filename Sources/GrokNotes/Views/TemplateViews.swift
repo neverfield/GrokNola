@@ -40,7 +40,7 @@ struct TemplatePickerMenu: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .foregroundStyle(compact ? .secondary : .primary)
+        .foregroundStyle(compact ? GrokColors.inkMuted : GrokColors.ink)
         .help("Summary template: how Grok writes these notes")
     }
 
@@ -71,23 +71,23 @@ struct TemplateSettingsSection: View {
             }
             Text("Pick a template per meeting from the menu next to its title. Meetings without a choice use the default.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
 
             ForEach(catalog.all) { template in
                 HStack {
                     Image(systemName: template.icon)
                         .frame(width: 20)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(template.name)
                         Text(template.sections.joined(separator: " · "))
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(GrokColors.inkMuted)
                             .lineLimit(1)
                     }
                     Spacer()
                     if template.builtIn {
-                        Text("Built-in").font(.caption).foregroundStyle(.tertiary)
+                        Text("Built-in").font(.caption).foregroundStyle(GrokColors.inkFaint)
                     } else {
                         Button { editing = template } label: { Image(systemName: "pencil") }
                             .help("Edit template")
@@ -172,7 +172,7 @@ struct TemplateEditorView: View {
                 } footer: {
                     Text("What Grok should focus on and how to write each section.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                 }
 
                 Section {
@@ -200,7 +200,7 @@ struct TemplateEditorView: View {
                 } footer: {
                     Text("Each becomes a heading in the notes. Empty sections are left out.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                 }
 
                 Section {
@@ -211,7 +211,7 @@ struct TemplateEditorView: View {
                 } footer: {
                     Text("What counts as a topic for this kind of meeting.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                 }
             }
             .formStyle(.grouped)

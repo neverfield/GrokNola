@@ -54,7 +54,7 @@ private struct PermissionRow: View {
                 .foregroundStyle(granted ? .green : .orange)
             VStack(alignment: .leading) {
                 Text(title)
-                Text(detail).font(.caption).foregroundStyle(.secondary)
+                Text(detail).font(.caption).foregroundStyle(GrokColors.inkMuted)
             }
             Spacer()
             if !granted {

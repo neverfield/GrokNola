@@ -89,7 +89,7 @@ struct TrashToast: View {
             if let notice = trash.notice {
                 HStack(spacing: GrokSpacing.md) {
                     Image(systemName: notice.error == nil ? "trash" : "exclamationmark.triangle.fill")
-                        .foregroundStyle(notice.error == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(Color.orange))
+                        .foregroundStyle(notice.error == nil ? GrokColors.inkMuted : GrokColors.warning)
                         .accessibilityHidden(true)
                     Text(notice.error.map { "Could not delete “\(notice.title)”. \($0)" } ?? "Deleted “\(notice.title)”")
                         .lineLimit(2)
@@ -105,7 +105,7 @@ struct TrashToast: View {
                 .padding(.horizontal, GrokSpacing.lg)
                 .padding(.vertical, GrokSpacing.sm)
                 .background(.regularMaterial, in: Capsule())
-                .overlay(Capsule().strokeBorder(.quaternary))
+                .overlay(Capsule().strokeBorder(GrokColors.hairline))
                 .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
                 .padding(.bottom, 64)
                 .transition(.move(edge: .bottom).combined(with: .opacity))

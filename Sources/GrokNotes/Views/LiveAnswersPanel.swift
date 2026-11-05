@@ -23,7 +23,7 @@ struct LiveAnswersPanel: View {
                             Text(pending.question).lineLimit(1)
                         }
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                         .help("Checking whether this question needs an answer")
                     }
                     if cards.isEmpty, pending == nil {
@@ -45,12 +45,7 @@ struct LiveAnswersPanel: View {
 
     private var askField: some View {
         HStack(spacing: GrokSpacing.xs) {
-            TextField("Ask now…", text: $draft)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit(send)
-            Button(action: send) { Image(systemName: "arrow.up.circle.fill") }
-                .buttonStyle(.borderless)
-                .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
+            GrokComposer(placeholder: "Ask now…", text: $draft, canSend: !draft.trimmingCharacters(in: .whitespaces).isEmpty, send: send)
                 .help("Answer with the live answers model")
         }
         .padding(GrokSpacing.sm)
@@ -58,13 +53,17 @@ struct LiveAnswersPanel: View {
 
     @ViewBuilder
     private func emptyState(recording: Bool) -> some View {
-        VStack(spacing: GrokSpacing.xs) {
-            Image(systemName: recording && engine.enabled ? "waveform" : "bolt.slash")
-                .font(.title3)
-                .foregroundStyle(.tertiary)
+        VStack(spacing: GrokSpacing.sm) {
+            if recording && engine.enabled {
+                WaveformMark(bars: 7, height: 20, animating: true)
+            } else {
+                Image(systemName: "bolt.slash")
+                    .font(.title3)
+                    .foregroundStyle(GrokColors.inkFaint)
+            }
             Text(!recording ? "Live answers appear while recording." : engine.enabled ? "Listening for questions" : "Live answers are off")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.callout)
+                .foregroundStyle(GrokColors.inkMuted)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, GrokSpacing.xl)
@@ -87,7 +86,7 @@ private struct LiveAnswerCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: GrokSpacing.xs) {
             HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.xs) {
-                Text(card.asker).fontWeight(.semibold)
+                Text(card.asker).fontWeight(.semibold).foregroundStyle(GrokColors.ink)
                 Text(Meeting.timestamp(card.askedAt)).foregroundStyle(GrokColors.timestamp).monospacedDigit()
                 if showLatency, let latency = card.latency {
                     Text(String(format: "%.1fs", latency)).foregroundStyle(GrokColors.timestamp).monospacedDigit()
@@ -95,20 +94,21 @@ private struct LiveAnswerCardView: View {
                 }
                 Spacer(minLength: 0)
                 if card.isPinned {
-                    Image(systemName: "pin.fill").foregroundStyle(.orange).help("Pinned to your notes")
+                    Image(systemName: "pin.fill").foregroundStyle(GrokColors.amber).help("Pinned to your notes")
                 }
             }
             .font(.caption)
 
             Text(card.question)
-                .font(.callout.weight(.medium))
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(GrokColors.ink)
                 .fixedSize(horizontal: false, vertical: true)
 
             switch card.status {
             case .waiting:
                 ProgressView().controlSize(.small)
             case .failed(let message):
-                Text(message).font(.caption).foregroundStyle(.red).lineLimit(3)
+                Text(message).font(.caption).foregroundStyle(GrokColors.error).lineLimit(3)
             case .streaming, .done:
                 MarkdownView(markdown: card.answer, textStyle: .callout)
             }
@@ -116,7 +116,7 @@ private struct LiveAnswerCardView: View {
             if !card.citedSources.isEmpty {
                 Text("From " + card.citedSources.map { "\($0.title) · \($0.date.formatted(.dateTime.month(.abbreviated).day()))" }.joined(separator: ", "))
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(GrokColors.inkMuted)
                     .lineLimit(2)
             }
 
@@ -146,11 +146,10 @@ private struct LiveAnswerCardView: View {
             .labelStyle(.iconOnly)
             .buttonStyle(.borderless)
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(GrokColors.inkMuted)
         }
-        .padding(GrokSpacing.sm)
+        .padding(GrokSpacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(card.isPinned ? Color.orange.opacity(0.5) : Color.primary.opacity(0.06)))
+        .grokPanel(fill: GrokColors.paper, border: card.isPinned ? GrokColors.amber : GrokColors.hairline)
     }
 }

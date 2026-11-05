@@ -35,15 +35,17 @@ struct LibraryChatView: View {
                         }
                         if state.libraryAsking {
                             HStack(spacing: GrokSpacing.sm) {
-                                ProgressView().controlSize(.small)
+                                WaveformMark(bars: 5, height: 12, animating: true)
                                 Text(state.libraryRoute == .help ? "Checking the GrokNola guide…" : "Searching \(state.meetings.count) meetings…")
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(GrokColors.inkMuted)
                             }
+                            .accessibilityElement(children: .combine)
                             .id("thinking")
                         }
                     }
                     .padding(GrokSpacing.contentInset)
-                    .frame(maxWidth: 720, alignment: .leading)
+                    .padding(.bottom, GrokSpacing.lg)
+                    .frame(maxWidth: GrokSpacing.measure + 2 * GrokSpacing.contentInset, alignment: .leading)
                     .frame(maxWidth: .infinity)
                 }
                 .onChange(of: state.libraryChat.count) {
@@ -53,9 +55,9 @@ struct LibraryChatView: View {
                     if state.libraryAsking { withAnimation { proxy.scrollTo("thinking", anchor: .bottom) } }
                 }
             }
-            Divider()
             composer
         }
+        .grokPaper()
         .navigationTitle("Ask Grok")
         .navigationSubtitle("Your meetings and how GrokNola works")
         .toolbar {
@@ -88,75 +90,64 @@ struct LibraryChatView: View {
     }
 
     private var emptyState: some View {
-        VStack(alignment: .leading, spacing: GrokSpacing.lg) {
-            Image(systemName: "sparkle.magnifyingglass")
-                .font(.system(size: 36, weight: .light))
-                .foregroundStyle(.secondary)
-            Text("Ask about your meetings or GrokNola")
-                .font(.title2.weight(.semibold))
-            Text("Grok finds the relevant meetings, reads their notes and transcripts, and links each answer back to its source. Ask how the app works, too: answers come from the built-in guide.")
-                .foregroundStyle(.secondary)
-            suggestionGroup("Your meetings", meetingSuggestions)
-                .disabled(state.meetings.isEmpty)
-            suggestionGroup("How GrokNola works", helpSuggestions)
+        VStack(alignment: .leading, spacing: GrokSpacing.xl) {
+            GrokEmptyState(
+                title: "Ask about your meetings or GrokNola",
+                message: "Grok finds the relevant meetings, reads their notes and transcripts, and links each answer back to its source. Ask how the app works, too: answers come from the built-in guide."
+            )
+            HStack(alignment: .top, spacing: GrokSpacing.lg) {
+                suggestionGroup("Your meetings", meetingSuggestions)
+                    .disabled(state.meetings.isEmpty)
+                suggestionGroup("How GrokNola works", helpSuggestions)
+            }
         }
         .padding(.top, GrokSpacing.xl)
     }
 
     private func suggestionGroup(_ title: String, _ suggestions: [String]) -> some View {
         VStack(alignment: .leading, spacing: GrokSpacing.sm) {
-            Text(title)
-                .font(GrokTypography.captionMuted().weight(.semibold))
-                .foregroundStyle(.secondary)
+            GrokEyebrow(title)
             ForEach(suggestions, id: \.self) { suggestion in
                 Button {
                     send(suggestion)
                 } label: {
                     Label(suggestion, systemImage: "arrow.up.right")
                         .labelStyle(.titleAndIcon)
+                        .font(.callout)
                 }
-                .buttonStyle(.link)
+                .buttonStyle(GrokLinkButtonStyle())
             }
         }
+        .padding(GrokSpacing.lg)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .grokPanel()
     }
 
     private func messageView(_ message: ChatMessage) -> some View {
-        VStack(alignment: .leading, spacing: GrokSpacing.xs) {
-            Text(message.role == "user" ? "You" : "Grok")
-                .font(GrokTypography.captionMuted().weight(.semibold))
-                .foregroundStyle(.secondary)
-            if message.role == "user" {
-                Text(message.content)
-                    .font(.body.weight(.medium))
-                    .textSelection(.enabled)
-            } else {
-                MarkdownView(markdown: message.content)
-            }
+        ChatTurnView(isUser: message.role == "user", text: message.content) {
+            MarkdownView(markdown: message.content)
         }
     }
 
     private var composer: some View {
-        HStack(spacing: GrokSpacing.sm) {
-            TextField("Ask about your meetings or GrokNola…", text: $question, axis: .vertical)
-                .textFieldStyle(.plain)
-                .lineLimit(1...5)
-                .focused($composerFocused)
-                .onSubmit { send(question) }
-            Button {
-                send(question)
-            } label: {
-                Image(systemName: "arrow.up.circle.fill").font(.title2)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(canSend ? Color.accentColor : .secondary)
-            .disabled(!canSend)
-            .keyboardShortcut(.return, modifiers: .command)
-            .help("Send (Command-Return)")
+        GrokComposer(
+            placeholder: "Ask about your meetings or GrokNola\u{2026}",
+            text: $question,
+            canSend: canSend,
+            multiline: true,
+            focus: $composerFocused
+        ) { send(question) }
+        .background {
+            Button("Send") { send(question) }
+                .keyboardShortcut(.return, modifiers: .command)
+                .disabled(!canSend)
+                .opacity(0)
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
         }
-        .padding(GrokSpacing.md)
-        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
+        .help("Send (Command-Return)")
         .padding(GrokSpacing.lg)
-        .frame(maxWidth: 760)
+        .frame(maxWidth: GrokSpacing.measure + 2 * GrokSpacing.lg)
         .frame(maxWidth: .infinity)
     }
 

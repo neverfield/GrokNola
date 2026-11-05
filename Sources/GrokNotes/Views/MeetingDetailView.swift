@@ -93,7 +93,7 @@ struct MeetingDetailView: View {
                                 RecordingPulse()
                                 RecordingElapsedText()
                                     .font(.caption.monospacedDigit())
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(GrokColors.recording)
                             }
                         }
                     }
@@ -328,7 +328,7 @@ struct MeetingInspectorView: View {
                     Section("Speakers") {
                         Text("Click a name to rename.")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(GrokColors.inkMuted)
                         ForEach(meeting.speakerKeys, id: \.self) { key in
                             SpeakerChip(meetingID: meetingID, key: key, showDetail: true)
                         }
@@ -362,6 +362,8 @@ struct SpeakerChip: View {
     let meetingID: UUID
     let key: String
     var showDetail = false
+    /// The name alone in the speaker's color, as at the top of a transcript block.
+    var plain = false
     @State private var editing = false
 
     var body: some View {
@@ -371,17 +373,15 @@ struct SpeakerChip: View {
         Button {
             editing = true
         } label: {
-            HStack(spacing: GrokSpacing.xs) {
-                Circle().fill(color).frame(width: 8, height: 8)
-                Text(meeting?.displayName(for: key, myName: Prefs.myName) ?? key).fontWeight(.medium)
-                if showDetail, let info {
-                    Text(detail(info)).foregroundStyle(.secondary)
-                }
+            let name = meeting?.displayName(for: key, myName: Prefs.myName) ?? key
+            if plain {
+                Text(name)
+                    .font(GrokTypography.transcriptSpeaker())
+                    .foregroundStyle(color)
+                    .contentShape(Rectangle())
+            } else {
+                GrokChip(title: name, style: .tinted(color), detail: showDetail ? info.map(detail) : nil)
             }
-            .font(.callout)
-            .padding(.horizontal, GrokSpacing.sm)
-            .padding(.vertical, 3)
-            .background(color.opacity(0.15), in: Capsule())
         }
         .buttonStyle(.plain)
         .help(info?.evidence ?? "Click to name this speaker")

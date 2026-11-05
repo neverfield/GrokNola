@@ -43,10 +43,12 @@ struct HomeView: View {
                     glance(snapshot)
                 }
             }
-            .padding(GrokSpacing.xl)
+            .padding(.horizontal, GrokSpacing.xl + GrokSpacing.sm)
+            .padding(.vertical, GrokSpacing.xl)
             .frame(maxWidth: Self.maxWidth, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
+        .grokPaper()
         .modifier(GreetingIsTitle())
         .safeAreaInset(edge: .bottom, spacing: 0) {
             NowPlayingBar(showsMeetingTitle: true)
@@ -80,12 +82,18 @@ struct HomeView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: GrokSpacing.lg) {
-            HStack(alignment: .center, spacing: GrokSpacing.lg) {
-                VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .bottom, spacing: GrokSpacing.lg) {
+                VStack(alignment: .leading, spacing: GrokSpacing.sm) {
+                    HStack(spacing: GrokSpacing.sm) {
+                        WaveformMark(bars: 5, height: 12)
+                        Text(Date().formatted(.dateTime.weekday(.wide).month(.wide).day()))
+                            .font(.callout.weight(.medium))
+                            .foregroundStyle(GrokColors.inkMuted)
+                    }
                     Text(greeting)
-                        .font(.largeTitle.weight(.semibold))
-                    Text(Date().formatted(date: .complete, time: .omitted))
-                        .foregroundStyle(.secondary)
+                        .font(GrokTypography.display)
+                        .foregroundStyle(GrokColors.ink)
+                        .accessibilityAddTraits(.isHeader)
                 }
                 Spacer()
                 recordControl
@@ -108,6 +116,7 @@ struct HomeView: View {
                 RecordingPulse()
                 RecordingElapsedText(prefix: "Recording · ")
                     .monospacedDigit()
+                    .foregroundStyle(GrokColors.recording)
                 Button("Open Live Notes") { state.openMeeting(id) }
                     .buttonStyle(.bordered)
             }
@@ -125,23 +134,14 @@ struct HomeView: View {
     }
 
     private var quickAsk: some View {
-        HStack(spacing: GrokSpacing.sm) {
-            Image(systemName: "sparkle.magnifyingglass")
-                .foregroundStyle(.secondary)
-            TextField("Ask Grok about your meetings…", text: $question)
-                .textFieldStyle(.plain)
-                .onSubmit(ask)
-            Button(action: ask) {
-                Image(systemName: "arrow.up.circle.fill").font(.title2)
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(canAsk ? Color.accentColor : .secondary)
-            .disabled(!canAsk)
-            .help("Ask Grok across all meetings")
-            .accessibilityLabel("Ask Grok")
-        }
-        .padding(GrokSpacing.md)
-        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
+        GrokComposer(
+            placeholder: "Ask Grok about your meetings\u{2026}",
+            text: $question,
+            canSend: canAsk,
+            systemImage: "sparkle.magnifyingglass",
+            send: ask
+        )
+        .help("Ask Grok across all meetings")
         .disabled(state.meetings.isEmpty)
     }
 
@@ -159,8 +159,8 @@ struct HomeView: View {
 
     private func glance(_ s: HomeSnapshot) -> some View {
         VStack(alignment: .leading, spacing: GrokSpacing.sm) {
-            Text("This week")
-                .font(GrokTypography.sectionTitle())
+            GrokSectionHeader(title: "This week", systemImage: "calendar.day.timeline.left")
+                .padding(.horizontal, GrokSpacing.xs)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: GrokSpacing.md)], spacing: GrokSpacing.md) {
                 StatTile(
                     title: "Meetings", systemImage: "calendar",
@@ -192,7 +192,7 @@ struct HomeView: View {
         HomeCard(title: "Recent meetings", systemImage: "clock.arrow.circlepath") {
             VStack(spacing: 0) {
                 ForEach(Array(meetings.enumerated()), id: \.element.id) { index, meeting in
-                    if index > 0 { Divider().padding(.leading, 40) }
+                    if index > 0 { GrokColors.hairline.frame(height: 1).padding(.leading, 44) }
                     RecentMeetingRow(meeting: meeting)
                 }
             }
@@ -207,7 +207,7 @@ struct HomeView: View {
         return HomeCard(title: "Open action items", systemImage: "checklist", trailing: open > 0 ? "\(open)" : nil) {
             if items.isEmpty {
                 Text("Nothing open from the last 30 days.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(GrokColors.inkMuted)
             } else {
                 VStack(alignment: .leading, spacing: GrokSpacing.md) {
                     ForEach(shown) { entry in
@@ -218,7 +218,7 @@ struct HomeView: View {
                     }
                     if items.count > Self.actionLimit {
                         Button(showAllActions ? "Show fewer" : "Show all \(items.count)") { showAllActions.toggle() }
-                            .buttonStyle(.link)
+                            .buttonStyle(GrokLinkButtonStyle())
                     }
                 }
             }
@@ -240,7 +240,7 @@ struct HomeView: View {
 
                 if s.topics.isEmpty {
                     Text("No topics in the last \(trendDays) days. Grok finds topics when it writes notes.")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                 } else {
                     VStack(spacing: GrokSpacing.xs) {
                         ForEach(Array(s.topics.prefix(8).enumerated()), id: \.element.id) { index, topic in
@@ -256,10 +256,8 @@ struct HomeView: View {
                 }
 
                 if !s.tags.isEmpty {
-                    Divider()
-                    Text("Top tags")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                    GrokColors.hairline.frame(height: 1)
+                    GrokEyebrow("Top tags")
                     FlowLayout(spacing: GrokSpacing.sm) {
                         ForEach(s.tags.prefix(10)) { tag in
                             Button {
@@ -273,7 +271,7 @@ struct HomeView: View {
                                     TagChip(name: tag.name, color: catalog.color(for: tag.name))
                                     Text("\(tag.count)")
                                         .font(.caption.monospacedDigit())
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(GrokColors.inkMuted)
                                 }
                             }
                             .buttonStyle(.plain)
@@ -427,22 +425,12 @@ struct HomeCard<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: GrokSpacing.md) {
-            HStack {
-                Label(title, systemImage: systemImage)
-                    .font(GrokTypography.sectionTitle())
-                Spacer()
-                if let trailing {
-                    Text(trailing)
-                        .font(.callout.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
+        GrokPanel {
+            VStack(alignment: .leading, spacing: GrokSpacing.md) {
+                GrokSectionHeader(title: title, systemImage: systemImage, trailing: trailing)
+                content
             }
-            content
         }
-        .padding(GrokSpacing.lg)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
     }
 }
 
@@ -453,22 +441,22 @@ private struct StatTile: View {
     let detail: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: GrokSpacing.xs) {
-            Label(title, systemImage: systemImage)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.title.weight(.semibold).monospacedDigit())
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(detail)
-                .font(GrokTypography.captionMuted())
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+        GrokPanel {
+            VStack(alignment: .leading, spacing: GrokSpacing.xs) {
+                Label(title, systemImage: systemImage)
+                    .font(.callout)
+                    .foregroundStyle(GrokColors.inkMuted)
+                Text(value)
+                    .font(GrokTypography.figure)
+                    .foregroundStyle(GrokColors.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text(detail)
+                    .font(GrokTypography.captionMuted())
+                    .foregroundStyle(GrokColors.inkMuted)
+                    .lineLimit(1)
+            }
         }
-        .padding(GrokSpacing.lg)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
         .accessibilityElement(children: .combine)
     }
 }
@@ -488,22 +476,24 @@ private struct RecentMeetingRow: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(alignment: .firstTextBaseline) {
                         Text(meeting.title)
-                            .font(.body.weight(.medium))
+                            .font(.system(size: 15, weight: .semibold, design: .serif))
+                            .foregroundStyle(GrokColors.ink)
                             .lineLimit(1)
                         Spacer(minLength: GrokSpacing.sm)
                         Text(GrokFormat.relativeDay(meeting.startedAt))
-                            .font(GrokTypography.captionMuted())
-                            .foregroundStyle(.secondary)
+                            .font(GrokTypography.captionMuted().monospacedDigit())
+                            .foregroundStyle(GrokColors.inkMuted)
                     }
                     Text(subtitle)
                         .font(GrokTypography.captionMuted())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                         .lineLimit(1)
                     if let summary = summary {
                         Text(summary)
                             .font(.callout)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(GrokColors.ink.opacity(0.82))
                             .lineLimit(2)
+                            .padding(.top, 1)
                     }
                     if !meeting.tagList.isEmpty {
                         HStack(spacing: GrokSpacing.xs) {
@@ -514,10 +504,10 @@ private struct RecentMeetingRow: View {
                     }
                 }
             }
-            .padding(.vertical, GrokSpacing.sm)
+            .padding(.vertical, GrokSpacing.sm + 2)
             .padding(.horizontal, GrokSpacing.xs)
             .contentShape(Rectangle())
-            .background(hovering ? Color.primary.opacity(0.05) : .clear, in: RoundedRectangle(cornerRadius: 8))
+            .background(hovering ? GrokColors.hover : .clear, in: RoundedRectangle(cornerRadius: GrokRadius.row))
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
@@ -551,11 +541,13 @@ private struct RecentMeetingRow: View {
                 ProgressView().controlSize(.small)
             } else {
                 Image(systemName: MeetingAppIcon.symbol(for: meeting.appName))
-                    .foregroundStyle(.secondary)
+                    .font(.callout)
+                    .foregroundStyle(GrokColors.inkMuted)
             }
         }
-        .frame(width: 28, height: 28)
-        .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 6))
+        .frame(width: 30, height: 30)
+        .background(GrokColors.paper, in: RoundedRectangle(cornerRadius: GrokRadius.control + 1, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: GrokRadius.control + 1, style: .continuous).strokeBorder(GrokColors.hairline))
     }
 }
 
@@ -570,7 +562,7 @@ private struct ActionItemRow: View {
                 onToggle(!entry.item.done)
             } label: {
                 Image(systemName: entry.item.done ? "checkmark.square.fill" : "square")
-                    .foregroundStyle(entry.item.done ? Color.accentColor : .secondary)
+                    .foregroundStyle(entry.item.done ? GrokColors.accent : GrokColors.inkMuted)
             }
             .buttonStyle(.plain)
             .disabled(busy)
@@ -580,7 +572,7 @@ private struct ActionItemRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HomeMarkdownText(text: entry.item.task, meetingID: entry.item.meetingID, owner: entry.item.owner)
                     .strikethrough(entry.item.done)
-                    .foregroundStyle(entry.item.done ? .secondary : .primary)
+                    .foregroundStyle(entry.item.done ? GrokColors.inkMuted : GrokColors.ink)
                 SourceLink(title: entry.meetingTitle, date: entry.date, meetingID: entry.item.meetingID)
             }
         }
@@ -621,7 +613,7 @@ private struct SourceLink: View {
             Text("\(title) · \(GrokFormat.relativeDay(date))")
                 .lineLimit(1)
         }
-        .buttonStyle(.link)
+        .buttonStyle(GrokLinkButtonStyle())
         .font(GrokTypography.captionMuted())
     }
 }
@@ -638,21 +630,22 @@ private struct TrendRow: View {
             HStack(spacing: GrokSpacing.sm) {
                 Text("\(rank)")
                     .font(.callout.monospacedDigit())
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(GrokColors.inkFaint)
                     .frame(width: 18, alignment: .trailing)
                 Text(item.name)
+                    .foregroundStyle(GrokColors.ink)
                     .lineLimit(1)
                 Spacer()
                 Text("\(item.count)")
                     .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(GrokColors.inkMuted)
                 trendBadge
                     .frame(width: 36, alignment: .trailing)
             }
             .padding(.vertical, 3)
             .padding(.horizontal, GrokSpacing.xs)
             .contentShape(Rectangle())
-            .background(hovering ? Color.primary.opacity(0.05) : .clear, in: RoundedRectangle(cornerRadius: 6))
+            .background(hovering ? GrokColors.hover : .clear, in: RoundedRectangle(cornerRadius: GrokRadius.control))
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
@@ -663,18 +656,13 @@ private struct TrendRow: View {
     private var trendBadge: some View {
         switch item.trend {
         case .new:
-            Text("New")
-                .font(.caption2.weight(.semibold))
-                .padding(.horizontal, 5)
-                .padding(.vertical, 1)
-                .background(Color.accentColor.opacity(0.15), in: Capsule())
-                .foregroundStyle(Color.accentColor)
+            GrokChip(title: "New", style: .accent, size: .compact)
         case .up:
-            Image(systemName: "arrow.up.right").foregroundStyle(.green)
+            Image(systemName: "arrow.up.right").foregroundStyle(GrokColors.success).accessibilityLabel("Up")
         case .down:
-            Image(systemName: "arrow.down.right").foregroundStyle(.orange)
+            Image(systemName: "arrow.down.right").foregroundStyle(GrokColors.warning).accessibilityLabel("Down")
         case .flat:
-            Image(systemName: "minus").foregroundStyle(.tertiary)
+            Image(systemName: "minus").foregroundStyle(GrokColors.inkFaint).accessibilityLabel("Steady")
         }
     }
 }
@@ -696,10 +684,10 @@ private struct MeetingListSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(listing.title).font(.title3.weight(.semibold))
+                Text(listing.title).font(GrokTypography.title)
                 Text("\(listing.subtitle) · \(listing.meetings.count == 1 ? "1 meeting" : "\(listing.meetings.count) meetings")")
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(GrokColors.inkMuted)
             }
             .padding(GrokSpacing.lg)
             Divider()
@@ -709,13 +697,13 @@ private struct MeetingListSheet: View {
                 } label: {
                     HStack(spacing: GrokSpacing.sm) {
                         Image(systemName: MeetingAppIcon.symbol(for: m.appName))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(GrokColors.inkMuted)
                             .frame(width: 20)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(m.title).lineLimit(1)
                             Text(GrokFormat.meetingSubtitle(date: m.startedAt, appName: m.appName))
                                 .font(GrokTypography.captionMuted())
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(GrokColors.inkMuted)
                         }
                         Spacer()
                     }
@@ -741,25 +729,23 @@ private struct OnboardingCard: View {
     @EnvironmentObject private var state: AppState
 
     var body: some View {
-        VStack(alignment: .leading, spacing: GrokSpacing.lg) {
-            Label("Welcome to GrokNola", systemImage: "note.text")
-                .font(.title2.weight(.semibold))
-            Text("Start notes when a call begins. Type rough thoughts while you talk, and Grok turns them into polished notes, action items, and topics when you stop. This page fills in as you record meetings.")
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            PermissionSummary()
-            if state.recordingID == nil {
-                Button {
-                    Task { await state.startMeeting() }
-                } label: {
-                    Label("Start notes", systemImage: "record.circle")
+        GrokPanel(padding: GrokSpacing.xl) {
+            VStack(alignment: .leading, spacing: GrokSpacing.lg) {
+                GrokEmptyState(
+                    title: "Welcome to GrokNola",
+                    message: "Start notes when a call begins. Type rough thoughts while you talk, and Grok turns them into polished notes, action items, and topics when you stop. This page fills in as you record meetings."
+                )
+                PermissionSummary()
+                if state.recordingID == nil {
+                    Button {
+                        Task { await state.startMeeting() }
+                    } label: {
+                        Label("Start notes", systemImage: "record.circle")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
             }
         }
-        .padding(GrokSpacing.xl)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
     }
 }

@@ -46,7 +46,7 @@ struct CallSummaryCard: View {
                 HStack(spacing: GrokSpacing.sm) {
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                         .rotationEffect(.degrees(expanded ? 90 : 0))
                     Text("Call summary").font(.callout.weight(.semibold))
                     header(meeting)
@@ -68,23 +68,25 @@ struct CallSummaryCard: View {
         }
         .padding(GrokSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
+        .grokPanel()
     }
 
     private func sidebar(_ meeting: Meeting, stats: [TalkStat]) -> some View {
         VStack(alignment: .leading, spacing: GrokSpacing.xl) {
-            VStack(alignment: .leading, spacing: GrokSpacing.xs) {
-                Label(Meeting.durationLabel(meeting.duration), systemImage: "clock")
-                    .font(.callout.weight(.medium))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(Meeting.durationLabel(meeting.duration))
+                    .font(GrokTypography.figure)
+                    .foregroundStyle(GrokColors.ink)
                 Text(meeting.startedAt.formatted(date: .abbreviated, time: .shortened))
-                    .font(GrokTypography.captionMuted())
-                    .foregroundStyle(.secondary)
+                    .font(.callout)
+                    .foregroundStyle(GrokColors.inkMuted)
                 if let app = meeting.appName, !app.isEmpty {
                     Label(app, systemImage: MeetingAppIcon.symbol(for: app))
-                        .font(GrokTypography.captionMuted())
-                        .foregroundStyle(.secondary)
+                        .font(.callout)
+                        .foregroundStyle(GrokColors.inkMuted)
                 }
             }
+            .accessibilityElement(children: .combine)
             if !stats.isEmpty {
                 VStack(alignment: .leading, spacing: GrokSpacing.md) {
                     sectionTitle("Speakers")
@@ -103,39 +105,28 @@ struct CallSummaryCard: View {
     }
 
     private func sectionTitle(_ title: String) -> some View {
-        Text(title)
-            .font(GrokTypography.captionMuted().weight(.semibold))
-            .foregroundStyle(.secondary)
-            .accessibilityAddTraits(.isHeader)
+        GrokEyebrow(title)
     }
 
     private func header(_ meeting: Meeting) -> some View {
         HStack(spacing: GrokSpacing.sm) {
             Label(Meeting.durationLabel(meeting.duration), systemImage: "clock")
-            Text("·").foregroundStyle(.tertiary)
+            Text("·").foregroundStyle(GrokColors.inkFaint)
             Text(meeting.startedAt.formatted(date: .abbreviated, time: .shortened))
             if let app = meeting.appName, !app.isEmpty {
-                Text("·").foregroundStyle(.tertiary)
+                Text("·").foregroundStyle(GrokColors.inkFaint)
                 Label(app, systemImage: MeetingAppIcon.symbol(for: app))
             }
         }
         .font(.callout)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(GrokColors.inkMuted)
         .lineLimit(1)
     }
 
     // MARK: Speakers
 
     private func bar(_ share: Double, color: Color, height: CGFloat = 6) -> some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule().fill(.quaternary)
-                Capsule()
-                    .fill(color)
-                    .frame(width: max(4, geo.size.width * share))
-            }
-        }
-        .frame(height: height)
+        GrokBar(value: share, color: color, height: height)
     }
 
     private func percent(_ share: Double) -> String { "\(Int((share * 100).rounded()))%" }
@@ -150,7 +141,7 @@ struct CallSummaryCard: View {
                 .frame(width: 40, alignment: .trailing)
             Text(Meeting.durationLabel(stat.seconds))
                 .font(GrokTypography.captionMuted().monospacedDigit())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
                 .frame(width: 60, alignment: .trailing)
         }
         .help("\(stat.words) words")
@@ -178,7 +169,7 @@ struct CallSummaryCard: View {
                     .font(.callout.monospacedDigit().weight(.medium))
                 Text(Meeting.durationLabel(stat.seconds))
                     .font(GrokTypography.captionMuted().monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(GrokColors.inkMuted)
             }
             bar(stat.share, color: SpeakerColor.color(for: stat.key, in: state.meeting(meetingID)), height: 5)
         }
@@ -200,18 +191,14 @@ struct CallSummaryCard: View {
                 if compact { sectionTitle("Topics") }
                 FlowLayout(spacing: GrokSpacing.xs) {
                     ForEach(topics, id: \.self) { topic in
-                        Text(topic)
-                            .font(.callout)
-                            .padding(.horizontal, GrokSpacing.sm)
-                            .padding(.vertical, 3)
-                            .background(Color.accentColor.opacity(0.12), in: Capsule())
+                        GrokChip(title: topic)
                     }
                 }
             }
             if finding {
                 HStack(spacing: GrokSpacing.sm) {
                     ProgressView().controlSize(.small)
-                    Text("Finding chapters…").font(GrokTypography.captionMuted()).foregroundStyle(.secondary)
+                    Text("Finding chapters…").font(GrokTypography.captionMuted()).foregroundStyle(GrokColors.inkMuted)
                 }
             } else if !state.processing.contains(meetingID) {
                 Button {
@@ -248,10 +235,10 @@ struct CallSummaryCard: View {
                     }
                     .padding(.vertical, compact ? 5 : 3)
                     .padding(.horizontal, GrokSpacing.sm)
-                    .background(Color.accentColor.opacity(current ? 0.10 : 0), in: RoundedRectangle(cornerRadius: 6))
+                    .background(GrokColors.amberSoft.opacity(current ? 0.8 : 0), in: RoundedRectangle(cornerRadius: GrokRadius.control))
                     .overlay(alignment: .leading) {
                         if current {
-                            Capsule().fill(Color.accentColor).frame(width: 3).padding(.vertical, 3)
+                            Capsule().fill(GrokColors.amber).frame(width: 3).padding(.vertical, 3)
                         }
                     }
                     .padding(.horizontal, -GrokSpacing.sm)
@@ -269,7 +256,7 @@ struct CallSummaryCard: View {
         HStack(spacing: GrokSpacing.md) {
             Text(Meeting.timestamp(chapter.start))
                 .font(GrokTypography.captionMuted().monospacedDigit())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
                 .frame(width: 52, alignment: .leading)
             Text(chapter.title)
                 .font(.callout)
@@ -279,7 +266,7 @@ struct CallSummaryCard: View {
                 .frame(width: 90)
             Text(percent(share))
                 .font(GrokTypography.captionMuted().monospacedDigit())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
                 .frame(width: 34, alignment: .trailing)
         }
     }
@@ -289,7 +276,7 @@ struct CallSummaryCard: View {
         HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.sm) {
             Text(Meeting.timestamp(chapter.start))
                 .font(GrokTypography.captionMuted().monospacedDigit())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(GrokColors.inkMuted)
                 .frame(width: 40, alignment: .leading)
             VStack(alignment: .leading, spacing: 4) {
                 Text(chapter.title)
@@ -301,7 +288,7 @@ struct CallSummaryCard: View {
                     bar(share, color: ChapterColor.color(i), height: 4)
                     Text(percent(share))
                         .font(GrokTypography.captionMuted().monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(GrokColors.inkMuted)
                         .frame(width: 30, alignment: .trailing)
                 }
             }

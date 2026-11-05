@@ -37,8 +37,8 @@ enum TranscriptSearch {
         var out = AttributedString(text)
         for (i, r) in ranges(of: query, in: text).enumerated() {
             guard let range = Range(r, in: out) else { continue }
-            out[range].backgroundColor = i == current ? Color.yellow.opacity(0.85) : Color.yellow.opacity(0.3)
-            if i == current { out[range].foregroundColor = .black }
+            out[range].backgroundColor = i == current ? GrokColors.amber : GrokColors.amberSoft
+            if i == current { out[range].foregroundColor = Color(nsColor: NSColor(hex: 0x1F2124)) }
         }
         return out
     }

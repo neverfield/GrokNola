@@ -27,7 +27,7 @@ The app icon is `Resources/AppIcon.icns`, built from `Resources/AppIcon-master.p
    The menu bar icon changes when it detects a meeting in Zoom, Teams, Meet, Slack, Webex, or FaceTime.
 2. Type rough notes while you talk. The transcript fills in live, and a **Live** strip under the
    notepad shows the latest lines. Level meters in the bottom bar show that the mic and call audio
-   are arriving; a meter turns orange when a side has been silent for 20 seconds.
+   are arriving; a meter turns red when a side has been silent for 20 seconds.
 3. Click **Stop & Write Notes**. Grok re-transcribes the full recording, names the speakers,
    writes enhanced notes built around your rough notes, and tags the meeting. The Notes tab shows
    each step; a failed step has **Retry**. A "Notes ready" notification opens the meeting.
@@ -210,3 +210,37 @@ On each save, GrokNola copies `notes.md` and `meeting.json` into:
 `~/Library/CloudStorage/GoogleDrive-<account>/My Drive/<subfolder>/<yyyy-MM-dd Meeting title>/`
 
 Folder names use the meeting start date and a sanitized title. If Drive is not mounted, the app keeps saving locally and logs an export failure; it does not block saves or show an error banner.
+
+## Design system
+
+The look comes from the app icon: a cream page, graphite ink, and an amber waveform. System
+chrome (sidebar, toolbar, inspector, materials) stays native; the identity lives in the content.
+Tokens are in `Sources/GrokNotes/Views/DesignSystem.swift`, components in `Views/Components.swift`,
+and speaker, chapter, and tag colors in `Views/Palettes.swift` and `Tags.swift`. Colors resolve per
+appearance, with stronger ink and borders under Increase Contrast.
+
+| Token | Light | Dark | Use |
+| --- | --- | --- | --- |
+| `paper` | `#FBF8F1` | `#1C1B19` | Notes, transcript, answers, Home |
+| `paper2` | `#F4EFE4` | `#252320` | Panels, side columns |
+| `ink` | `#1F2124` | `#ECE8DF` | Primary text |
+| `inkMuted` | `#655F55` | `#ABA497` | Secondary text (instead of `.secondary`) |
+| `inkFaint` | `#8C8476` | `#7F786D` | Placeholders and decoration only |
+| `hairline` | `#E4DCCB` | `#38342E` | Borders and rules |
+| `accent` | `#B8741A` | `#C7832A` | `.tint` on every scene: buttons, toggles, selection |
+| `amberText` | `#94590E` | `#F0B867` | Links on the paper |
+| `amber` / `amberSoft` | `#E8A33D` / `#F5E2BF` | `#EBA94A` / `#45361F` | Waveform mark, playhead / citation pills, matches |
+| `recording` | `#BE3F2C` | `#EF6B57` | Recording only |
+
+Text tokens meet WCAG AA (4.5:1) on `paper` and `paper2` in both modes; `inkFaint` (3.5:1) is
+not used for content.
+
+- **Type** (`GrokTypography`): Grok's writing and titles use New York (`display` 30, `title` 22,
+  notes body 15 with about 1.45 line height, measure 680 points). Controls stay SF Pro (`heading`,
+  `body`, `secondary`, `meta`). Times and counts use monospaced digits.
+- **Components**: `GrokPanel` (paper 2, hairline, 12-point corners), `GrokChip` (speaker, tag, and
+  topic chips), `GrokSectionHeader`, `GrokEyebrow`, `GrokBar`, `GrokComposer` (the ask field),
+  `ChatTurnView`, `GrokEmptyState`, `GrokLinkButtonStyle`, and `WaveformMark`, the icon's amber
+  waveform. Use the mark sparingly: the sidebar wordmark, empty states, Home, and live states.
+- **Speakers** take earthy colors in speaking order (slate, terracotta, plum, teal, ochre, indigo,
+  clay); you are sage. Chapters use a quieter ramp of the same family.

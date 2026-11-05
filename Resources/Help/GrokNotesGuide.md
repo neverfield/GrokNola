@@ -64,8 +64,8 @@ The first time a call is detected, macOS asks whether GrokNola may send notifica
 - Under the notepad, a **Live** strip shows the last thing heard from **Them** and **You**. Click **Live** to collapse or expand it; the app remembers your choice.
 - The **Transcript** tab shows the live transcript. A **Live** box shows the words being heard now, labeled **Them** and **Me**. If you scroll up, click **Jump to latest** to follow again.
 - A bar at the bottom of the window shows the elapsed time, a level meter for your microphone and one for call audio, and **Stop & Write Notes**. The bars move when sound arrives, so you can see that both sides are being captured.
-- A meter turns orange when that side looks silent: your mic has had no signal for 20 seconds while others talk, or there has been no call audio for 20 seconds while you talk. Hover over it for the reason. See [No audio from your mic, or no call audio](#no-audio-from-your-mic-or-no-call-audio).
-- If the transcription connection drops, an orange "Transcription reconnecting" message appears next to the meters. The app reconnects by itself.
+- The meter bars are amber. A meter turns red when that side looks silent: your mic has had no signal for 20 seconds while others talk, or there has been no call audio for 20 seconds while you talk. Hover over it for the reason. See [No audio from your mic, or no call audio](#no-audio-from-your-mic-or-no-call-audio).
+- If the transcription connection drops, an ochre "Transcription reconnecting" message appears next to the meters. The app reconnects by itself.
 - The menu bar menu shows the meeting title, the elapsed time, **Open Notes**, and **Stop & Write Notes**.
 
 ### Live answers
@@ -91,7 +91,7 @@ Click **Stop & Write Notes** in the bottom bar, use **Meeting > Stop & Write Not
 4. Finds topics and chapters.
 5. Adds tags, when automatic tagging is on.
 
-The Notes tab shows these steps as they run: **Transcribing full recording**, **Naming speakers**, **Writing notes**, and **Tagging**. Each step shows a check mark when done, a spinner while it runs, an empty circle while it waits, or an orange mark when it failed. While Grok writes, the notes area shows the headings of the meeting's template with placeholder lines. Switch to **My notes** to see your rough notes. The sidebar row shows a spinner.
+The Notes tab shows these steps as they run: **Transcribing full recording**, **Naming speakers**, **Writing notes**, and **Tagging**. Each step shows a check mark when done, a spinner while it runs, an empty circle while it waits, or an ochre mark when it failed. While Grok writes, the notes area shows the headings of the meeting's template with placeholder lines. Switch to **My notes** to see your rough notes. The sidebar row shows a spinner.
 
 If a step fails, the reason appears under the steps. Click **Retry** to run only that step again (writing notes, naming speakers, or tagging). The full-recording pass cannot be retried; the live transcript is kept. Click the close button to hide the steps.
 
@@ -103,7 +103,7 @@ When processing finishes and you are not looking at that meeting, a notification
 
 ### Messages
 
-Messages appear across the top of the window. Blue messages are information and close by themselves. Orange messages are warnings, and red messages are errors; they stay until you close them. Some have a button, such as **Open Settings** when the API key is missing. At most two show at once; "N more messages" and **Dismiss All** appear when there are more.
+Messages appear across the top of the window. Slate-blue messages are information and close by themselves. Ochre messages are warnings, and red messages are errors; they stay until you close them. Some have a button, such as **Open Settings** when the API key is missing. At most two show at once; "N more messages" and **Dismiss All** appear when there are more.
 
 ## Speaker names
 
@@ -197,7 +197,7 @@ Built-in templates cannot be edited, only duplicated. Custom templates have edit
 
 ### Citations and clips
 
-Facts and action items in enhanced notes end with transcript timestamps. Each timestamp shows as a small tinted pill:
+Facts and action items in enhanced notes end with transcript timestamps. Each timestamp shows as a small amber pill:
 
 - **▶ 5:17** when the meeting's audio is kept. Click it to play that clip, and click again to pause. Option-click it to open the transcript instead.
 - **5:17** when the audio was not kept. Click it to open the **Transcript** tab at that moment, highlighted.
@@ -232,7 +232,7 @@ When a meeting's audio is kept, a player bar appears at the bottom of the meetin
   - The speaker button next to each slider mutes that side.
   - **Reset** turns balancing on, sets both sliders to 0 dB, and unmutes both sides.
   - Changes apply while the meeting plays and are kept for the next meeting. A limiter keeps boosted voices from clipping.
-  - The speaker icon turns blue when a level is changed from its default. It shows one wave when one side is muted, and a slash when both sides are muted.
+  - The speaker icon turns amber when a level is changed from its default. It shows one wave when one side is muted, and a slash when both sides are muted.
 
 Keyboard: Space plays or pauses. Left and right arrows move 5 seconds. These keys go to the focused control instead when it uses them: a text field you type in, a button, a slider, the tab switch, or the sidebar list (arrows only). With Full Keyboard Access on, Space presses the focused button.
 
@@ -240,7 +240,7 @@ In the **Transcript** tab, the block being played is highlighted. The **Follow**
 
 ## Transcript
 
-The **Transcript** tab shows the conversation in blocks by speaker, each with a timestamp. Chapter titles appear between blocks. Each block has a faint play button (when audio is kept) that shows fully when you point at the block. Click a speaker chip to rename that speaker. Each speaker has a different color in a meeting, and you are always green. You can select and copy text.
+The **Transcript** tab shows the conversation in blocks by speaker, each with a timestamp. Chapter titles appear between blocks. Each block has a faint play button (when audio is kept) that shows fully when you point at the block. Click a speaker's name to rename that speaker. Each speaker has a different color in a meeting, and you are always sage green. You can select and copy text.
 
 ### Find in the transcript
 
@@ -307,7 +307,8 @@ In **Settings > Tags**:
 
 ## Sidebar
 
-- **Home** and **Ask Grok** at the top.
+- The GrokNola name, then **Home** and **Ask Grok** at the top.
+- Each meeting row shows the date and app, and a colored dot for each of its first three tags.
 - **Tags**: the most used tags with counts. Click one to filter the list; click it again to clear. Other tags are under "N more tags".
 - **Search meetings** (the search field) filters by title, notes, people, and transcript text. While filtering, a count and **Clear** appear.
 - **Pinned** meetings, then date sections: **Today**, **Yesterday**, **Previous 7 Days**, **Previous 30 Days**, each month of this year, then older years. Click a section header to collapse it.
@@ -438,7 +439,7 @@ The banner "System audio is off (…). Recording the microphone only." means mac
 
 ### No audio from your mic, or no call audio
 
-If the microphone meter stays flat or turns orange with "No audio from your mic":
+If the microphone meter stays flat or turns red with "No audio from your mic":
 
 1. Open **System Settings > Sound > Input** and check that the right device is selected and its input level moves when you talk.
 2. Check that the microphone is not muted on the headset or in hardware.
