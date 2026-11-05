@@ -7,7 +7,7 @@ extension AppState {
     func playMeeting(_ id: UUID, from seconds: Double) {
         guard recordingID != id, let m = meeting(id) else { return }
         if !clips.play(m, from: seconds) {
-            banner = "The audio for this meeting is no longer on this Mac."
+            showBanner("The audio for this meeting is no longer on this Mac.", severity: .warning)
         }
     }
 
@@ -45,7 +45,7 @@ extension AppState {
         do {
             let client = try XAIClient.fromSettings()
             guard let chapters = try await self.chapters(for: m, client: client) else {
-                banner = "Grok could not split this meeting into chapters."
+                showBanner("Grok could not split this meeting into chapters.", severity: .warning)
                 return
             }
             let topics = Chapters.topics(from: chapters, vocabulary: Topics.vocabulary(from: meetings, excluding: id))
@@ -55,7 +55,7 @@ extension AppState {
             }
             save(id)
         } catch {
-            banner = "Grok could not find the chapters: \(error.localizedDescription)"
+            reportError(error, "Grok could not find the chapters.")
         }
     }
 }

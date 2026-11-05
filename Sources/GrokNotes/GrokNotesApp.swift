@@ -14,12 +14,13 @@ struct GrokNotesApp: App {
                 .environmentObject(state.clips)
                 .environmentObject(state.calendars)
                 .environmentObject(state.liveAnswers)
+                .environmentObject(state.recording)
                 .frame(minWidth: 900, minHeight: 600)
         }
         .commands {
             CommandMenu("Meeting") {
                 if state.recordingID != nil {
-                    Button("Stop and Write Notes") { Task { await state.stopMeeting() } }
+                    Button("Stop & Write Notes") { Task { await state.stopMeeting() } }
                         .keyboardShortcut("r", modifiers: [.command, .shift])
                 } else {
                     Button("Start Notes") { Task { await state.startMeeting() } }

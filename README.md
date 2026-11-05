@@ -25,9 +25,12 @@ The app icon is `Resources/AppIcon.icns`, built from `Resources/AppIcon-master.p
 
 1. When a call starts, click **Start notes** (window, menu bar, or Shift-Command-R).
    The menu bar icon changes when it detects a meeting in Zoom, Teams, Meet, Slack, Webex, or FaceTime.
-2. Type rough notes while you talk. The transcript fills in live.
-3. Click **Stop**. Grok re-transcribes the full recording, names the speakers,
-   and writes enhanced notes built around your rough notes.
+2. Type rough notes while you talk. The transcript fills in live, and a **Live** strip under the
+   notepad shows the latest lines. Level meters in the bottom bar show that the mic and call audio
+   are arriving; a meter turns orange when a side has been silent for 20 seconds.
+3. Click **Stop & Write Notes**. Grok re-transcribes the full recording, names the speakers,
+   writes enhanced notes built around your rough notes, and tags the meeting. The Notes tab shows
+   each step; a failed step has **Retry**. A "Notes ready" notification opens the meeting.
 4. Use **Ask Grok** for questions or follow-up drafts. Click any speaker name to correct it.
 5. In the **Transcript** tab, the copy icon at the top right copies the whole transcript as
    `[mm:ss] Name: text` lines with `## Chapter (mm:ss–mm:ss)` headings. Each chapter title has

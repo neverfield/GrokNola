@@ -95,3 +95,22 @@ enum TranscriptText {
         return out.joined(separator: "\n")
     }
 }
+
+/// Transcript blocks per meeting, rebuilt only when the meetings change. The Transcript tab re-evaluates
+/// for playback ticks and other state; regrouping a long transcript each time is wasted work.
+@MainActor
+enum TranscriptBlockCache {
+    private static var entries: [UUID: (revision: Int, count: Int, blocks: [TranscriptBlock])] = [:]
+
+    static func blocks(meetingID: UUID, revision: Int, utterances: [Utterance]) -> [TranscriptBlock] {
+        if let entry = entries[meetingID], entry.revision == revision, entry.count == utterances.count {
+            PerfProbe.hit("transcript.cached")
+            return entry.blocks
+        }
+        PerfProbe.hit("transcript.computed")
+        let blocks = TranscriptText.blocks(from: utterances)
+        if entries.count > 16 { entries.removeAll() }
+        entries[meetingID] = (revision, utterances.count, blocks)
+        return blocks
+    }
+}

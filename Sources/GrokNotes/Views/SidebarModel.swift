@@ -117,3 +117,71 @@ final class MeetingSearchIndex {
         return hasher.finalize()
     }
 }
+
+/// What the sidebar lists after search and the tag filter.
+struct SidebarContent {
+    var pinned: [Meeting]
+    var groups: [MeetingGroup]
+    var resultCount: Int
+    var isFiltering: Bool
+    var tagCounts: [(name: String, count: Int)]
+}
+
+/// Remembers the last sidebar content. A recording tick or an unrelated state change re-evaluates the
+/// sidebar's body without touching the meetings, so the filter, sort and grouping are reused.
+final class SidebarCache {
+    private struct Key: Equatable {
+        var revision: Int
+        var search: String
+        var tagFilter: String?
+        /// Groups such as Today and Yesterday move at midnight.
+        var day: Date
+    }
+
+    private var key: Key?
+    private var content: SidebarContent?
+    private var tagCountsRevision: Int?
+    private var tagCounts: [(name: String, count: Int)] = []
+
+    func content(meetings: [Meeting], revision: Int, search: String, tagFilter: String?, index: MeetingSearchIndex) -> SidebarContent {
+        let key = Key(revision: revision, search: search, tagFilter: tagFilter, day: Calendar.current.startOfDay(for: Date()))
+        if key == self.key, let content {
+            PerfProbe.hit("sidebar.cached")
+            return content
+        }
+        PerfProbe.hit("sidebar.computed")
+        let terms = MeetingSearchIndex.terms(search)
+        var visible = meetings
+        if let tagFilter { visible = visible.filter { $0.hasTag(tagFilter) } }
+        if !terms.isEmpty { visible = visible.filter { index.matches($0, terms: terms) } }
+        let pinned = visible.filter(\.isPinned).sorted { $0.startedAt > $1.startedAt }
+        let groups = MeetingGrouping.groups(visible.filter { !$0.isPinned })
+        let result = SidebarContent(
+            pinned: pinned,
+            groups: groups,
+            resultCount: visible.count,
+            isFiltering: tagFilter != nil || !terms.isEmpty,
+            tagCounts: tagCounts(meetings, revision: revision)
+        )
+        self.key = key
+        content = result
+        return result
+    }
+
+    /// Tag counts across all meetings. They ignore the search, so typing reuses them.
+    private func tagCounts(_ meetings: [Meeting], revision: Int) -> [(name: String, count: Int)] {
+        if tagCountsRevision == revision { return tagCounts }
+        var counts: [String: (name: String, count: Int)] = [:]
+        for m in meetings {
+            for tag in m.tagList {
+                let key = tag.lowercased()
+                counts[key] = (counts[key]?.name ?? tag, (counts[key]?.count ?? 0) + 1)
+            }
+        }
+        tagCounts = counts.values.sorted {
+            $0.count != $1.count ? $0.count > $1.count : $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
+        tagCountsRevision = revision
+        return tagCounts
+    }
+}

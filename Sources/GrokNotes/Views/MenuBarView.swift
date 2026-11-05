@@ -6,17 +6,24 @@ struct MenuBarView: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        if state.recordingID != nil {
-            Text(Meeting.timestamp(state.elapsed))
-            Button("Stop") { Task { await state.stopMeeting() } }
-        } else {
-            if let app = state.detectedApp {
-                Text("\(app.name) detected")
+        if let id = state.recordingID {
+            Text(state.meeting(id)?.title ?? "Recording")
+            if let start = state.recording.startedAt {
+                Text("Recording · \(Text(start, style: .timer))")
             }
-            Button("Start notes") {
+            Button("Open Notes") {
+                showWindow()
+                state.openMeeting(id)
+            }
+            Button("Stop & Write Notes") { Task { await state.stopMeeting() } }
+        } else {
+            Button(state.detectedApp.map { "Start Notes · \($0.name)" } ?? "Start Notes") {
                 showWindow()
                 Task { await state.startMeeting() }
             }
+        }
+        if !state.processing.isEmpty {
+            Text(state.processing.count == 1 ? "Writing notes…" : "Writing notes for \(state.processing.count) meetings…")
         }
         Divider()
         Button("Open Grok Notes") { showWindow() }

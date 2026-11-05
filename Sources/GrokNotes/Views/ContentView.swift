@@ -6,6 +6,8 @@ struct ContentView: View {
     @State private var searchText = ""
     @State private var tagFilter: String?
     @State private var searchIndex = MeetingSearchIndex()
+    @State private var sidebarCache = SidebarCache()
+    @Environment(\.openWindow) private var openWindow
     /// Newline-separated ids of collapsed sidebar sections. Sections are expanded by default.
     @AppStorage("sidebarCollapsedSections") private var collapsedSections = ""
     private static let visibleTagLimit = 6
@@ -21,59 +23,30 @@ struct ContentView: View {
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) {
-            VStack(spacing: 0) {
-                if let banner = state.banner {
-                    BannerView(text: banner, isError: true) { state.banner = nil }
-                }
-                if let status = state.streamStatus {
-                    BannerView(text: status, isError: false, onClose: nil)
-                }
-            }
+            BannerStack()
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if state.recordingID != nil {
                 RecordingStatusBar()
             }
         }
-        .onAppear { state.refreshPermissions() }
+        .onAppear {
+            state.refreshPermissions()
+            state.notifications.openMainWindow = { [openWindow] in openWindow(id: "main") }
+        }
         .onChange(of: state.selectedID) {
             if state.selectedID != nil { state.showLibraryChat = false }
         }
     }
 
-    private struct SidebarContent {
-        var pinned: [Meeting]
-        var groups: [MeetingGroup]
-        var resultCount: Int
-        var isFiltering: Bool
-        var tagCounts: [(name: String, count: Int)]
-    }
-
-    /// Filters and groups once per body evaluation.
+    /// Filters and groups only when the meetings, the search, or the tag filter changed.
     private func sidebarContent() -> SidebarContent {
-        let terms = MeetingSearchIndex.terms(searchText)
-        var visible = state.meetings
-        if let tagFilter { visible = visible.filter { $0.hasTag(tagFilter) } }
-        if !terms.isEmpty { visible = visible.filter { searchIndex.matches($0, terms: terms) } }
-        let pinned = visible.filter(\.isPinned).sorted { $0.startedAt > $1.startedAt }
-        let groups = MeetingGrouping.groups(visible.filter { !$0.isPinned })
-
-        var counts: [String: (name: String, count: Int)] = [:]
-        for m in state.meetings {
-            for tag in m.tagList {
-                let key = tag.lowercased()
-                counts[key] = (counts[key]?.name ?? tag, (counts[key]?.count ?? 0) + 1)
-            }
-        }
-        let tagCounts = counts.values.sorted {
-            $0.count != $1.count ? $0.count > $1.count : $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-        }
-        return SidebarContent(
-            pinned: pinned,
-            groups: groups,
-            resultCount: visible.count,
-            isFiltering: tagFilter != nil || !terms.isEmpty,
-            tagCounts: tagCounts
+        sidebarCache.content(
+            meetings: state.meetings,
+            revision: state.meetingsRevision,
+            search: searchText,
+            tagFilter: tagFilter,
+            index: searchIndex
         )
     }
 
@@ -385,14 +358,15 @@ struct StartNotesBar: View {
     }
 }
 
-/// Recording status while a meeting is active (sidebar + global inset).
+/// Recording status while a meeting is active: the clock, live input levels, stream health, and Stop.
+/// It observes neither the clock nor the levels itself; the small views inside do.
 struct RecordingStatusBar: View {
     @EnvironmentObject private var state: AppState
 
     var body: some View {
         HStack(spacing: GrokSpacing.md) {
             RecordingPulse()
-            Text(Meeting.timestamp(state.elapsed))
+            RecordingElapsedText()
                 .font(.body.monospacedDigit())
                 .foregroundStyle(.primary)
             Text("Recording")
@@ -401,28 +375,16 @@ struct RecordingStatusBar: View {
 
             Spacer()
 
-            HStack(spacing: GrokSpacing.sm) {
-                Label("Mic", systemImage: "mic.fill")
-                    .labelStyle(.iconOnly)
-                    .foregroundStyle(.secondary)
-                    .help("Microphone capture")
-                if state.permissions.systemAudio {
-                    Label("System", systemImage: "speaker.wave.2.fill")
-                        .labelStyle(.iconOnly)
-                        .foregroundStyle(.secondary)
-                        .help("System audio capture")
-                }
-            }
+            InputMeters(levels: state.recording.levels)
 
             Button {
                 Task { await state.stopMeeting() }
             } label: {
-                Label("Stop", systemImage: "stop.fill")
+                Label("Stop & Write Notes", systemImage: "stop.fill")
             }
             .buttonStyle(.bordered)
             .tint(GrokColors.recording)
-            .keyboardShortcut("r", modifiers: [.command, .shift])
-            .accessibilityLabel("Stop recording and write notes")
+            .help("Stop recording and write notes (Command-Shift-R)")
         }
         .padding(.horizontal, GrokSpacing.lg)
         .padding(.vertical, GrokSpacing.sm)
@@ -430,50 +392,161 @@ struct RecordingStatusBar: View {
     }
 }
 
-struct RecordButton: View {
-    @EnvironmentObject private var state: AppState
+/// Stream reconnect messages and the mic and call-audio meters.
+private struct InputMeters: View {
+    @ObservedObject var levels: InputLevels
 
     var body: some View {
-        if state.recordingID != nil {
-            Button {
-                Task { await state.stopMeeting() }
-            } label: {
-                Label("Stop · \(Meeting.timestamp(state.elapsed))", systemImage: "stop.circle.fill")
-                    .frame(maxWidth: .infinity)
+        HStack(spacing: GrokSpacing.md) {
+            if let status = levels.system.streamStatus ?? levels.mic.streamStatus {
+                Label(status, systemImage: "arrow.triangle.2.circlepath")
+                    .font(GrokTypography.captionMuted())
+                    .foregroundStyle(.orange)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .help(status)
             }
-            .buttonStyle(.bordered)
-            .tint(GrokColors.recording)
-            .controlSize(.large)
-        } else {
-            Button {
-                Task { await state.startMeeting() }
-            } label: {
-                Label(state.detectedApp.map { "Start notes · \($0.name)" } ?? "Start notes", systemImage: "record.circle")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            InputMeter(
+                label: "Microphone", systemImage: "mic.fill", offImage: "mic.slash.fill", source: levels.mic,
+                activeHelp: "Your microphone", offHelp: "The microphone is not recording."
+            )
+            InputMeter(
+                label: "Call audio", systemImage: "speaker.wave.2.fill", offImage: "speaker.slash.fill", source: levels.system,
+                activeHelp: "Audio from the meeting app",
+                offHelp: "System audio is off, so only the microphone is recorded. Allow Screen & System Audio Recording to separate the other side."
+            )
         }
     }
 }
 
-private struct BannerView: View {
-    let text: String
-    let isError: Bool
-    let onClose: (() -> Void)?
+/// The recording clock. Only this text observes the once-a-second tick.
+struct RecordingElapsedText: View {
+    @EnvironmentObject private var recording: RecordingModel
+    var prefix = ""
 
     var body: some View {
-        HStack(alignment: .top) {
-            Image(systemName: isError ? "exclamationmark.triangle.fill" : "info.circle.fill")
-                .foregroundStyle(isError ? .orange : .blue)
-            Text(text).font(.callout).textSelection(.enabled)
-            Spacer()
-            if let onClose {
-                Button(action: onClose) { Image(systemName: "xmark") }.buttonStyle(.plain)
+        Text(prefix + Meeting.timestamp(recording.elapsed))
+    }
+}
+
+/// A source icon and a five-bar level meter. Orange when the source looks silent or its stream is reconnecting.
+private struct InputMeter: View {
+    let label: String
+    let systemImage: String
+    let offImage: String
+    let source: InputLevels.Source
+    let activeHelp: String
+    let offHelp: String
+    private static let bars = 5
+
+    var body: some View {
+        let warning = source.warning ?? source.streamStatus
+        HStack(spacing: 4) {
+            Image(systemName: source.active ? systemImage : offImage)
+                .foregroundStyle(warning != nil ? AnyShapeStyle(Color.orange) : AnyShapeStyle(.secondary))
+            if source.active {
+                HStack(alignment: .bottom, spacing: 2) {
+                    ForEach(0..<Self.bars, id: \.self) { i in
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(barColor(lit: source.level >= Double(i + 1) / Double(Self.bars + 1), warning: warning != nil))
+                            .frame(width: 3, height: 4 + CGFloat(i) * 2.5)
+                    }
+                }
+                .frame(height: 14, alignment: .bottom)
             }
         }
+        .contentShape(Rectangle())
+        .help(warning ?? (source.active ? activeHelp : offHelp))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(warning ?? (source.active ? "Level \(Int(source.level * 100)) percent" : "Off"))
+    }
+
+    private func barColor(lit: Bool, warning: Bool) -> Color {
+        guard lit else { return Color.secondary.opacity(0.25) }
+        return warning ? .orange : .green
+    }
+}
+
+/// Up to two banners across the top of the window, newest last, with a count of older ones.
+private struct BannerStack: View {
+    @EnvironmentObject private var state: AppState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private static let maxVisible = 2
+
+    var body: some View {
+        let visible = Array(state.banners.suffix(Self.maxVisible))
+        let hidden = state.banners.count - visible.count
+        VStack(spacing: 0) {
+            if hidden > 0 {
+                HStack {
+                    Text(hidden == 1 ? "1 more message" : "\(hidden) more messages")
+                        .font(GrokTypography.captionMuted())
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Dismiss All") { state.dismissAllBanners() }
+                        .buttonStyle(.link)
+                        .font(GrokTypography.captionMuted())
+                }
+                .padding(.horizontal, GrokSpacing.sidebarInset)
+                .padding(.vertical, GrokSpacing.xs)
+                .background(.bar)
+            }
+            ForEach(visible) { item in
+                BannerView(item: item) { state.dismissBanner(item.id) }
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: state.banners.map(\.id))
+    }
+}
+
+private struct BannerView: View {
+    let item: BannerItem
+    let onClose: () -> Void
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.sm) {
+            Image(systemName: icon)
+                .foregroundStyle(tint)
+            Text(item.message)
+                .font(.callout)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: GrokSpacing.sm)
+            if let action = item.action {
+                Button(action.label) {
+                    action.perform()
+                    onClose()
+                }
+                .controlSize(.small)
+            }
+            Button(action: onClose) { Image(systemName: "xmark") }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Close")
+        }
         .padding(GrokSpacing.sidebarInset)
+        .background(tint.opacity(item.severity == .info ? 0.06 : 0.12))
         .background(.bar)
+        .overlay(alignment: .bottom) { Divider() }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var icon: String {
+        switch item.severity {
+        case .info: return "info.circle.fill"
+        case .warning: return "exclamationmark.triangle.fill"
+        case .error: return "xmark.octagon.fill"
+        }
+    }
+
+    private var tint: Color {
+        switch item.severity {
+        case .info: return .blue
+        case .warning: return .orange
+        case .error: return .red
+        }
     }
 }
 

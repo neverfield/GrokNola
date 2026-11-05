@@ -69,7 +69,7 @@ extension AppState {
         do {
             await applySuggestedTags(id, client: try XAIClient.fromSettings())
         } catch {
-            banner = error.localizedDescription
+            reportError(error)
         }
     }
 
@@ -94,7 +94,7 @@ extension AppState {
             }
             return true
         } catch {
-            if reportErrors { banner = "Grok could not suggest tags: \(error.localizedDescription)" }
+            if reportErrors { reportError(error, "Grok could not suggest tags.") }
             return false
         }
     }
@@ -119,7 +119,7 @@ extension AppState {
         do {
             client = try XAIClient.fromSettings()
         } catch {
-            banner = error.localizedDescription
+            reportError(error)
             return
         }
         let ids = untaggedMeetings.map(\.id)
@@ -133,6 +133,6 @@ extension AppState {
             if await !applySuggestedTags(id, client: client, reportErrors: false) { failures += 1 }
             tagCatalog.backfill = TagBackfillProgress(done: index + 1, total: ids.count)
         }
-        if failures > 0 { banner = "Grok could not tag \(failures) of \(ids.count) meetings." }
+        if failures > 0 { showBanner("Grok could not tag \(failures) of \(ids.count) meetings.", severity: .warning) }
     }
 }

@@ -5,7 +5,7 @@ extension AppState {
     func setActionItem(_ item: Insights.ActionItem, done: Bool) {
         guard !processing.contains(item.meetingID), let notes = meeting(item.meetingID)?.enhancedNotes else { return }
         guard let updated = Insights.setting(item, done: done, in: notes) else {
-            banner = "That action item changed since the list was loaded. Open the meeting to edit it."
+            showBanner("That action item changed since the list was loaded. Open the meeting to edit it.", severity: .warning)
             return
         }
         update(item.meetingID) { $0.enhancedNotes = updated }

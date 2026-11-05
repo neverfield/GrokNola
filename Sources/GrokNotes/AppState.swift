@@ -52,7 +52,11 @@ enum DetailRoute: Equatable {
 
 @MainActor
 final class AppState: ObservableObject {
-    @Published var meetings: [Meeting] = []
+    @Published var meetings: [Meeting] = [] {
+        didSet { meetingsRevision &+= 1 }
+    }
+    /// Changes on every edit to `meetings`, so views can cache what they derive from the list.
+    private(set) var meetingsRevision = 0
     @Published var selectedID: UUID? {
         didSet {
             if let playing = clips.loadedID, playing != selectedID, selectedID != nil { clips.stop() }
@@ -63,13 +67,12 @@ final class AppState: ObservableObject {
     @Published private(set) var asking: Set<UUID> = []
     /// Meetings with a Find topics or Find chapters request in flight.
     @Published var findingTopics: Set<UUID> = []
+    /// Where each meeting's after-meeting steps are. Kept after a failure so the step can be retried.
+    @Published private(set) var processingStage: [UUID: ProcessingProgress] = [:]
     @Published var transcriptFocus: TranscriptFocus?
-    @Published var liveMe = ""
-    @Published var liveThem = ""
-    @Published private(set) var elapsed: TimeInterval = 0
     @Published private(set) var detectedApp: MeetingDetector.App?
-    @Published var banner: String?
-    @Published private(set) var streamStatus: String?
+    /// Messages across the top of the window, oldest first.
+    @Published private(set) var banners: [BannerItem] = []
     @Published private(set) var permissions = Permissions()
     /// True while the detail pane shows the chat across all notes instead of a meeting.
     @Published var showLibraryChat = false
@@ -85,9 +88,22 @@ final class AppState: ObservableObject {
     let clips: ClipPlayer
     let calendars = CalendarHub()
     let liveAnswers = LiveAnswersEngine()
+    /// The clock, interim text and input levels while recording. Views that show them observe this, not `AppState`.
+    let recording = RecordingModel()
+    let notifications = AppNotifications()
     private var session: RecordingSession?
     private var detectorTimer: Timer?
     private var saveTasks: [UUID: Task<Void, Never>] = [:]
+    private var bannerTimers: [UUID: Task<Void, Never>] = [:]
+    /// Consecutive detector polls that saw a meeting app, so a brief mic use does not notify.
+    private var detectionStreak = 0
+    /// The app a "call detected" notification was posted for, until the call ends.
+    private var notifiedDetection: String?
+
+    /// Read by the live answers engine. Views observe `recording` instead.
+    var elapsed: TimeInterval { recording.elapsed }
+    var liveMe: String { recording.liveMe }
+    var liveThem: String { recording.liveThem }
 
     init() {
         clips = ClipPlayer(root: store.root)
@@ -97,6 +113,8 @@ final class AppState: ObservableObject {
         libraryChat = Self.loadLibraryChat()
         refreshPermissions()
         liveAnswers.app = self
+        notifications.app = self
+        notifications.configure()
         detectorTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.detectMeeting() }
         }
@@ -154,6 +172,7 @@ final class AppState: ObservableObject {
         guard id != recordingID else { return }
         if clips.loadedID == id { clips.stop() }
         meetings.removeAll { $0.id == id }
+        processingStage[id] = nil
         store.delete(id)
         clips.invalidate(id)
         if selectedID == id { selectedID = nil }
@@ -166,8 +185,61 @@ final class AppState: ObservableObject {
         do {
             try store.save(m, myName: Prefs.myName)
         } catch {
-            banner = "Could not save \"\(m.title)\": \(error.localizedDescription)"
+            showBanner("Could not save \"\(m.title)\": \(error.localizedDescription)", severity: .error)
         }
+    }
+
+    // MARK: Banners
+
+    /// Adds a banner. The same message is not shown twice at once. Info banners close after six seconds by default.
+    func showBanner(_ message: String, severity: BannerItem.Severity, action: BannerItem.Action? = nil, autoDismiss: TimeInterval? = nil) {
+        guard !banners.contains(where: { $0.message == message }) else { return }
+        let item = BannerItem(severity: severity, message: message, action: action, autoDismiss: autoDismiss ?? (severity == .info ? 6 : nil))
+        banners.append(item)
+        if banners.count > 6 { banners.removeFirst(banners.count - 6) }
+        if let seconds = item.autoDismiss {
+            bannerTimers[item.id] = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(seconds))
+                guard !Task.isCancelled else { return }
+                self?.dismissBanner(item.id)
+            }
+        }
+    }
+
+    /// An error banner. When the failure is a missing API key it offers to open Settings.
+    func reportError(_ error: Error, _ prefix: String? = nil) {
+        let message = [prefix, error.localizedDescription].compactMap { $0 }.joined(separator: " ")
+        if XAIClient.storedAPIKey() == nil {
+            showBanner(message, severity: .error, action: Self.openSettingsAction)
+        } else {
+            showBanner(message, severity: .error)
+        }
+    }
+
+    func dismissBanner(_ id: UUID) {
+        bannerTimers.removeValue(forKey: id)?.cancel()
+        banners.removeAll { $0.id == id }
+    }
+
+    func dismissAllBanners() {
+        for id in banners.map(\.id) { dismissBanner(id) }
+    }
+
+    /// Older call sites set a message string. Setting shows it as an error; setting nil closes the newest banner.
+    var banner: String? {
+        get { banners.last?.message }
+        set {
+            if let newValue {
+                showBanner(newValue, severity: .error)
+            } else if let last = banners.last {
+                dismissBanner(last.id)
+            }
+        }
+    }
+
+    static let openSettingsAction = BannerItem.Action(label: "Open Settings") {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
     }
 
     func scheduleSave(_ id: UUID) {
@@ -223,6 +295,23 @@ final class AppState: ObservableObject {
         guard session == nil else { return }
         let app = MeetingDetector.detect(micInUse: MeetingDetector.micInUse())
         if app != detectedApp { detectedApp = app }
+        noteDetection(app)
+    }
+
+    /// Posts "<App> call detected" once per call, after two polls in a row see it.
+    private func noteDetection(_ app: MeetingDetector.App?) {
+        guard let app else {
+            detectionStreak = 0
+            if notifiedDetection != nil {
+                notifiedDetection = nil
+                notifications.clearMeetingDetected()
+            }
+            return
+        }
+        detectionStreak += 1
+        guard detectionStreak >= 2, notifiedDetection == nil else { return }
+        notifiedDetection = app.name
+        if Prefs.notifyOnMeetingDetected { notifications.meetingDetected(app.name) }
     }
 
     // MARK: Recording
@@ -232,17 +321,23 @@ final class AppState: ObservableObject {
         guard session == nil else { return }
         clips.stop()
         guard let apiKey = XAIClient.storedAPIKey() else {
-            banner = "Add your xAI API key in Settings (Command-comma) first."
+            showBanner("Add your xAI API key in Settings (Command-comma) first.", severity: .error, action: Self.openSettingsAction)
             return
         }
         guard await MicCapture.requestPermission() else {
-            banner = "Grok Notes needs microphone access. Turn it on in System Settings > Privacy & Security > Microphone."
+            showBanner(
+                "Grok Notes needs microphone access. Turn it on in System Settings > Privacy & Security > Microphone.",
+                severity: .error,
+                action: BannerItem.Action(label: "Open Privacy Settings") { [weak self] in self?.openPrivacyPane("Privacy_Microphone") }
+            )
             refreshPermissions()
             return
         }
 
         let now = Date()
         let app = MeetingDetector.detect(micInUse: MeetingDetector.micInUse())
+        notifiedDetection = app?.name ?? notifiedDetection
+        notifications.clearMeetingDetected()
         calendars.reload()
         let event = picked ?? calendars.currentEvent(at: now)
         let myName = Prefs.myName
@@ -261,12 +356,12 @@ final class AppState: ObservableObject {
         s.keyterms = Array(uniqueNames(meeting.attendees + Prefs.knownPeople + [myName]).filter { $0.count <= 50 }.prefix(100))
         session = s
         recordingID = meeting.id
-        elapsed = 0
-        liveMe = ""
-        liveThem = ""
+        recording.reset(startedAt: now)
         liveAnswers.begin(meetingID: meeting.id, apiKey: apiKey)
         let dir = store.directory(for: meeting.id)
         let meetingID = meeting.id
+        let micMeter = recording.levels.micMeter
+        let systemMeter = recording.levels.systemMeter
 
         // Remote participants: system audio, diarized.
         let system = SystemAudioCapture()
@@ -277,9 +372,12 @@ final class AppState: ObservableObject {
             let t = Date().timeIntervalSince(now) - Double(data.count) / 32_000
             systemStream.append(data, at: t)
             systemWAV?.write(data, at: t)
-            if SpeechActivity.level(data) > 500 { remoteSpeech.mark() }
+            if SpeechActivity.level(data) > InputLevelMeter.speechRMS { remoteSpeech.mark() }
+            systemMeter.record(data)
         }
-        system.onError = { [weak self] message in Task { @MainActor in self?.streamStatus = message } }
+        system.onError = { [weak self] message in
+            Task { @MainActor in self?.recording.levels.setStreamStatus(message, source: .system) }
+        }
         do {
             try await system.start()
             s.system = system
@@ -290,7 +388,11 @@ final class AppState: ObservableObject {
         } catch {
             systemWAV?.close()
             try? FileManager.default.removeItem(at: dir.appendingPathComponent("system.wav"))
-            banner = "System audio is off (\(error.localizedDescription)). Recording the microphone only. Allow Screen & System Audio Recording in Settings to separate remote speakers."
+            showBanner(
+                "System audio is off (\(error.localizedDescription)). Recording the microphone only. Allow Screen & System Audio Recording to separate remote speakers.",
+                severity: .warning,
+                action: BannerItem.Action(label: "Open Privacy Settings") { [weak self] in self?.openPrivacyPane("Privacy_ScreenCapture") }
+            )
         }
 
         // The local user: microphone. Diarize it only when there is no separate system audio.
@@ -301,12 +403,16 @@ final class AppState: ObservableObject {
             let t = Date().timeIntervalSince(now) - Double(data.count) / 32_000
             micStream.append(data, at: t)
             micWAV?.write(data, at: t)
+            micMeter.record(data)
         }
         do {
             let wantsEchoCancellation = Prefs.echoCancellation && s.hasSystemAudio
             try mic.start(echoCancellation: wantsEchoCancellation)
             if wantsEchoCancellation && !mic.echoCancellationActive {
-                banner = "Echo cancellation is not supported by your current audio devices. Use headphones so other voices are not transcribed as you."
+                showBanner(
+                    "Echo cancellation is not supported by your current audio devices. Use headphones so other voices are not transcribed as you.",
+                    severity: .warning
+                )
             }
             s.mic = mic
             s.micStream = micStream
@@ -314,8 +420,9 @@ final class AppState: ObservableObject {
             micStream.start()
         } catch {
             micWAV?.close()
-            banner = "Could not start the microphone: \(error.localizedDescription)"
+            showBanner("Could not start the microphone: \(error.localizedDescription)", severity: .error)
         }
+        recording.levels.setActive(mic: s.mic != nil, system: s.hasSystemAudio)
 
         if let app, ActiveSpeakerMonitor.isTrusted, s.hasSystemAudio {
             let monitor = ActiveSpeakerMonitor(app: app, meetingStart: now, ignoredNames: [myName, "you"])
@@ -335,15 +442,22 @@ final class AppState: ObservableObject {
         save(meetingID)
         refreshPermissions()
 
-        s.timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+        // Ten times a second for the level meters; the once-a-second work runs when the second changes.
+        s.timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
         }
     }
 
     func stopMeeting() async {
         guard let s = session else { return }
+        let id = s.meetingID
         session = nil
         recordingID = nil
+        // Show progress right away; draining the streams can take a few seconds.
+        processing.insert(id)
+        var progress = ProcessingProgress()
+        progress.set(.transcribing, .running)
+        processingStage[id] = progress
         liveAnswers.end()
         s.timer?.invalidate()
         s.mic?.stop()
@@ -363,11 +477,11 @@ final class AppState: ObservableObject {
             seconds: (s.micStream == nil ? 0 : micDuration) + (s.systemStream == nil ? 0 : systemDuration),
             context: UsageContext(kind: .liveTranscription, meetingID: s.meetingID, meetingTitle: meeting(s.meetingID)?.title)
         )
-        liveMe = ""
-        liveThem = ""
-        streamStatus = nil
-        if let m = meeting(s.meetingID), m.utterances.isEmpty, m.userNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            delete(s.meetingID)
+        recording.reset()
+        if let m = meeting(id), m.utterances.isEmpty, m.userNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            processing.remove(id)
+            delete(id)
+            showBanner("Nothing was recorded, so the meeting was discarded.", severity: .info)
             return
         }
         update(s.meetingID) { m in
@@ -390,11 +504,14 @@ final class AppState: ObservableObject {
         }
         stream.onLive = { [weak self] text in
             Task { @MainActor in
-                if source == .mic { self?.liveMe = text } else { self?.liveThem = text }
-                self?.liveAnswers.heardInterim(text, source: source)
+                guard let self else { return }
+                if source == .mic { self.recording.liveMe = text } else { self.recording.liveThem = text }
+                self.liveAnswers.heardInterim(text, source: source)
             }
         }
-        stream.onStatus = { [weak self] status in Task { @MainActor in self?.streamStatus = status } }
+        stream.onStatus = { [weak self] status in
+            Task { @MainActor in self?.recording.levels.setStreamStatus(status, source: source) }
+        }
         return stream
     }
 
@@ -423,6 +540,7 @@ final class AppState: ObservableObject {
             }
         }
         guard meetingID == recordingID, let m = meeting(meetingID) else { return }
+        if let last = added.last { recording.heardFinal(last.text, source: source) }
         for u in added {
             let asker = u.speakerKey == Meeting.meKey ? "You" : m.displayName(for: u.speakerKey, myName: Prefs.myName)
             var text = u.text
@@ -466,10 +584,17 @@ final class AppState: ObservableObject {
 
     private func tick() {
         guard let s = session else { return }
-        elapsed = Date().timeIntervalSince(s.start)
+        let elapsed = Date().timeIntervalSince(s.start)
+        recording.levels.sample(elapsed: elapsed)
         let seconds = Int(elapsed)
-        if seconds % 10 == 0, let monitor = s.monitor {
-            update(s.meetingID) { SpeakerResolver.applyActiveSpeakerVotes(to: &$0, samples: monitor.samples) }
+        guard seconds != Int(recording.elapsed) else { return }
+        recording.setElapsed(elapsed)
+        if seconds % 10 == 0, let monitor = s.monitor, var m = meeting(s.meetingID) {
+            SpeakerResolver.applyActiveSpeakerVotes(to: &m, samples: monitor.samples)
+            // Writing an unchanged meeting would still redraw every view that lists meetings.
+            if m.speakers != meeting(s.meetingID)?.speakers || m.mode != meeting(s.meetingID)?.mode {
+                update(s.meetingID) { $0.speakers = m.speakers; $0.mode = m.mode }
+            }
         }
         if seconds % 30 == 0 { save(s.meetingID) }
     }
@@ -479,36 +604,61 @@ final class AppState: ObservableObject {
     private func postProcess(_ s: RecordingSession, micDuration: Double, systemDuration: Double) async {
         let id = s.meetingID
         defer { s.snapshotter?.deleteFrames() }
-        guard let client = try? XAIClient.fromSettings(), var m = meeting(id) else { return }
-        processing.insert(id)
         defer { processing.remove(id) }
+        guard var m = meeting(id) else {
+            processingStage[id] = nil
+            return
+        }
+        let client: XAIClient
+        do {
+            client = try XAIClient.fromSettings()
+        } catch {
+            setStep(id, .transcribing, .done)
+            for step in [ProcessingProgress.Step.naming, .tagging] { setStep(id, step, .skipped) }
+            setStep(id, .writing, .failed(error.localizedDescription))
+            finishProcessing(id)
+            return
+        }
         let myName = Prefs.myName
         let model = Prefs.model
         let language = Prefs.language
 
         // Re-diarize the full recording. Speaker numbers from one batch pass are stable for the
         // whole meeting, unlike the live stream, which restarts numbering after a reconnect.
-        if s.hasSystemAudio, systemDuration > 10, let wav = s.systemWAV {
-            if let segments = await batchSegments(client.tracking(.batchTranscription, m), wav: wav, language: language, keyterms: s.keyterms) {
-                m.utterances.removeAll { $0.source == .system }
-                m.speakers = m.speakers.filter { !$0.key.hasPrefix("s") }
-                for seg in segments {
-                    m.insert(Utterance(source: .system, speakerKey: "r\(seg.speaker ?? 0)", start: seg.start, end: seg.end, text: seg.text))
-                }
-            }
+        let fullPass: (wav: WAVWriter, source: AudioSource)?
+        if s.hasSystemAudio {
+            fullPass = systemDuration > 10 ? s.systemWAV.map { ($0, .system) } : nil
+        } else {
+            fullPass = micDuration > 10 ? s.micWAV.map { ($0, .mic) } : nil
         }
-        if !s.hasSystemAudio {
-            if micDuration > 10, let wav = s.micWAV,
-               let segments = await batchSegments(client.tracking(.batchTranscription, m), wav: wav, language: language, keyterms: s.keyterms) {
-                m.utterances.removeAll { $0.source == .mic }
-                m.speakers = m.speakers.filter { $0.key == Meeting.meKey || !$0.key.hasPrefix("m") }
-                for seg in segments {
-                    m.insert(Utterance(source: .mic, speakerKey: "v\(seg.speaker ?? 0)", start: seg.start, end: seg.end, text: seg.text))
+        if let fullPass {
+            do {
+                if let segments = try await batchSegments(client.tracking(.batchTranscription, m), wav: fullPass.wav, language: language, keyterms: s.keyterms) {
+                    if fullPass.source == .system {
+                        m.utterances.removeAll { $0.source == .system }
+                        m.speakers = m.speakers.filter { !$0.key.hasPrefix("s") }
+                        for seg in segments {
+                            m.insert(Utterance(source: .system, speakerKey: "r\(seg.speaker ?? 0)", start: seg.start, end: seg.end, text: seg.text))
+                        }
+                    } else {
+                        m.utterances.removeAll { $0.source == .mic }
+                        m.speakers = m.speakers.filter { $0.key == Meeting.meKey || !$0.key.hasPrefix("m") }
+                        for seg in segments {
+                            m.insert(Utterance(source: .mic, speakerKey: "v\(seg.speaker ?? 0)", start: seg.start, end: seg.end, text: seg.text))
+                        }
+                    }
                 }
+                setStep(id, .transcribing, .done)
+            } catch {
+                setStep(id, .transcribing, .failed("Kept the live transcript. \(error.localizedDescription)"))
             }
-            SpeakerResolver.assignDominantMicSpeakerToMe(&m)
+        } else {
+            setStep(id, .transcribing, .done)
         }
+        if !s.hasSystemAudio { SpeakerResolver.assignDominantMicSpeakerToMe(&m) }
 
+        setStep(id, .naming, .running)
+        var namingErrors: [String] = []
         SpeakerResolver.applyActiveSpeakerVotes(to: &m, samples: s.monitor?.samples ?? [])
         var namesOnScreen: [String] = []
         if let frames = s.snapshotter?.frames, !frames.isEmpty {
@@ -517,7 +667,7 @@ final class AppState: ObservableObject {
                     in: &m, frames: frames, myName: myName, client: client.tracking(.vision, m), model: model
                 )
             } catch {
-                banner = "Grok could not read the meeting-window snapshots: \(error.localizedDescription)"
+                namingErrors.append("Could not read the meeting-window snapshots: \(error.localizedDescription)")
             }
         }
         SpeakerResolver.assignSoleParticipant(in: &m, participants: m.attendees, evidence: "Only other invitee")
@@ -528,21 +678,26 @@ final class AppState: ObservableObject {
                     in: &m, candidates: candidates, myName: myName, client: client.tracking(.speakerNames, m), model: model
                 )
             } catch {
-                banner = "Grok could not match names to voices: \(error.localizedDescription)"
+                namingErrors.append("Could not match names to voices: \(error.localizedDescription)")
             }
         }
         for key in m.speakerKeys where m.speakers[key] == nil {
             m.speakers[key] = SpeakerInfo(name: nil, attribution: key == Meeting.meKey ? .me : .unknown)
         }
         m.mode = m.hasNamedRemoteSpeaker ? .named : (s.hasSystemAudio ? .meThem : .micOnly)
+        setStep(id, .naming, namingErrors.isEmpty ? .done : .failed(namingErrors.joined(separator: " ")))
 
         if !m.utterances.isEmpty || !m.userNotes.isEmpty {
+            setStep(id, .writing, .running)
             m.templateID = meeting(id)?.templateID ?? m.templateID
             do {
                 try await writeNotes(into: &m, client: client)
+                setStep(id, .writing, .done)
             } catch {
-                banner = "Grok could not write the notes: \(error.localizedDescription)"
+                setStep(id, .writing, .failed(error.localizedDescription))
             }
+        } else {
+            setStep(id, .writing, .skipped)
         }
         if !m.utterances.isEmpty, (m.topics ?? []).isEmpty {
             m.topics = try? await topics(for: m, client: client)
@@ -573,43 +728,159 @@ final class AppState: ObservableObject {
         clips.invalidate(id)
 
         if Prefs.autoTag, m.enhancedNotes != nil {
-            await applySuggestedTags(id, client: client)
+            setStep(id, .tagging, .running)
+            let tagged = await applySuggestedTags(id, client: client, reportErrors: false)
+            setStep(id, .tagging, tagged ? .done : .failed(Self.tagFailure))
+        } else {
+            setStep(id, .tagging, .skipped)
+        }
+        finishProcessing(id)
+    }
+
+    /// Nil when the pass returned no words.
+    private func batchSegments(_ client: XAIClient, wav: WAVWriter, language: String, keyterms: [String]) async throws -> [STTStream.Segment]? {
+        let result = try await client.transcribe(fileURL: wav.url, diarize: true, language: language, keyterms: keyterms)
+        let words = (result.words ?? []).map { STTStream.Word(text: $0.text, start: $0.start, end: $0.end, speaker: $0.speaker) }
+        let segments = STTStream.group(words, offset: wav.startOffset ?? 0)
+        return segments.isEmpty ? nil : segments
+    }
+
+    private static let tagFailure = "Grok could not suggest tags."
+
+    private func setStep(_ id: UUID, _ step: ProcessingProgress.Step, _ status: ProcessingProgress.Status) {
+        processingStage[id]?.set(step, status)
+    }
+
+    /// Marks a step running for a retry or a regenerate, starting a one-step list when no run is showing.
+    private func beginStep(_ id: UUID, _ step: ProcessingProgress.Step) {
+        if processingStage[id]?.entry(step) == nil { processingStage[id] = ProcessingProgress(steps: [step]) }
+        setStep(id, step, .running)
+    }
+
+    /// Ends a retried step. The list goes away once every step has succeeded.
+    private func endStep(_ id: UUID, _ step: ProcessingProgress.Step, _ status: ProcessingProgress.Status) {
+        setStep(id, step, status)
+        if processingStage[id]?.succeeded == true { processingStage[id] = nil }
+    }
+
+    /// Tells the user the run is over. The step list stays when a step failed, so it can be retried.
+    private func finishProcessing(_ id: UUID) {
+        guard let progress = processingStage[id], let m = meeting(id) else {
+            processingStage[id] = nil
+            return
+        }
+        let viewing = NSApp.isActive && selectedID == id
+        if !viewing {
+            if case .failed(let message) = progress.status(.writing) {
+                notifications.processingFailed(m, message: message)
+            } else {
+                notifications.notesReady(m, failedSteps: progress.failures.map(\.step))
+            }
+        }
+        if progress.hasFailure {
+            if !viewing {
+                showBanner(
+                    "Some steps failed for \"\(m.title)\": \(progress.failures.map { $0.step.title.lowercased() }.joined(separator: ", ")).",
+                    severity: .warning,
+                    action: BannerItem.Action(label: "Open Meeting") { [weak self] in self?.openMeeting(id) }
+                )
+            }
+        } else {
+            processingStage[id] = nil
         }
     }
 
-    private func batchSegments(_ client: XAIClient, wav: WAVWriter, language: String, keyterms: [String]) async -> [STTStream.Segment]? {
-        do {
-            let result = try await client.transcribe(fileURL: wav.url, diarize: true, language: language, keyterms: keyterms)
-            let words = (result.words ?? []).map { STTStream.Word(text: $0.text, start: $0.start, end: $0.end, speaker: $0.speaker) }
-            let segments = STTStream.group(words, offset: wav.startOffset ?? 0)
-            return segments.isEmpty ? nil : segments
-        } catch {
-            banner = "The full-recording pass failed, so the live transcript was kept. \(error.localizedDescription)"
-            return nil
+    /// Runs one failed step again.
+    func retry(_ step: ProcessingProgress.Step, for id: UUID) async {
+        switch step {
+        case .writing: await regenerateNotes(id)
+        case .naming: await renameSpeakers(id)
+        case .tagging: await retagMeeting(id)
+        case .transcribing: break
         }
+    }
+
+    /// Hides a step list that has a failure, without retrying.
+    func dismissProcessingStage(_ id: UUID) {
+        guard !processing.contains(id) else { return }
+        processingStage[id] = nil
+    }
+
+    /// Matches names to unnamed voices again from the invitees and known people. Manual names are kept.
+    func renameSpeakers(_ id: UUID) async {
+        guard var m = meeting(id), !processing.contains(id) else { return }
+        let client: XAIClient
+        do {
+            client = try XAIClient.fromSettings()
+        } catch {
+            reportError(error)
+            return
+        }
+        processing.insert(id)
+        defer { processing.remove(id) }
+        beginStep(id, .naming)
+        SpeakerResolver.assignSoleParticipant(in: &m, participants: m.attendees, evidence: "Only other invitee")
+        do {
+            try await SpeakerResolver.inferNames(
+                in: &m, candidates: uniqueNames(m.attendees + Prefs.knownPeople), myName: Prefs.myName,
+                client: client.tracking(.speakerNames, m), model: Prefs.model
+            )
+        } catch {
+            endStep(id, .naming, .failed("Could not match names to voices: \(error.localizedDescription)"))
+            return
+        }
+        update(id) { current in
+            for (key, info) in m.speakers where current.speakers[key]?.attribution != .manual { current.speakers[key] = info }
+            if current.hasNamedRemoteSpeaker { current.mode = .named }
+        }
+        save(id)
+        endStep(id, .naming, .done)
+    }
+
+    /// Suggests tags again after a failed tagging step.
+    func retagMeeting(_ id: UUID) async {
+        let client: XAIClient
+        do {
+            client = try XAIClient.fromSettings()
+        } catch {
+            reportError(error)
+            return
+        }
+        beginStep(id, .tagging)
+        let tagged = await applySuggestedTags(id, client: client, reportErrors: false)
+        endStep(id, .tagging, tagged ? .done : .failed(Self.tagFailure))
     }
 
     // MARK: Notes and questions
 
     func regenerateNotes(_ id: UUID) async {
         guard var m = meeting(id), !processing.contains(id) else { return }
-        var gotTopics = false
+        let client: XAIClient
         do {
-            let client = try XAIClient.fromSettings()
-            processing.insert(id)
-            defer { processing.remove(id) }
-            gotTopics = try await writeNotes(into: &m, client: client)
-            update(id) {
-                $0.enhancedNotes = m.enhancedNotes
-                $0.notesTemplateID = m.notesTemplateID
-                if gotTopics { $0.topics = m.topics }
-                if m.chapters != nil { $0.chapters = m.chapters }
-            }
-            save(id)
+            client = try XAIClient.fromSettings()
         } catch {
-            banner = error.localizedDescription
+            reportError(error)
             return
         }
+        processing.insert(id)
+        beginStep(id, .writing)
+        let gotTopics: Bool
+        do {
+            gotTopics = try await writeNotes(into: &m, client: client)
+        } catch {
+            processing.remove(id)
+            endStep(id, .writing, .failed(error.localizedDescription))
+            return
+        }
+        update(id) {
+            $0.enhancedNotes = m.enhancedNotes
+            $0.notesTemplateID = m.notesTemplateID
+            if gotTopics { $0.topics = m.topics }
+            if m.chapters != nil { $0.chapters = m.chapters }
+        }
+        save(id)
+        processing.remove(id)
+        endStep(id, .writing, .done)
         if !gotTopics { await findTopics(id) }
     }
 
@@ -623,7 +894,7 @@ final class AppState: ObservableObject {
             update(id) { $0.topics = topics }
             save(id)
         } catch {
-            banner = "Grok could not find the topics: \(error.localizedDescription)"
+            reportError(error, "Grok could not find the topics.")
         }
     }
 
@@ -642,7 +913,7 @@ final class AppState: ObservableObject {
     func toggleClip(_ id: UUID, at seconds: Double, until end: Double? = nil) {
         guard recordingID != id, let m = meeting(id) else { return }
         if !clips.toggle(m, at: seconds, until: end) {
-            banner = "The audio for this meeting is no longer on this Mac."
+            showBanner("The audio for this meeting is no longer on this Mac.", severity: .warning)
         }
     }
 

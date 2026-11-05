@@ -12,13 +12,16 @@ struct HomeView: View {
     /// Items checked off from Home this session, kept visible so they can be unchecked.
     @State private var completed: Set<String> = []
     @State private var showAllActions = false
+    @State private var snapshotCache = HomeSnapshotCache()
 
     private static let maxWidth: CGFloat = 960
     private static let recentLimit = 6
     private static let actionLimit = 8
 
     var body: some View {
-        let snapshot = HomeSnapshot(meetings: state.meetings, trendDays: trendDays, completed: completed, recentLimit: Self.recentLimit)
+        let snapshot = snapshotCache.snapshot(
+            meetings: state.meetings, revision: state.meetingsRevision, trendDays: trendDays, completed: completed, recentLimit: Self.recentLimit
+        )
         ScrollView {
             VStack(alignment: .leading, spacing: GrokSpacing.xl) {
                 header
@@ -104,7 +107,7 @@ struct HomeView: View {
         if let id = state.recordingID {
             HStack(spacing: GrokSpacing.sm) {
                 RecordingPulse()
-                Text("Recording · \(Meeting.timestamp(state.elapsed))")
+                RecordingElapsedText(prefix: "Recording · ")
                     .monospacedDigit()
                 Button("Open Live Notes") { state.openMeeting(id) }
                     .buttonStyle(.bordered)
@@ -323,6 +326,34 @@ private struct HomeDecision: Identifiable {
 }
 
 /// Everything the dashboard shows, computed once per body evaluation.
+/// The last Home snapshot. Parsing every meeting's notes for action items and decisions runs only when
+/// the meetings, the trend window, or the checked-off items change, or the day rolls over.
+private final class HomeSnapshotCache {
+    private struct Key: Equatable {
+        var revision: Int
+        var trendDays: Int
+        var completed: Set<String>
+        var recentLimit: Int
+        var day: Date
+    }
+
+    private var key: Key?
+    private var cached: HomeSnapshot?
+
+    func snapshot(meetings: [Meeting], revision: Int, trendDays: Int, completed: Set<String>, recentLimit: Int) -> HomeSnapshot {
+        let key = Key(revision: revision, trendDays: trendDays, completed: completed, recentLimit: recentLimit, day: Calendar.current.startOfDay(for: Date()))
+        if key == self.key, let cached {
+            PerfProbe.hit("home.cached")
+            return cached
+        }
+        PerfProbe.hit("home.computed")
+        let snapshot = HomeSnapshot(meetings: meetings, trendDays: trendDays, completed: completed, recentLimit: recentLimit)
+        self.key = key
+        cached = snapshot
+        return snapshot
+    }
+}
+
 private struct HomeSnapshot {
     let all: [Meeting]
     let weekStart: Date
