@@ -89,7 +89,7 @@ final class WindowSnapshotter {
         let time = Date().timeIntervalSince(start)
         let url = directory.appendingPathComponent(String(format: "%08.1f.jpg", time))
         do {
-            try jpeg.write(to: url)
+            try Vault.write(jpeg, to: url)
             frames.append(Frame(time: time, url: url))
         } catch {
             NSLog("GrokNotes: could not save snapshot: \(error)")

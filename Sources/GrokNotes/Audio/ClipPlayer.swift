@@ -77,7 +77,10 @@ final class ClipPlayer: ObservableObject {
     /// Whether the meeting has a kept recording on disk. Cached; call `invalidate` when files change.
     func hasAudio(_ meetingID: UUID) -> Bool {
         if let cached = audioCache[meetingID] { return cached }
-        let found = !openTracks(for: meetingID).isEmpty
+        let dir = root.appendingPathComponent(meetingID.uuidString, isDirectory: true)
+        let found = [AudioSource.mic, .system].contains {
+            PCMTrack.exists(dir.appendingPathComponent("\($0.rawValue).wav"), minDuration: Self.minDuration)
+        }
         audioCache[meetingID] = found
         return found
     }
@@ -338,7 +341,7 @@ final class ClipPlayer: ObservableObject {
     private func openTracks(for meetingID: UUID) -> [(source: AudioSource, pcm: PCMTrack)] {
         let dir = root.appendingPathComponent(meetingID.uuidString, isDirectory: true)
         return [AudioSource.mic, .system].compactMap { source in
-            guard let pcm = PCMTrack(url: dir.appendingPathComponent("\(source.rawValue).wav")), pcm.duration >= Self.minDuration else { return nil }
+            guard let pcm = PCMTrack.load(dir.appendingPathComponent("\(source.rawValue).wav")), pcm.duration >= Self.minDuration else { return nil }
             return (source, pcm)
         }
     }

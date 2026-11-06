@@ -199,7 +199,10 @@ struct MeetingDetailView: View {
                 .disabled(meeting.utterances.isEmpty)
             Button("Find in Transcript", action: findInTranscript)
                 .disabled(meeting.utterances.isEmpty)
+            Button("Export Transcript and Audio…") { state.exportTranscriptAndAudio(meetingID) }
+                .disabled(recording || processing)
             Button("Show in Finder") { state.revealInFinder(meetingID) }
+                .help("The files there are encrypted. Use Export Transcript and Audio… for readable copies.")
             Divider()
             Button("Delete Meeting", role: .destructive) { state.moveToTrash(meetingID, undoManager: undoManager) }
                 .disabled(recording)

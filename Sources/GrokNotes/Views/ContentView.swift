@@ -286,6 +286,8 @@ private struct MeetingContextMenu: View {
         }
         Divider()
         Button("Copy as Markdown") { state.copyMarkdown(meeting.id) }
+        Button("Export Transcript and Audio…") { state.exportTranscriptAndAudio(meeting.id) }
+            .disabled(state.recordingID == meeting.id || state.processing.contains(meeting.id))
         Button("Show in Finder") { state.revealInFinder(meeting.id) }
         Divider()
         Button("Delete", role: .destructive) { state.moveToTrash(meeting.id, undoManager: undoManager) }

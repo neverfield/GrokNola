@@ -48,7 +48,7 @@ struct CalendarDriveSettingsPane: View {
                             .foregroundStyle(GrokColors.inkMuted)
                     }
                 }
-                SettingsCaption("Uses the synced My Drive folder, so there is no Google sign-in in GrokNola. Each meeting gets a folder with notes.md and meeting.json.")
+                SettingsCaption("Uses the synced My Drive folder, so there is no Google sign-in in GrokNola. Each meeting gets a folder with notes.md: the notes only, without the transcript. Use Export Transcript and Audio… to save those.")
             }
         }
         .onAppear { calendars.reload() }

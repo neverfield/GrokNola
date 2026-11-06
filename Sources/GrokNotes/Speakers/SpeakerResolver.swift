@@ -94,7 +94,7 @@ enum SpeakerResolver {
     ) async throws -> (name: String, confidence: Double, evidence: String?)? {
         var parts: [XAIClient.Part] = [.text("Meeting app: \(appName ?? "unknown"). Labels: \(key).")]
         for (index, frame) in frames.enumerated() {
-            guard let data = try? Data(contentsOf: frame.url) else { continue }
+            guard let data = try? Vault.read(frame.url) else { continue }
             parts.append(.text("Label \(key), screenshot \(index + 1) at \(Meeting.timestamp(frame.time)):"))
             parts.append(.jpeg(data))
         }
@@ -151,13 +151,13 @@ enum SpeakerResolver {
         var parts: [XAIClient.Part] = [.text("Meeting app: \(meeting.appName ?? "unknown"). Labels: \(picked.map(\.key).joined(separator: ", ")).")]
         for (key, chosen) in picked {
             for (index, frame) in chosen.enumerated() {
-                guard let data = try? Data(contentsOf: frame.url) else { continue }
+                guard let data = try? Vault.read(frame.url) else { continue }
                 parts.append(.text("Label \(key), screenshot \(index + 1) at \(Meeting.timestamp(frame.time)):"))
                 parts.append(.jpeg(data))
             }
         }
         for (index, frame) in rosterFrames.enumerated() {
-            guard let data = try? Data(contentsOf: frame.url) else { continue }
+            guard let data = try? Vault.read(frame.url) else { continue }
             parts.append(.text("Participants screenshot \(index + 1) at \(Meeting.timestamp(frame.time)) (no label; read names only):"))
             parts.append(.jpeg(data))
         }

@@ -1,6 +1,8 @@
 #!/bin/bash
 # Checks that every saved meeting.json still decodes with the current Meeting model, and that merging
 # speakers works on a copy in memory. Reads the meetings only; never writes them.
+# Encrypted meetings are read with the Keychain key `vault_key`. This checker is not signed like the app,
+# so macOS asks once for Keychain access: click Allow, not Always Allow.
 # Usage: scripts/check-meetings-decode.sh [meetings-dir]
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -22,13 +24,14 @@ var checked = 0, failed = 0
 let dirs = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
 for dir in dirs.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
     let file = dir.appendingPathComponent("meeting.json")
-    guard let data = try? Data(contentsOf: file) else { continue }
+    guard Vault.exists(file) else { continue }
     checked += 1
     do {
-        var m = try decoder.decode(Meeting.self, from: data)
+        let sealed = FileManager.default.fileExists(atPath: Vault.sealedURL(file).path)
+        var m = try decoder.decode(Meeting.self, from: Vault.read(file))
         _ = try decoder.decode(Meeting.self, from: try encoder.encode(m))
         let remote = m.speakerKeys.filter { $0 != Meeting.meKey }
-        var note = "\(m.utterances.count) lines, \(m.speakerKeys.count) speakers"
+        var note = "\(sealed ? "encrypted" : "plain"), \(m.utterances.count) lines, \(m.speakerKeys.count) speakers"
         if remote.count >= 2 {
             let lines = m.utterances.count
             m.mergeSpeaker(remote[1], into: remote[0])

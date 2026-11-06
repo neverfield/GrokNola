@@ -175,8 +175,12 @@ streaming, $0.10 per hour for the full-recording pass). The log is
 ## Data
 
 Everything lives in `~/Library/Application Support/GrokNotes/Meetings/<id>/`
-(`meeting.json`, `notes.md`, and the audio if you choose to keep it).
-Audio and text leave the Mac only to reach `api.x.ai`.
+(`meeting.json.enc`, the audio as `mic.wav.enc` and `system.wav.enc` if you choose to keep it, and `frames/`).
+These files are encrypted at rest with AES-GCM (`Sources/GrokNotes/Vault.swift`). The key is a Keychain item
+(service `dev.local.groknotes`, account `vault_key`). Audio stays plain only until the after-call pass ends,
+and plain files left by older versions or a crash are sealed at launch.
+Audio and text leave the Mac only to reach `api.x.ai`, plus the notes-only Drive copy below.
+**Export Transcript and Audio…** writes readable copies to a folder you choose.
 
 ### Google Drive (optional)
 
@@ -186,7 +190,7 @@ With **Google Drive for desktop** installed and signed in, you can mirror export
 2. Turn on **Copy notes to Google Drive when saved**.
 3. Optionally set a **Subfolder under My Drive** (for example `GrokNola`). Leave it blank to write at the top level of My Drive.
 
-On each save, GrokNola copies `notes.md` and `meeting.json` into:
+On each save, GrokNola writes the notes without the transcript (`Meeting.notesMarkdown`) as `notes.md` into:
 
 `~/Library/CloudStorage/GoogleDrive-<account>/My Drive/<subfolder>/<yyyy-MM-dd Meeting title>/`
 

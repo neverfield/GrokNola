@@ -23,19 +23,21 @@ enum GoogleDriveExport {
         return nil
     }
 
-    /// Copies `notes.md` and `meeting.json` after a local save. Never blocks the caller; logs failures.
-    static func mirrorIfEnabled(meeting: Meeting, sourceDirectory: URL) {
+    /// Writes the notes, without the transcript, as `notes.md` after a local save. The transcript and
+    /// recordings leave the app only through the manual export. Never blocks the caller; logs failures.
+    static func mirrorIfEnabled(meeting: Meeting, myName: String) {
         guard Prefs.exportToGoogleDrive else { return }
+        let notes = meeting.notesMarkdown(myName: myName)
         Task.detached(priority: .utility) {
             do {
-                try mirror(meeting: meeting, sourceDirectory: sourceDirectory)
+                try mirror(notes, for: meeting)
             } catch {
                 NSLog("GrokNotes: Google Drive export failed: \(error.localizedDescription)")
             }
         }
     }
 
-    private static func mirror(meeting: Meeting, sourceDirectory: URL) throws {
+    private static func mirror(_ notes: String, for meeting: Meeting) throws {
         guard let myDrive = myDriveRoot() else {
             throw ExportError.driveUnavailable
         }
@@ -46,18 +48,8 @@ enum GoogleDriveExport {
         }
         destination = destination.appendingPathComponent(folderName(for: meeting), isDirectory: true)
 
-        let fm = FileManager.default
-        try fm.createDirectory(at: destination, withIntermediateDirectories: true)
-
-        for fileName in ["notes.md", "meeting.json"] {
-            let source = sourceDirectory.appendingPathComponent(fileName)
-            guard fm.fileExists(atPath: source.path) else { continue }
-            let target = destination.appendingPathComponent(fileName)
-            if fm.fileExists(atPath: target.path) {
-                try fm.removeItem(at: target)
-            }
-            try fm.copyItem(at: source, to: target)
-        }
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        try notes.write(to: destination.appendingPathComponent(MeetingStore.notesFile), atomically: true, encoding: .utf8)
     }
 
     static func folderName(for meeting: Meeting) -> String {

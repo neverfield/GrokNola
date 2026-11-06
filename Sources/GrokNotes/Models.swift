@@ -184,7 +184,21 @@ extension Meeting {
         }.joined(separator: "\n")
     }
 
+    /// The notes with the full transcript, for Copy Markdown, Share, and the manual export.
     func markdown(myName: String) -> String {
+        var out = notesMarkdown(myName: myName)
+        if !utterances.isEmpty {
+            out += "## Transcript\n\n"
+            out += utterances.map { u in
+                "**\(displayName(for: u.speakerKey, myName: myName))** [\(Meeting.timestamp(u.start))]: \(u.text)"
+            }.joined(separator: "\n\n")
+            out += "\n"
+        }
+        return out
+    }
+
+    /// The notes without the transcript, which is all that is copied to Google Drive automatically.
+    func notesMarkdown(myName: String) -> String {
         var out = "# \(title)\n\n"
         out += "_\(startedAt.formatted(date: .long, time: .shortened))"
         if let appName { out += " · \(appName)" }
@@ -204,13 +218,6 @@ extension Meeting {
             out += enhancedNotes + "\n\n"
         } else if !userNotes.isEmpty {
             out += "## My notes\n\n\(userNotes)\n\n"
-        }
-        if !utterances.isEmpty {
-            out += "## Transcript\n\n"
-            out += utterances.map { u in
-                "**\(displayName(for: u.speakerKey, myName: myName))** [\(Meeting.timestamp(u.start))]: \(u.text)"
-            }.joined(separator: "\n\n")
-            out += "\n"
         }
         return out
     }

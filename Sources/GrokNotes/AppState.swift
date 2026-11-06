@@ -114,6 +114,7 @@ final class AppState: ObservableObject {
         clips = ClipPlayer(root: store.root)
         meetings = store.loadAll()
         deleteExpiredAudio()
+        MeetingStore.sealLeftovers(in: [store.root, trash.root])
         tagCatalog.reconcile(with: meetings)
         libraryChat = Self.loadLibraryChat()
         refreshPermissions()
@@ -783,8 +784,11 @@ final class AppState: ObservableObject {
             m.title = title
         }
 
-        if !Prefs.keepAudio {
-            for wav in [s.micWAV, s.systemWAV].compactMap({ $0 }) { try? FileManager.default.removeItem(at: wav.url) }
+        let recordings = [s.micWAV, s.systemWAV].compactMap { $0?.url }
+        if Prefs.keepAudio {
+            Task.detached(priority: .utility) { Self.sealRecordings(recordings) }
+        } else {
+            recordings.forEach(Vault.remove)
         }
         let confirmed = m.speakers.values.filter { [.activeSpeaker, .onScreen, .manual].contains($0.attribution) }.compactMap(\.name)
         Prefs.remember(confirmed)
@@ -801,6 +805,17 @@ final class AppState: ObservableObject {
             setStep(id, .tagging, .skipped)
         }
         finishProcessing(id)
+    }
+
+    /// Seals finished recordings once the after-call pass no longer needs the plain files.
+    nonisolated private static func sealRecordings(_ urls: [URL]) {
+        for url in urls {
+            do {
+                try Vault.sealFile(at: url)
+            } catch {
+                NSLog("GrokNotes: could not encrypt \(url.lastPathComponent): \(error.localizedDescription)")
+            }
+        }
     }
 
     /// Nil when the pass returned no words.
@@ -994,7 +1009,7 @@ final class AppState: ObservableObject {
         for m in meetings where (m.endedAt ?? m.startedAt) < cutoff {
             let dir = store.root.appendingPathComponent(m.id.uuidString, isDirectory: true)
             for source in [AudioSource.mic, .system] {
-                try? FileManager.default.removeItem(at: dir.appendingPathComponent("\(source.rawValue).wav"))
+                Vault.remove(dir.appendingPathComponent("\(source.rawValue).wav"))
             }
         }
         clips.invalidate()
@@ -1104,7 +1119,34 @@ final class AppState: ObservableObject {
         NSPasteboard.general.setString(TranscriptText.text(m, myName: Prefs.myName, chapters: chapters, scope: scope), forType: .string)
     }
 
+    /// Shows the meeting's folder. Its files are encrypted; use `exportTranscriptAndAudio` for readable copies.
     func revealInFinder(_ id: UUID) {
-        NSWorkspace.shared.activateFileViewerSelecting([store.directory(for: id).appendingPathComponent("notes.md")])
+        let file = Vault.sealedURL(store.directory(for: id).appendingPathComponent(MeetingStore.meetingFile))
+        NSWorkspace.shared.activateFileViewerSelecting([file])
+    }
+
+    /// Asks for a folder, then writes readable copies of the notes, transcript, and recordings there.
+    func exportTranscriptAndAudio(_ id: UUID) {
+        guard let m = meeting(id), recordingID != id, !processing.contains(id) else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Export"
+        panel.message = "Choose where to save readable copies of the notes, transcript, and recordings."
+        guard panel.runModal() == .OK, let parent = panel.url else { return }
+        let store = store
+        let myName = Prefs.myName
+        Task {
+            let result = await Task.detached(priority: .userInitiated) {
+                Result { try store.export(m, myName: myName, to: parent) }
+            }.value
+            switch result {
+            case .success(let folder):
+                NSWorkspace.shared.activateFileViewerSelecting([folder])
+            case .failure(let error):
+                showBanner("Could not export \"\(m.title)\": \(error.localizedDescription)", severity: .error)
+            }
+        }
     }
 }

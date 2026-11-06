@@ -175,7 +175,8 @@ The **More** button (**…**) in the meeting toolbar has:
 - **Copy Markdown** (Shift-Command-C) copies the whole meeting (title, attendees, call summary, notes, transcript) as Markdown.
 - **Copy Transcript** copies the transcript as plain text (see [Transcript](#transcript)).
 - **Find in Transcript** (Command-F in the Transcript tab).
-- **Show in Finder** opens the meeting's `notes.md`.
+- **Export Transcript and Audio…** asks for a folder and saves readable copies there: `notes.md` with the transcript, `meeting.json`, and the recordings if you keep them. It is not available while recording or writing notes.
+- **Show in Finder** opens the meeting's folder. The files there are encrypted, so use **Export Transcript and Audio…** for copies you can open.
 - **Delete Meeting** (see [Delete and undo](#delete-and-undo)).
 
 **Share** (next to **More**) sends the same Markdown to Mail, Messages, Notes, or another app. The **Meeting** menu has **Copy Markdown**, **Regenerate Notes**, and **Find in Transcript** too. **Meeting info** (Option-Command-I) opens the inspector.
@@ -325,7 +326,7 @@ In **Settings > Tags**:
 - **Search meetings** (the search field) filters by title, notes, people, and transcript text. While filtering, a count and **Clear** appear.
 - **Pinned** meetings, then date sections: **Today**, **Yesterday**, **Previous 7 Days**, **Previous 30 Days**, each month of this year, then older years. Click a section header to collapse it.
 - Swipe right on a meeting to **Pin** or **Unpin**. Swipe left and click **Delete**. A full swipe does not delete.
-- Right-click a meeting for **Pin**, **Tags**, **Copy as Markdown**, **Show in Finder**, and **Delete**.
+- Right-click a meeting for **Pin**, **Tags**, **Copy as Markdown**, **Export Transcript and Audio…**, **Show in Finder**, and **Delete**.
 
 ### Delete and undo
 
@@ -375,7 +376,7 @@ With **Google Drive for desktop** installed and signed in, GrokNola can copy eac
 2. Turn on **Copy notes to Google Drive when saved**.
 3. Optionally set **Subfolder under My Drive (optional)**, for example `GrokNola`. Leave it blank to write at the top of My Drive.
 
-On each save, the app copies `notes.md` and `meeting.json` to `My Drive/<subfolder>/<yyyy-MM-dd Meeting title>/`. Settings shows "Google Drive for desktop is mounted." or "Drive not found. Install Google Drive for desktop and sign in." If Drive is not mounted, the app keeps saving locally and does not show an error.
+On each save, the app writes `notes.md` to `My Drive/<subfolder>/<yyyy-MM-dd Meeting title>/`. It holds the notes and call summary only. The transcript and recordings are never copied to Drive automatically; use **Export Transcript and Audio…** to save them yourself. Settings shows "Google Drive for desktop is mounted." or "Drive not found. Install Google Drive for desktop and sign in." If Drive is not mounted, the app keeps saving locally and does not show an error.
 
 ## Usage and cost
 
@@ -390,10 +391,14 @@ Help questions answered from this guide are listed as **Help questions**. The lo
 
 Everything is stored on your Mac in `~/Library/Application Support/GrokNotes/` (**Settings > Privacy & Data > Show data folder** opens it):
 
-- `Meetings/<id>/`: `meeting.json`, `notes.md`, and the audio (`mic.wav`, `system.wav`) if you keep it.
+- `Meetings/<id>/`: `meeting.json.enc` (the notes and transcript), the audio (`mic.wav.enc`, `system.wav.enc`) if you keep it, and `frames/` (window snapshots used to name speakers). All of them are encrypted.
 - `Trash/<id>/`: deleted meetings, kept 30 days so you can undo a delete.
 - `library-chat.json` (Ask Grok history), `usage.jsonl`, `templates.json`, `tags.json`, and `calendar.json`.
 - Your API key is in the Keychain. Settings are in the app's preferences.
+
+Meeting files are encrypted with AES-GCM. The key is kept in your login Keychain as `vault_key` under `dev.local.groknotes`, readable only on this Mac. Other apps see only encrypted bytes, and macOS asks you before any other app can read the key. While a meeting records and until its notes are written, the audio is not yet encrypted. Meetings from before encryption are encrypted the next time GrokNola opens.
+
+If the `vault_key` Keychain item is deleted, encrypted meetings cannot be opened again. Use **Export Transcript and Audio…** to keep readable copies of meetings you need.
 
 What is sent to xAI (`api.x.ai`), and nowhere else:
 
