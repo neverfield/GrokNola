@@ -53,6 +53,16 @@ final class ActiveSpeakerMonitor {
         }
     }
 
+    /// The one person the meeting app shows as talking right now, or nil when it shows nobody, several people,
+    /// or has not been read for `maxAge` seconds.
+    func currentTalker(maxAge: TimeInterval = 2.5) -> String? {
+        let now = Date().timeIntervalSince(meetingStart)
+        return lock.withLock {
+            guard let last = recorded.last, now - last.time <= maxAge, last.speaking.count == 1 else { return nil }
+            return last.speaking[0]
+        }
+    }
+
     /// Names the meeting app showed as talking, most frequent first.
     var observedNames: [String] {
         lock.withLock { nameCounts.sorted { $0.value > $1.value }.map(\.key) }

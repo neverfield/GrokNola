@@ -41,7 +41,11 @@ final class InputLevelMeter: @unchecked Sendable {
 final class RecordingModel: ObservableObject {
     @Published private(set) var elapsed: TimeInterval = 0
     @Published var liveMe = ""
-    @Published var liveThem = ""
+    @Published private(set) var liveThem = ""
+    /// The diarized speaker of the interim call-audio text, or nil until the stream labels it.
+    @Published private(set) var liveThemKey: String?
+    /// The name the meeting app shows as talking, when the interim text has no speaker key that matches it.
+    @Published private(set) var liveThemTalker: String?
     /// The last finished utterance on each side, for the live strip when no interim text is showing.
     @Published private(set) var lastMe = ""
     @Published private(set) var lastThem = ""
@@ -57,6 +61,8 @@ final class RecordingModel: ObservableObject {
         elapsed = 0
         liveMe = ""
         liveThem = ""
+        liveThemKey = nil
+        liveThemTalker = nil
         lastMe = ""
         lastThem = ""
         lastThemKey = nil
@@ -66,6 +72,12 @@ final class RecordingModel: ObservableObject {
 
     func setElapsed(_ seconds: TimeInterval) {
         if Int(seconds) != Int(elapsed) { elapsed = seconds }
+    }
+
+    func heardLive(_ text: String, key: String?, talker: String?) {
+        if liveThem != text { liveThem = text }
+        if liveThemKey != key { liveThemKey = key }
+        if liveThemTalker != talker { liveThemTalker = talker }
     }
 
     func heardFinal(_ text: String, source: AudioSource, key: String? = nil) {

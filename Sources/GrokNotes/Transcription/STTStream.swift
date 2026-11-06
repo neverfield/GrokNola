@@ -25,8 +25,9 @@ final class STTStream {
         var end: Double
     }
 
-    /// Text that is still being spoken. Empty when nothing is pending.
-    var onLive: ((String) -> Void)?
+    /// Text that is still being spoken, the diarized speaker of its latest word if known, and the connection epoch.
+    /// The text is empty when nothing is pending.
+    var onLive: ((String, Int?, Int) -> Void)?
     /// Finished segments and the connection epoch. Speaker numbers are only stable within one epoch.
     var onSegments: (([Segment], Int) -> Void)?
     /// A status message, or nil when the connection is healthy.
@@ -149,7 +150,7 @@ final class STTStream {
         baseOffset = nil
         epoch += 1
         attempts += 1
-        onLive?("")
+        onLive?("", nil, epoch)
         onStatus?("Transcription reconnecting: \(reason)")
         let delay = min(30, 1.5 * pow(2, Double(attempts - 1)))
         queue.asyncAfter(deadline: .now() + delay) {
@@ -162,7 +163,7 @@ final class STTStream {
         chunkFinals = []
         task?.cancel(with: .normalClosure, reason: nil)
         task = nil
-        onLive?("")
+        onLive?("", nil, epoch)
         let handler = doneHandler
         doneHandler = nil
         handler?()
@@ -198,10 +199,10 @@ final class STTStream {
             let isFinal = event["is_final"] as? Bool ?? false
             let speechFinal = event["speech_final"] as? Bool ?? false
             if !isFinal {
-                onLive?(Self.join(chunkFinals + words))
+                live(chunkFinals + words)
             } else if !speechFinal {
                 chunkFinals += words
-                onLive?(Self.join(chunkFinals))
+                live(chunkFinals)
             } else {
                 // An utterance-final event normally restates the whole utterance.
                 // If it only covers the tail, keep the chunk finals in front of it.
@@ -212,7 +213,7 @@ final class STTStream {
                 if final.isEmpty { final = chunkFinals }
                 chunkFinals = []
                 commit(final)
-                onLive?("")
+                onLive?("", nil, epoch)
             }
 
         case "transcript.done":
@@ -224,6 +225,10 @@ final class STTStream {
         default:
             break
         }
+    }
+
+    private func live(_ words: [Word]) {
+        onLive?(Self.join(words), words.last(where: { $0.speaker != nil })?.speaker, epoch)
     }
 
     private func commit(_ words: [Word]) {

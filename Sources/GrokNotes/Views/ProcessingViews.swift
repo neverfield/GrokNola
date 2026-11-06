@@ -228,7 +228,11 @@ struct LiveTranscriptStrip: View {
             .accessibilityLabel(expanded ? "Collapse live transcript" : "Expand live transcript")
 
             if expanded {
-                line("Them", key: recording.lastThemKey, them.isEmpty ? "Listening…" : them, live: !recording.liveThem.isEmpty)
+                line(
+                    recording.liveThem.isEmpty ? "Them" : recording.liveThemTalker ?? "Them",
+                    key: recording.liveThem.isEmpty ? recording.lastThemKey : recording.liveThemKey,
+                    them.isEmpty ? "Listening…" : them, live: !recording.liveThem.isEmpty
+                )
                 line("You", me.isEmpty ? "Listening…" : me, live: !recording.liveMe.isEmpty)
             }
         }
@@ -252,7 +256,7 @@ struct LiveTranscriptStrip: View {
     }
 }
 
-/// The speaker beside a live line: the name of the voice heard last once it is known, or a fixed label.
+/// The speaker beside a live line: the name of the voice on that line once it is known, or a fixed label.
 /// Click a name to rename that speaker while recording.
 struct LiveSpeakerLabel: View {
     let meetingID: UUID

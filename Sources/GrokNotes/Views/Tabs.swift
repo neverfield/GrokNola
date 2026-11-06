@@ -631,7 +631,7 @@ private struct LiveTranscriptRegion: View {
                     .foregroundStyle(GrokColors.inkMuted)
             }
             if !recording.liveThem.isEmpty {
-                liveLine(label: "Them", key: recording.lastThemKey, text: recording.liveThem)
+                liveLine(label: recording.liveThemTalker ?? "Them", key: recording.liveThemKey, text: recording.liveThem)
             }
             if !recording.liveMe.isEmpty {
                 liveLine(label: "Me", text: recording.liveMe)

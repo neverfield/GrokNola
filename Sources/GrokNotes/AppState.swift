@@ -535,10 +535,14 @@ final class AppState: ObservableObject {
         stream.onSegments = { [weak self] segments, epoch in
             Task { @MainActor in self?.ingest(segments, meetingID: meetingID, source: source, epoch: epoch, diarized: diarize) }
         }
-        stream.onLive = { [weak self] text in
+        stream.onLive = { [weak self] text, speaker, epoch in
             Task { @MainActor in
                 guard let self else { return }
-                if source == .mic { self.recording.liveMe = text } else { self.recording.liveThem = text }
+                if source == .mic {
+                    self.recording.liveMe = text
+                } else {
+                    self.heardLiveThem(text, speaker: speaker, epoch: epoch, meetingID: meetingID)
+                }
                 self.liveAnswers.heardInterim(text, source: source)
             }
         }
@@ -546,6 +550,24 @@ final class AppState: ObservableObject {
             Task { @MainActor in self?.recording.levels.setStreamStatus(status, source: source) }
         }
         return stream
+    }
+
+    /// Interim call-audio text has no diarized speaker until its first chunk is final, so until then the line
+    /// takes the name the meeting app shows as talking. Without either, it shows a plain label.
+    private func heardLiveThem(_ text: String, speaker: Int?, epoch: Int, meetingID: UUID) {
+        let m = meeting(meetingID)
+        if let speaker {
+            let key = "s\(epoch)-\(speaker)"
+            recording.heardLive(text, key: m?.aliasedKey(key) ?? key, talker: nil)
+            return
+        }
+        guard !text.isEmpty, let talker = session?.monitor?.currentTalker() else {
+            recording.heardLive(text, key: nil, talker: nil)
+            return
+        }
+        let names = recording.speakers.infos.merging(m?.speakers ?? [:]) { live, _ in live }
+        let key = m?.speakerKeys.last { $0 != Meeting.meKey && names[$0]?.name?.caseInsensitiveCompare(talker) == .orderedSame }
+        recording.heardLive(text, key: key, talker: key == nil ? talker : nil)
     }
 
     private static func drain(_ stream: STTStream?) async {
