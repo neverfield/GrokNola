@@ -554,6 +554,10 @@ final class AppState: ObservableObject {
 
     /// Interim call-audio text has no diarized speaker until its first chunk is final, so until then the line
     /// takes the name the meeting app shows as talking. Without either, it shows a plain label.
+    ///
+    /// **Lag:** While waiting for diarization, the displayed talker follows `ActiveSpeakerMonitor.currentTalker`,
+    /// so live lines inherit that monitor’s polling delay and nil transitions when the meeting UI shows zero or
+    /// several speakers. After diarization assigns a speaker, this path stops using the monitor for that chunk.
     private func heardLiveThem(_ text: String, speaker: Int?, epoch: Int, meetingID: UUID) {
         let m = meeting(meetingID)
         if let speaker {

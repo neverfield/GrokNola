@@ -50,4 +50,13 @@ fi
 rm -rf "$ASSETS_TMP"
 
 codesign --force --sign "$IDENTITY" "$APP"
+
+# Install Cursor skill for Grok Notes calendar sync (idempotent overwrite).
+CURSOR_SKILLS_DIR="${HOME}/.cursor/skills/grok-notes-calendar-sync"
+REPO_SKILL_DIR="$(pwd)/skills/grok-notes-calendar-sync"
+if [ -d "$REPO_SKILL_DIR" ]; then
+  mkdir -p "$CURSOR_SKILLS_DIR"
+  cp -R "$REPO_SKILL_DIR/." "$CURSOR_SKILLS_DIR/"
+fi
+
 echo "Built $APP"

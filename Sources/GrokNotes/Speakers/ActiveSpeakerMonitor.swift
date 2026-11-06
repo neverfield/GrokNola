@@ -55,6 +55,10 @@ final class ActiveSpeakerMonitor {
 
     /// The one person the meeting app shows as talking right now, or nil when it shows nobody, several people,
     /// or has not been read for `maxAge` seconds.
+    ///
+    /// **Lag and stickiness:** Polling runs once per second, so the label can trail the actual speaker by up to
+    /// ~1s plus UI delay. If the app shows multiple talkers or none, this returns nil until a single name is shown
+    /// again. Samples older than `maxAge` are ignored, so attribution drops to nil shortly after the UI clears.
     func currentTalker(maxAge: TimeInterval = 2.5) -> String? {
         let now = Date().timeIntervalSince(meetingStart)
         return lock.withLock {
