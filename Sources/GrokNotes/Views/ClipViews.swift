@@ -14,8 +14,8 @@ extension Citations {
         for (lower, upper) in offsets.reversed() {
             let range = attributed.index(attributed.startIndex, offsetByCharacters: lower)..<attributed.index(attributed.startIndex, offsetByCharacters: upper)
             attributed[range].font = GrokTypography.citation()
-            attributed[range].foregroundColor = GrokColors.ink
-            attributed[range].backgroundColor = GrokColors.amberSoft
+            attributed[range].foregroundColor = GrokColors.inkMuted
+            attributed[range].backgroundColor = GrokColors.citationFill
             let container = attributed[range].runs.first?.attributes ?? AttributeContainer()
             let pad = AttributedString("\u{202F}", attributes: container)
             attributed.insert(pad, at: attributed.index(attributed.startIndex, offsetByCharacters: upper))

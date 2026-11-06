@@ -57,7 +57,7 @@ enum NotesRenderer {
     }
 
     static func pillFont(base: NSFont) -> NSFont {
-        .monospacedDigitSystemFont(ofSize: max(10, base.pointSize - 2), weight: .medium)
+        .monospacedDigitSystemFont(ofSize: max(10, base.pointSize - 2), weight: .regular)
     }
 
     // MARK: Reading
@@ -238,8 +238,8 @@ enum NotesRenderer {
         // Narrow no-break spaces pad the capsule without letting a line break split it.
         return NSAttributedString(string: "\u{202F}\(Citations.displayText(seconds, playable: plays))\u{202F}", attributes: [
             .font: pillFont(base: base),
-            .foregroundColor: GrokNSColor.ink,
-            .backgroundColor: GrokNSColor.amberSoft,
+            .foregroundColor: GrokNSColor.inkMuted,
+            .backgroundColor: GrokNSColor.citationFill,
             .notesPill: true,
             .link: url,
             .toolTip: help,

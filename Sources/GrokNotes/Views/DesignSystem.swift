@@ -70,6 +70,8 @@ enum GrokNSColor {
     static let amber = NSColor.grok(light: 0xE8A33D, dark: 0xEBA94A)
     /// Amber-tinted fill for citation pills, search matches, and selected rows. Ink on it is AA.
     static let amberSoft = NSColor.grok(light: 0xF5E2BF, dark: 0x45361F, lightHigh: 0xEFD3A0, darkHigh: 0x5A4526)
+    /// Paler fill for citation pills so they recede behind the note text. `inkMuted` on it is AA.
+    static let citationFill = NSColor.grok(light: 0xF6EDDB, dark: 0x33291B, lightHigh: 0xEFD3A0, darkHigh: 0x5A4526)
     /// Warm red for recording only, kept apart from the amber.
     static let recording = NSColor.grok(light: 0xBE3F2C, dark: 0xEF6B57)
     static let success = NSColor.grok(light: 0x4C7650, dark: 0x93BF96)
@@ -91,6 +93,7 @@ enum GrokColors {
     static let amberText = Color(nsColor: GrokNSColor.amberText)
     static let amber = Color(nsColor: GrokNSColor.amber)
     static let amberSoft = Color(nsColor: GrokNSColor.amberSoft)
+    static let citationFill = Color(nsColor: GrokNSColor.citationFill)
     static let recording = Color(nsColor: GrokNSColor.recording)
     static let recordingSoft = Color(nsColor: GrokNSColor.recording).opacity(0.12)
     static let success = Color(nsColor: GrokNSColor.success)
@@ -139,7 +142,7 @@ enum GrokTypography {
     static func emptyStateTitle() -> Font { title }
     static func emptyStateBody() -> Font { body }
     /// One step above caption on macOS, where caption and footnote are both 10 points.
-    static func citation() -> Font { .subheadline.monospacedDigit().weight(.medium) }
+    static func citation() -> Font { .subheadline.monospacedDigit() }
 
     // MARK: Reading text (AppKit)
 
