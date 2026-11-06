@@ -17,10 +17,20 @@ struct ContentView: View {
         NavigationSplitView {
             sidebar
         } detail: {
-            switch state.route {
-            case .home: HomeView()
-            case .library: LibraryChatView()
-            case .meeting(let id): MeetingDetailView(meetingID: id).id(id)
+            // Split view columns ignore a safe-area inset set on the split view, so the bar
+            // has to live inside the column to push the content up instead of covering it.
+            VStack(spacing: 0) {
+                Group {
+                    switch state.route {
+                    case .home: HomeView()
+                    case .library: LibraryChatView()
+                    case .meeting(let id): MeetingDetailView(meetingID: id).id(id)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if state.recordingID != nil {
+                    RecordingStatusBar()
+                }
             }
         }
         .overlay(alignment: .bottom) {
@@ -28,11 +38,6 @@ struct ContentView: View {
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             BannerStack()
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if state.recordingID != nil {
-                RecordingStatusBar()
-            }
         }
         .onAppear {
             state.refreshPermissions()
