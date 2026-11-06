@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>GrokNotes</string>
+	<key>CFBundleIdentifier</key>
+	<string>dev.local.groknotes</string>
+	<key>CFBundleName</key>
+	<string>GrokNola</string>
+	<key>CFBundleDisplayName</key>
+	<string>GrokNola</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>NSAccentColorName</key>
+	<string>AccentColor</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.productivity</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>GrokNola transcribes your side of the meeting from the microphone.</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>GrokNola transcribes the other participants from your computer's audio.</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>GrokNola records system audio from your meeting app. It does not record your screen.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>GrokNola reads the current calendar event to title the meeting and know who was invited.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>GrokNola reads the current calendar event to title the meeting and know who was invited.</string>
+</dict>
+</plist>

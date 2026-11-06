@@ -1,0 +1,155 @@
+import AppKit
+import SwiftUI
+
+/// Answers to questions heard in the call, newest first. Shown in the meeting inspector while recording.
+struct LiveAnswersPanel: View {
+    @EnvironmentObject private var state: AppState
+    @EnvironmentObject private var engine: LiveAnswersEngine
+    @AppStorage("liveAnswersShowLatency") private var showLatency = false
+    let meetingID: UUID
+    @State private var draft = ""
+
+    var body: some View {
+        let recording = state.recordingID == meetingID
+        let cards = engine.cards(for: meetingID)
+        let pending = engine.cards.first { $0.meetingID == meetingID && !$0.isVisible }
+
+        VStack(spacing: 0) {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: GrokSpacing.sm) {
+                    if let pending {
+                        HStack(spacing: GrokSpacing.xs) {
+                            ProgressView().controlSize(.mini)
+                            Text(pending.question).lineLimit(1)
+                        }
+                        .font(.caption)
+                        .foregroundStyle(GrokColors.inkMuted)
+                        .help("Checking whether this question needs an answer")
+                    }
+                    if cards.isEmpty, pending == nil {
+                        emptyState(recording: recording)
+                    }
+                    ForEach(cards) { card in
+                        LiveAnswerCardView(card: card, showLatency: showLatency)
+                    }
+                }
+                .padding(GrokSpacing.md)
+                .animation(.easeOut(duration: 0.15), value: cards.map(\.id))
+            }
+            if recording {
+                Divider()
+                askField
+            }
+        }
+    }
+
+    private var askField: some View {
+        HStack(spacing: GrokSpacing.xs) {
+            GrokComposer(placeholder: "Ask now…", text: $draft, canSend: !draft.trimmingCharacters(in: .whitespaces).isEmpty, send: send)
+                .help("Answer with the live answers model")
+        }
+        .padding(GrokSpacing.sm)
+    }
+
+    @ViewBuilder
+    private func emptyState(recording: Bool) -> some View {
+        VStack(spacing: GrokSpacing.sm) {
+            if recording && engine.enabled {
+                WaveformMark(bars: 7, height: 20, animating: true)
+            } else {
+                Image(systemName: "bolt.slash")
+                    .font(.title3)
+                    .foregroundStyle(GrokColors.inkFaint)
+            }
+            Text(!recording ? "Live answers appear while recording." : engine.enabled ? "Listening for questions" : "Live answers are off")
+                .font(.callout)
+                .foregroundStyle(GrokColors.inkMuted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, GrokSpacing.xl)
+    }
+
+    private func send() {
+        let q = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return }
+        draft = ""
+        engine.ask(q)
+    }
+}
+
+private struct LiveAnswerCardView: View {
+    @EnvironmentObject private var state: AppState
+    @EnvironmentObject private var engine: LiveAnswersEngine
+    let card: LiveAnswerCard
+    let showLatency: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: GrokSpacing.xs) {
+            HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.xs) {
+                Text(card.asker).fontWeight(.semibold).foregroundStyle(GrokColors.ink)
+                Text(Meeting.timestamp(card.askedAt)).foregroundStyle(GrokColors.timestamp).monospacedDigit()
+                if showLatency, let latency = card.latency {
+                    Text(String(format: "%.1fs", latency)).foregroundStyle(GrokColors.timestamp).monospacedDigit()
+                        .help("Time to first token")
+                }
+                Spacer(minLength: 0)
+                if card.isPinned {
+                    Image(systemName: "pin.fill").foregroundStyle(GrokColors.amber).help("Pinned to your notes")
+                }
+            }
+            .font(.caption)
+
+            Text(card.question)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(GrokColors.ink)
+                .fixedSize(horizontal: false, vertical: true)
+
+            switch card.status {
+            case .waiting:
+                ProgressView().controlSize(.small)
+            case .failed(let message):
+                Text(message).font(.caption).foregroundStyle(GrokColors.error).lineLimit(3)
+            case .streaming, .done:
+                MarkdownView(markdown: card.answer, textStyle: .callout)
+            }
+
+            if !card.citedSources.isEmpty {
+                Text("From " + card.citedSources.map { "\($0.title) · \($0.date.formatted(.dateTime.month(.abbreviated).day()))" }.joined(separator: ", "))
+                    .font(.caption2)
+                    .foregroundStyle(GrokColors.inkMuted)
+                    .lineLimit(2)
+            }
+
+            HStack(spacing: GrokSpacing.md) {
+                Button {
+                    if card.isPinned { state.unpinLiveAnswer(card.id) } else { state.pinLiveAnswer(card.id) }
+                } label: {
+                    Label(card.isPinned ? "Unpin" : "Pin", systemImage: card.isPinned ? "pin.slash" : "pin")
+                }
+                .disabled(card.status != .done)
+                .help(card.isPinned ? "Remove from your notes" : "Add to your notes so it is kept")
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString("Q: \(card.question)\nA: \(card.answer)", forType: .string)
+                } label: {
+                    Label("Copy", systemImage: "doc.on.doc")
+                }
+                .disabled(card.answer.isEmpty)
+                Spacer(minLength: 0)
+                Button {
+                    engine.dismiss(card.id)
+                } label: {
+                    Label("Dismiss", systemImage: "xmark")
+                }
+                .help("Dismiss")
+            }
+            .labelStyle(.iconOnly)
+            .buttonStyle(.borderless)
+            .font(.caption)
+            .foregroundStyle(GrokColors.inkMuted)
+        }
+        .padding(GrokSpacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .grokPanel(fill: GrokColors.paper, border: card.isPinned ? GrokColors.amber : GrokColors.hairline)
+    }
+}
