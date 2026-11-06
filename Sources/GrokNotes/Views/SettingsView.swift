@@ -19,7 +19,7 @@ struct SettingsView: View {
 }
 
 enum SettingsPane: String, CaseIterable, Identifiable {
-    case general, recording, speakers, templates, tags, liveAnswers, calendarDrive, privacy, models
+    case general, recording, speakers, templates, tags, calendarDrive, privacy, models
 
     var id: String { rawValue }
 
@@ -30,7 +30,6 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .speakers: "Speakers"
         case .templates: "Templates"
         case .tags: "Tags"
-        case .liveAnswers: "Live Answers"
         case .calendarDrive: "Calendar & Drive"
         case .privacy: "Privacy & Data"
         case .models: "Models & API"
@@ -44,7 +43,6 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .speakers: "person.2"
         case .templates: "doc.text"
         case .tags: "tag"
-        case .liveAnswers: "bolt"
         case .calendarDrive: "calendar"
         case .privacy: "hand.raised"
         case .models: "cpu"
@@ -58,10 +56,9 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .speakers: 280
         case .templates: 560
         case .tags: 600
-        case .liveAnswers: 300
         case .calendarDrive: 560
         case .privacy: 400
-        case .models: 500
+        case .models: 320
         }
     }
 
@@ -73,7 +70,6 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .speakers: SpeakersSettingsPane()
         case .templates: Form { TemplateSettingsSection() }
         case .tags: Form { TagSettingsSection() }
-        case .liveAnswers: LiveAnswersSettingsPane()
         case .calendarDrive: CalendarDriveSettingsPane()
         case .privacy: PrivacySettingsPane()
         case .models: ModelsSettingsPane()

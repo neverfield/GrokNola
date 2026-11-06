@@ -13,7 +13,6 @@ struct GrokNotesApp: App {
                 .environmentObject(state.templateCatalog)
                 .environmentObject(state.clips)
                 .environmentObject(state.calendars)
-                .environmentObject(state.liveAnswers)
                 .environmentObject(state.recording)
                 .environmentObject(state.recording.speakers)
                 .tint(GrokColors.accent)

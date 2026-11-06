@@ -69,19 +69,6 @@ The first time a call is detected, macOS asks whether GrokNola may send notifica
 - If the transcription connection drops, an ochre "Transcription reconnecting" message appears next to the meters. The app reconnects by itself.
 - The menu bar menu shows the meeting title, the elapsed time, **Open Notes**, and **Stop & Write Notes**.
 
-### Live answers
-
-While recording, the inspector on the right opens to **Answers** (switch to **Info** for tags and speakers). When someone in the call asks a question, a card shows who asked, when, and a short answer from Grok.
-
-- Turn it off or on for this recording with the **Live answers** bolt button in the toolbar. Set the default in **Settings > Live Answers > Answer questions heard during calls**.
-- Small talk ("Can you hear me?", "Does that make sense?") and repeats from the last 2 minutes are ignored. Grok also skips questions that need no answer.
-- Answers use the last few minutes of the transcript, your rough notes, and matching past meetings, which are named in a **From** line.
-- Type in **Ask now…** at the bottom of the pane for a quick question of your own.
-- **Pin** adds the question and answer to your rough notes as plain text, so they are kept and used in the enhanced notes. The block starts with a pin, for example `📌 Q (Alex, 12:04): What does it cost?` and then `A: $40 per seat`. Grok treats pinned questions as points you highlighted. **Unpin** removes the block, unless you changed it. **Copy** copies them. **Dismiss** removes the card.
-- Notes from older versions showed pinned answers as Markdown quotes (`> **Q …**`). They change to the plain form when you open **My notes**.
-- Answers are not saved unless pinned. Unpinned cards are cleared when you stop.
-- **Settings > Live Answers** also sets **Include relevant past meetings** and **Show answer latency**. **Settings > Models & API** sets the **Live answers model**, **Reasoning effort** (shown only for models that reason), and **Priority processing**.
-
 ### Stop
 
 Click **Stop & Write Notes** in the bottom bar, use **Meeting > Stop & Write Notes** (Shift-Command-R), or the menu bar menu > **Stop & Write Notes**. Then the app:
@@ -423,7 +410,7 @@ Audio settings in **Settings > Privacy & Data**:
 
 - Transcription always uses `grok-voice-transcribe-2.0`.
 - Notes, names, tags, and answers use the model in **Settings > Models & API > Notes model** (default `grok-4.7`).
-- Live answers use **Settings > Models & API > Live answers model** (default `grok-4.20-non-reasoning`, chosen for speed). Both model menus have **Custom…** to type any other model ID.
+- The model menu has **Custom…** to type any other model ID.
 - **Settings > General > Meeting language** (default English, `en`) sets the transcription language. Pick **Custom…** to type another language code.
 - Transcription gets your invitees and remembered people as key terms, so names are spelled right.
 

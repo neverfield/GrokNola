@@ -145,27 +145,6 @@ source meetings; click a link to open the meeting. The search field above the me
 filters by title, notes, people, and transcript text. The chat history is saved in
 `~/Library/Application Support/GrokNotes/library-chat.json`.
 
-## Live answers
-
-While recording, the **Answers** pane of the meeting inspector answers questions heard in the call.
-The toolbar bolt button turns it on or off for the current recording; **Settings > Live Answers** sets the default.
-
-- Questions are found on the Mac with local rules (`Sources/GrokNotes/LiveAnswers/QuestionDetector.swift`):
-  a question mark, a leading question word or auxiliary plus a subject, or cues like "do you know".
-  Small talk ("can you hear me", "does that make sense"), tag questions (", right?"), requests to a person
-  ("can you send me…"), 4-word-or-shorter lines, and near-duplicates from the last 2 minutes are skipped.
-- One request runs at a time, detected questions start at most every 8 seconds, and a newer question
-  replaces a queued one or cancels a running one that has not streamed yet. The model can reply `SKIP`,
-  and those cards are never shown.
-- Each request streams from `grok-4.20-non-reasoning` (no reasoning phase) with the last 3 minutes of
-  transcript, your rough notes, and up to 3 past meetings that match the question's keywords, capped at
-  about 8,000 characters and 200 output tokens. Change the model, reasoning effort, and priority
-  processing in **Settings > Models & API**.
-- **Ask now** at the bottom of the pane sends a typed question the same way.
-- Answers are in memory only. **Pin** appends the question and answer to your rough notes as a quote
-  block, so they are saved and used in the enhanced notes. Unpinned answers are cleared when recording stops.
-- Usage is logged as **Live answers** in Usage & Cost.
-
 ## Help
 
 The user guide is `Resources/Help/GrokNotesGuide.md`. The build script copies it into

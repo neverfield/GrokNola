@@ -181,7 +181,6 @@ struct NotesTab: View {
                         .allowsHitTesting(false)
                 }
             }
-            .onAppear { state.migratePinnedAnswers(meetingID) }
     }
 }
 

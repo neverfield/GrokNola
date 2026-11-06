@@ -96,7 +96,6 @@ final class AppState: ObservableObject {
     let templateCatalog = TemplateCatalog()
     let clips: ClipPlayer
     let calendars = CalendarHub()
-    let liveAnswers = LiveAnswersEngine()
     /// The clock, interim text and input levels while recording. Views that show them observe this, not `AppState`.
     let recording = RecordingModel()
     let notifications = AppNotifications()
@@ -111,11 +110,6 @@ final class AppState: ObservableObject {
     /// The app a "call detected" notification was posted for, until the call ends.
     private var notifiedDetection: String?
 
-    /// Read by the live answers engine. Views observe `recording` instead.
-    var elapsed: TimeInterval { recording.elapsed }
-    var liveMe: String { recording.liveMe }
-    var liveThem: String { recording.liveThem }
-
     init() {
         clips = ClipPlayer(root: store.root)
         meetings = store.loadAll()
@@ -123,7 +117,6 @@ final class AppState: ObservableObject {
         tagCatalog.reconcile(with: meetings)
         libraryChat = Self.loadLibraryChat()
         refreshPermissions()
-        liveAnswers.app = self
         notifications.app = self
         notifications.configure()
         detectorTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
@@ -372,7 +365,6 @@ final class AppState: ObservableObject {
         session = s
         recordingID = meeting.id
         recording.reset(startedAt: now)
-        liveAnswers.begin(meetingID: meeting.id, apiKey: apiKey)
         let dir = store.directory(for: meeting.id)
         let meetingID = meeting.id
         let micMeter = recording.levels.micMeter
@@ -491,7 +483,6 @@ final class AppState: ObservableObject {
         var progress = ProcessingProgress()
         progress.set(.transcribing, .running)
         processingStage[id] = progress
-        liveAnswers.end()
         s.timer?.invalidate()
         s.mic?.stop()
         await s.system?.stop()
@@ -543,7 +534,6 @@ final class AppState: ObservableObject {
                 } else {
                     self.heardLiveThem(text, speaker: speaker, epoch: epoch, meetingID: meetingID)
                 }
-                self.liveAnswers.heardInterim(text, source: source)
             }
         }
         stream.onStatus = { [weak self] status in
@@ -598,51 +588,11 @@ final class AppState: ObservableObject {
                 added.append(utterance)
             }
         }
-        guard meetingID == recordingID, let m = meeting(meetingID) else { return }
+        guard meetingID == recordingID else { return }
         if let last = added.last { recording.heardFinal(last.text, source: source, key: last.speakerKey) }
         if source == .system, let identifier = session?.identifier {
             for u in added { identifier.heard(u) }
         }
-        for u in added {
-            let asker = u.speakerKey == Meeting.meKey ? "You" : m.displayName(for: u.speakerKey, myName: Prefs.myName)
-            var text = u.text
-            if let previous = m.utterances.last(where: { $0.speakerKey == u.speakerKey && $0.start < u.start }),
-               u.start - previous.end < 3, let last = previous.text.last, !".?!".contains(last) {
-                text = previous.text + " " + text
-            }
-            liveAnswers.heard(text, asker: asker, at: u.start)
-        }
-    }
-
-    // MARK: Live answers
-
-    /// Appends a card's question and answer to the meeting's rough notes as a plain-text block.
-    func pinLiveAnswer(_ cardID: UUID) {
-        guard let card = liveAnswers.card(cardID), !card.isPinned, card.status == .done else { return }
-        let block = PinnedAnswers.block(asker: card.asker, time: Meeting.timestamp(card.askedAt), question: card.question, answer: card.answer)
-        update(card.meetingID) { m in
-            let notes = (PinnedAnswers.migrateLegacy(m.userNotes) ?? m.userNotes).trimmingCharacters(in: .newlines)
-            m.userNotes = notes.isEmpty ? block + "\n" : notes + "\n\n" + block + "\n"
-        }
-        liveAnswers.setPinnedBlock(cardID, block)
-        scheduleSave(card.meetingID)
-    }
-
-    /// Removes a pinned block from the notes when it is still there unchanged.
-    func unpinLiveAnswer(_ cardID: UUID) {
-        guard let card = liveAnswers.card(cardID), let block = card.pinnedBlock else { return }
-        if let notes = meeting(card.meetingID)?.userNotes, let updated = PinnedAnswers.removing(block, from: notes) {
-            update(card.meetingID) { $0.userNotes = PinnedAnswers.migrateLegacy(updated) ?? updated }
-        }
-        liveAnswers.setPinnedBlock(cardID, nil)
-        scheduleSave(card.meetingID)
-    }
-
-    /// Rewrites old Markdown pinned answers in the rough notes as plain text, once, when the notes are shown.
-    func migratePinnedAnswers(_ id: UUID) {
-        guard let notes = meeting(id)?.userNotes, let migrated = PinnedAnswers.migrateLegacy(notes) else { return }
-        update(id) { $0.userNotes = migrated }
-        scheduleSave(id)
     }
 
     private func tick() {
@@ -658,8 +608,8 @@ final class AppState: ObservableObject {
 
     // MARK: Live speaker names
 
-    /// Takes the live identifier's names. Confirmed names go into the meeting, so they are saved and used by
-    /// live answers; guesses stay on screen only. Names you set are never replaced.
+    /// Takes the live identifier's names. Confirmed names go into the meeting, so they are saved and used in
+    /// the notes; guesses stay on screen only. Names you set are never replaced.
     private func applyLiveSpeakers(_ infos: [String: SpeakerInfo], meetingID: UUID) {
         guard let s = session, s.meetingID == meetingID else { return }
         s.liveSpeakers = infos

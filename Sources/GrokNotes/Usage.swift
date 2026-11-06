@@ -11,6 +11,7 @@ enum UsageKind: String, Codable, CaseIterable {
     case library
     case help
     case tags
+    /// Live answers were removed. Kept so ledger entries written before that still decode.
     case liveAnswers
     case other
 

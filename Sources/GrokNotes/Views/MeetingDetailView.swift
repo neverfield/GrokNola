@@ -23,12 +23,10 @@ extension FocusedValues {
 
 struct MeetingDetailView: View {
     @EnvironmentObject private var state: AppState
-    @EnvironmentObject private var liveAnswers: LiveAnswersEngine
     @Environment(\.undoManager) private var undoManager
     let meetingID: UUID
     @State private var tab: Tab = .notes
     @State private var showInspector = false
-    @State private var pane: InspectorPane = .info
     @State private var editingNotes = false
     @State private var findRequested = false
 
@@ -97,16 +95,6 @@ struct MeetingDetailView: View {
                             }
                         }
                     }
-                    if recording {
-                        ToolbarItem(placement: .primaryAction) {
-                            Button {
-                                toggleLiveAnswers()
-                            } label: {
-                                Label("Live answers", systemImage: liveAnswers.enabled ? "bolt.fill" : "bolt.slash")
-                            }
-                            .help(liveAnswers.enabled ? "Live answers are on. Click to turn them off." : "Answer questions heard in the call")
-                        }
-                    }
                     if !recording {
                         ToolbarItem(placement: .primaryAction) {
                             ShareLink(
@@ -130,27 +118,8 @@ struct MeetingDetailView: View {
                     }
                 }
                 .inspector(isPresented: $showInspector) {
-                    Group {
-                        if hasAnswersPane {
-                            VStack(spacing: 0) {
-                                Picker("", selection: $pane) {
-                                    ForEach(InspectorPane.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                                }
-                                .pickerStyle(.segmented)
-                                .labelsHidden()
-                                .padding(.horizontal, GrokSpacing.md)
-                                .padding(.vertical, GrokSpacing.sm)
-                                Divider()
-                                switch pane {
-                                case .answers: LiveAnswersPanel(meetingID: meetingID)
-                                case .info: MeetingInspectorView(meetingID: meetingID)
-                                }
-                            }
-                        } else {
-                            MeetingInspectorView(meetingID: meetingID)
-                        }
-                    }
-                    .inspectorColumnWidth(min: 260, ideal: 320, max: 420)
+                    MeetingInspectorView(meetingID: meetingID)
+                        .inspectorColumnWidth(min: 260, ideal: 320, max: 420)
                 }
                 .confirmationDialog("Regenerate notes?", isPresented: confirmingRegenerate) {
                     Button("Regenerate", role: .destructive) {
@@ -165,15 +134,8 @@ struct MeetingDetailView: View {
                 } message: {
                     Text("Your edits to the enhanced notes will be replaced.")
                 }
-                .onAppear(perform: openAnswersIfRecording)
-                .onChange(of: state.recordingID) { openAnswersIfRecording() }
             }
         }
-    }
-
-    enum InspectorPane: String, CaseIterable {
-        case answers = "Answers"
-        case info = "Info"
     }
 
     private var recording: Bool { state.recordingID == meetingID }
@@ -201,12 +163,7 @@ struct MeetingDetailView: View {
     }
 
     private func toggleInspector() {
-        if showInspector, pane == .answers, hasAnswersPane {
-            pane = .info
-        } else {
-            pane = .info
-            showInspector.toggle()
-        }
+        showInspector.toggle()
     }
 
     private func actions(_ meeting: Meeting) -> MeetingActions {
@@ -251,31 +208,6 @@ struct MeetingDetailView: View {
         }
         .menuIndicator(.hidden)
         .help("Regenerate, edit, copy, find, and delete")
-    }
-
-    /// Answers show while recording, and afterwards while pinned cards from this recording remain.
-    private var hasAnswersPane: Bool {
-        recording || liveAnswers.cards.contains { $0.meetingID == meetingID }
-    }
-
-    private func openAnswersIfRecording() {
-        guard recording, liveAnswers.enabled else {
-            if !hasAnswersPane { pane = .info }
-            return
-        }
-        pane = .answers
-        showInspector = true
-    }
-
-    private func toggleLiveAnswers() {
-        let on = !liveAnswers.enabled
-        liveAnswers.setEnabled(on)
-        if on {
-            pane = .answers
-            showInspector = true
-        } else if pane == .answers {
-            showInspector = false
-        }
     }
 }
 
