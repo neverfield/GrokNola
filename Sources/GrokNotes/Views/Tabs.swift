@@ -187,9 +187,9 @@ struct NotesTab: View {
 
 // MARK: - Transcript
 
-/// The last block that starts at or before `seconds`. Citations are whole seconds, so allow up to one second of rounding.
+/// The block a citation at `seconds` points at: the one that contains it, else the nearest.
 private func blockID(containing seconds: Double, in blocks: [TranscriptBlock]) -> UUID? {
-    (blocks.last { $0.start < seconds + 1 } ?? blocks.first)?.id
+    Citations.index(at: seconds, in: blocks, start: \.start, end: \.end).map { blocks[$0].id }
 }
 
 /// The chapter that starts at each block where the chapter changes, keyed by block id.

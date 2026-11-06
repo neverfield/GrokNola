@@ -95,6 +95,19 @@ enum Citations {
         return Double(values.reduce(0) { $0 * 60 + $1 })
     }
 
+    /// The index of the span a citation at `seconds` points at: the latest one that contains it, else the nearest.
+    /// Citations are whole seconds, so a span may start up to one second after the cited time.
+    static func index<T>(at seconds: Double, in items: [T], start: (T) -> Double, end: (T) -> Double) -> Int? {
+        var best: (index: Int, start: Double, distance: Double)?
+        for (i, item) in items.enumerated() {
+            let s = start(item), e = max(s, end(item))
+            let distance = s >= seconds + 1 ? s - seconds : max(0, seconds - e)
+            if let b = best, distance > b.distance || (distance == b.distance && s < b.start) { continue }
+            best = (i, s, distance)
+        }
+        return best?.index
+    }
+
     /// Rewrites bare citations into Markdown links, one per time. Each plays its clip when `playable`,
     /// else opens the transcript. Text without citations comes back unchanged.
     static func linkify(_ markdown: String, meetingID: UUID, playable: Bool = false) -> String {

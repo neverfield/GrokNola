@@ -29,7 +29,9 @@ extension AppState {
 
     /// "Name: what they said" for the transcript line a citation points at, shortened for a tooltip.
     func transcriptQuote(_ id: UUID, at seconds: Double) -> String? {
-        guard let m = meeting(id), let u = m.utterances.last(where: { $0.start < seconds + 1 }) ?? m.utterances.first else { return nil }
+        guard let m = meeting(id),
+              let i = Citations.index(at: seconds, in: m.utterances, start: \.start, end: \.end) else { return nil }
+        let u = m.utterances[i]
         let text = u.text.count > 220 ? String(u.text.prefix(220)) + "…" : u.text
         return "\(m.displayName(for: u.speakerKey, myName: Prefs.myName)): \(text)"
     }

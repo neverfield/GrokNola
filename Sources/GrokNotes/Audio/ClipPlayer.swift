@@ -383,7 +383,7 @@ final class ClipPlayer: ObservableObject {
     }
 
     /// The run of consecutive utterances by one speaker around `seconds`, as the transcript shows it.
-    /// Citations are whole seconds, so a block may start up to one second after the cited time.
+    /// After a pause, a time between two blocks picks the nearer one.
     static func block(containing seconds: Double, in utterances: [Utterance]) -> (speakerKey: String, start: Double, end: Double)? {
         var blocks: [(speakerKey: String, start: Double, end: Double)] = []
         for u in utterances {
@@ -393,6 +393,6 @@ final class ClipPlayer: ObservableObject {
                 blocks.append((u.speakerKey, u.start, u.end))
             }
         }
-        return blocks.last { $0.start < seconds + 1 } ?? blocks.first
+        return Citations.index(at: seconds, in: blocks, start: { $0.start }, end: { $0.end }).map { blocks[$0] }
     }
 }
