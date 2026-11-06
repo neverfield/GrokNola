@@ -45,9 +45,12 @@ final class RecordingModel: ObservableObject {
     /// The last finished utterance on each side, for the live strip when no interim text is showing.
     @Published private(set) var lastMe = ""
     @Published private(set) var lastThem = ""
+    /// The speaker key of the last finished call-audio utterance, for the name beside the live line.
+    @Published private(set) var lastThemKey: String?
     /// When the current recording started. Not published; it is set before `AppState.recordingID`.
     private(set) var startedAt: Date?
     let levels = InputLevels()
+    let speakers = LiveSpeakerNames()
 
     func reset(startedAt: Date? = nil) {
         self.startedAt = startedAt
@@ -56,15 +59,45 @@ final class RecordingModel: ObservableObject {
         liveThem = ""
         lastMe = ""
         lastThem = ""
+        lastThemKey = nil
         levels.reset()
+        speakers.reset()
     }
 
     func setElapsed(_ seconds: TimeInterval) {
         if Int(seconds) != Int(elapsed) { elapsed = seconds }
     }
 
-    func heardFinal(_ text: String, source: AudioSource) {
-        if source == .mic { lastMe = text } else { lastThem = text }
+    func heardFinal(_ text: String, source: AudioSource, key: String? = nil) {
+        if source == .mic {
+            lastMe = text
+        } else {
+            lastThem = text
+            if lastThemKey != key { lastThemKey = key }
+        }
+    }
+}
+
+/// Speaker names found while recording, published only when a name changes.
+/// Speaker chips and the live lines observe this, so a name redraws them and nothing else.
+@MainActor
+final class LiveSpeakerNames: ObservableObject {
+    /// Names for the meeting being recorded: names you set, then names found live, confirmed or not.
+    @Published private(set) var infos: [String: SpeakerInfo] = [:]
+    /// True while speakers are being identified live, so unnamed voices can show "identifying…".
+    @Published private(set) var identifying = false
+
+    func set(_ infos: [String: SpeakerInfo]) {
+        if infos != self.infos { self.infos = infos }
+    }
+
+    func setIdentifying(_ on: Bool) {
+        if identifying != on { identifying = on }
+    }
+
+    func reset() {
+        set([:])
+        setIdentifying(false)
     }
 }
 

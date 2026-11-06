@@ -195,6 +195,7 @@ struct NotesSkeleton: View {
 /// Two lines of what is being said, under the notepad while recording. Click the header to collapse it.
 struct LiveTranscriptStrip: View {
     @EnvironmentObject private var recording: RecordingModel
+    let meetingID: UUID
     @AppStorage("notesLiveStripExpanded") private var expanded = true
 
     var body: some View {
@@ -227,7 +228,7 @@ struct LiveTranscriptStrip: View {
             .accessibilityLabel(expanded ? "Collapse live transcript" : "Expand live transcript")
 
             if expanded {
-                line("Them", them.isEmpty ? "Listening…" : them, live: !recording.liveThem.isEmpty)
+                line("Them", key: recording.lastThemKey, them.isEmpty ? "Listening…" : them, live: !recording.liveThem.isEmpty)
                 line("You", me.isEmpty ? "Listening…" : me, live: !recording.liveMe.isEmpty)
             }
         }
@@ -238,18 +239,41 @@ struct LiveTranscriptStrip: View {
         .overlay(alignment: .top) { GrokColors.hairline.frame(height: 1) }
     }
 
-    private func line(_ label: String, _ text: String, live: Bool) -> some View {
+    private func line(_ label: String, key: String? = nil, _ text: String, live: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.sm) {
-            Text(label)
-                .font(GrokTypography.captionMuted().weight(.semibold))
-                .foregroundStyle(GrokColors.inkMuted)
-                .frame(width: 36, alignment: .trailing)
+            LiveSpeakerLabel(meetingID: meetingID, label: label, key: key)
             Text(text)
                 .font(GrokTypography.liveLine())
                 .foregroundStyle(live ? GrokColors.ink : GrokColors.inkMuted)
                 .lineLimit(1)
                 .truncationMode(.head)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
+    }
+}
+
+/// The speaker beside a live line: the name of the voice heard last once it is known, or a fixed label.
+/// Click a name to rename that speaker while recording.
+struct LiveSpeakerLabel: View {
+    let meetingID: UUID
+    let label: String
+    let key: String?
+
+    var body: some View {
+        Group {
+            if let key {
+                SpeakerChip(
+                    meetingID: meetingID, key: key, plain: true,
+                    plainFont: GrokTypography.captionMuted().weight(.semibold)
+                )
+                .lineLimit(1)
+            } else {
+                Text(label)
+                    .font(GrokTypography.captionMuted().weight(.semibold))
+                    .foregroundStyle(GrokColors.inkMuted)
+            }
+        }
+        .frame(minWidth: 36, maxWidth: 200, alignment: .trailing)
+        .layoutPriority(1)
     }
 }

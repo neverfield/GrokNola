@@ -61,8 +61,9 @@ The first time a call is detected, macOS asks whether GrokNola may send notifica
 ### While recording
 
 - Type rough notes in the notes editor ("Jot rough notes here while you talk…"). Short phrases are fine. They become the backbone of the enhanced notes.
-- Under the notepad, a **Live** strip shows the last thing heard from **Them** and **You**. Click **Live** to collapse or expand it; the app remembers your choice.
-- The **Transcript** tab shows the live transcript. A **Live** box shows the words being heard now, labeled **Them** and **Me**. If you scroll up, click **Jump to latest** to follow again.
+- Under the notepad, a **Live** strip shows the last thing heard from the other side and from **You**. The other side is labeled with the speaker's name once it is known, else **Them**. Click **Live** to collapse or expand it; the app remembers your choice.
+- The **Transcript** tab shows the live transcript. A **Live** box shows the words being heard now, labeled with the speaker's name (or **Them**) and **Me**. If you scroll up, click **Jump to latest** to follow again.
+- Speakers are named as people talk (see [Names during the call](#names-during-the-call)). Click any name, in the transcript or the Live strip, to correct it.
 - A bar at the bottom of the window shows the elapsed time, a level meter for your microphone and one for call audio, and **Stop & Write Notes**. The bars move when sound arrives, so you can see that both sides are being captured.
 - The meter bars are amber. A meter turns red when that side looks silent: your mic has had no signal for 20 seconds while others talk, or there has been no call audio for 20 seconds while you talk. Hover over it for the reason. See [No audio from your mic, or no call audio](#no-audio-from-your-mic-or-no-call-audio).
 - If the transcription connection drops, an ochre "Transcription reconnecting" message appears next to the meters. The app reconnects by itself.
@@ -116,6 +117,19 @@ Your microphone and your Mac's audio are recorded on separate streams. Your mic 
 5. **Transcript inference.** Grok reads the transcript for introductions ("This is Dana from finance") and people addressed by name, matched against calendar invitees, names seen in the meeting app, and people from past meetings. It needs 75% confidence for a known name and 85% for any other name. Label: "inferred by Grok". Turn this off in **Settings > Speakers > Let Grok infer names from the conversation**.
 
 A remote speaker without strong evidence stays **Them**. When permissions are missing or the app is not supported, you fall back to Me / Them. Without system audio, the microphone alone is diarized and the voice that talks most is labeled as you.
+
+### Names during the call
+
+With **Settings > Speakers > Identify speakers live** on (the default) and system audio available, names appear while you record instead of only after you stop:
+
+- **Active speaker.** Each second the meeting app shows one person talking counts as a vote for the voice heard at that moment.
+- **Introductions.** "This is Dana", "I'm Dana", or "Dana here" counts when Dana is an invitee, a person from past meetings, or a name shown in the meeting app. "My name is …" counts for any name.
+- **One-on-one calls.** With one other invitee and one remote voice, that voice is named at once. The name is taken back if a second voice or another name shows up.
+- **Snapshots.** If a voice is still unnamed after about 30 seconds, Grok reads the call-window snapshots for it, at most once a minute and 8 times a meeting. These requests appear in **Usage & Cost** as "Speaker names (snapshots)". Turn this off in **Settings > Speakers > Read snapshots for unnamed speakers during the call**.
+
+A name first shows dimmed with a **?**, such as "Dana?", while it is a guess. It is confirmed when the evidence adds up, for example 4 active-speaker samples with 70% or more agreeing, and the **?** goes away. A voice with no name yet shows "identifying…". Confirmed names are saved with the meeting; guesses are not. Click a name to confirm it or set another. If you clear a name, the same guess does not come back for that voice.
+
+After you stop, the full-recording pass splits voices again. Names found during the call, and names you set, carry over to the matching voices, and the steps in [Speaker names](#speaker-names) fill in the rest. A live name is replaced only by clearly stronger evidence for someone else. **Meeting info > Speakers** marks these names "found live".
 
 ### Rename a speaker
 
@@ -479,7 +493,7 @@ The app automatically raises a quiet microphone by up to 12 dB while recording. 
 
 - Check **Accessibility** and **Screen & System Audio Recording** in **Settings > Recording**. Active-speaker names and snapshots need system audio.
 - Start notes while the call is open, so the meeting app is detected (the button reads **Start notes · <App>**).
-- Make sure **Identify speakers from meeting-window snapshots** and **Let Grok infer names from the conversation** are on.
+- Make sure **Identify speakers from meeting-window snapshots**, **Let Grok infer names from the conversation**, and **Identify speakers live** are on.
 - A calendar event with invitees helps a lot, especially in one-on-ones.
 - Rename speakers yourself. Your names are remembered for later meetings. Then choose **Regenerate Notes** (Option-Command-R) to rewrite the notes with the names.
 

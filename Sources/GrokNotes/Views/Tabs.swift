@@ -46,7 +46,7 @@ struct NotesTab: View {
                         notesEditor(meeting: meeting, recording: recording)
                     }
                     if recording {
-                        LiveTranscriptStrip()
+                        LiveTranscriptStrip(meetingID: meetingID)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -631,7 +631,7 @@ private struct LiveTranscriptRegion: View {
                     .foregroundStyle(GrokColors.inkMuted)
             }
             if !recording.liveThem.isEmpty {
-                liveLine(label: "Them", text: recording.liveThem)
+                liveLine(label: "Them", key: recording.lastThemKey, text: recording.liveThem)
             }
             if !recording.liveMe.isEmpty {
                 liveLine(label: "Me", text: recording.liveMe)
@@ -651,12 +651,9 @@ private struct LiveTranscriptRegion: View {
         )
     }
 
-    private func liveLine(label: String, text: String) -> some View {
+    private func liveLine(label: String, key: String? = nil, text: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.sm) {
-            Text(label)
-                .font(GrokTypography.captionMuted().weight(.semibold))
-                .foregroundStyle(GrokColors.inkMuted)
-                .frame(width: 36, alignment: .trailing)
+            LiveSpeakerLabel(meetingID: meetingID, label: label, key: key)
             Text(text)
                 .font(GrokTypography.liveLine())
                 .foregroundStyle(GrokColors.liveText)

@@ -27,6 +27,11 @@ private final class RecordingSession {
     var systemWAV: WAVWriter?
     var monitor: ActiveSpeakerMonitor?
     var snapshotter: WindowSnapshotter?
+    var identifier: LiveSpeakerIdentifier?
+    /// The identifier's latest names, before names you set are applied.
+    var liveSpeakers: [String: SpeakerInfo] = [:]
+    /// Live names you cleared, by speaker key, lowercased, so the same guess does not come back.
+    var rejectedLive: [String: String] = [:]
     var hasSystemAudio = false
     var timer: Timer?
 
@@ -171,6 +176,10 @@ final class AppState: ObservableObject {
             m.refreshAttributionMode()
         }
         if !name.isEmpty, key != Meeting.meKey { Prefs.remember([name]) }
+        if let s = session, s.meetingID == meetingID {
+            if name.isEmpty, let guess = s.liveSpeakers[key]?.name { s.rejectedLive[key] = guess.lowercased() }
+            publishLiveSpeakers()
+        }
         save(meetingID)
     }
 
@@ -440,6 +449,23 @@ final class AppState: ObservableObject {
             snapshotter.begin()
             s.snapshotter = snapshotter
         }
+        if s.hasSystemAudio, Prefs.liveSpeakerID {
+            let identifier = LiveSpeakerIdentifier(
+                config: .init(
+                    myName: myName,
+                    attendees: meeting.attendees,
+                    knownPeople: Prefs.knownPeople,
+                    appName: meeting.appName,
+                    useVision: Prefs.useSnapshots && Prefs.liveSpeakerSnapshots
+                ),
+                monitor: s.monitor,
+                snapshotter: s.snapshotter,
+                meeting: { [weak self] in self?.meeting(meetingID) }
+            )
+            identifier.onChange = { [weak self] infos in self?.applyLiveSpeakers(infos, meetingID: meetingID) }
+            s.identifier = identifier
+            recording.speakers.setIdentifying(true)
+        }
 
         update(meetingID) { m in
             m.speakers[Meeting.meKey] = SpeakerInfo(name: nil, attribution: .me)
@@ -457,6 +483,7 @@ final class AppState: ObservableObject {
     func stopMeeting() async {
         guard let s = session else { return }
         let id = s.meetingID
+        s.identifier?.finish()
         session = nil
         recordingID = nil
         // Show progress right away; draining the streams can take a few seconds.
@@ -546,7 +573,10 @@ final class AppState: ObservableObject {
             }
         }
         guard meetingID == recordingID, let m = meeting(meetingID) else { return }
-        if let last = added.last { recording.heardFinal(last.text, source: source) }
+        if let last = added.last { recording.heardFinal(last.text, source: source, key: last.speakerKey) }
+        if source == .system, let identifier = session?.identifier {
+            for u in added { identifier.heard(u) }
+        }
         for u in added {
             let asker = u.speakerKey == Meeting.meKey ? "You" : m.displayName(for: u.speakerKey, myName: Prefs.myName)
             var text = u.text
@@ -596,14 +626,60 @@ final class AppState: ObservableObject {
         let seconds = Int(elapsed)
         guard seconds != Int(recording.elapsed) else { return }
         recording.setElapsed(elapsed)
-        if seconds % 10 == 0, let monitor = s.monitor, var m = meeting(s.meetingID) {
-            SpeakerResolver.applyActiveSpeakerVotes(to: &m, samples: monitor.samples)
-            // Writing an unchanged meeting would still redraw every view that lists meetings.
-            if m.speakers != meeting(s.meetingID)?.speakers || m.mode != meeting(s.meetingID)?.mode {
-                update(s.meetingID) { $0.speakers = m.speakers; $0.mode = m.mode }
-            }
-        }
+        s.identifier?.tick(at: elapsed)
         if seconds % 30 == 0 { save(s.meetingID) }
+    }
+
+    // MARK: Live speaker names
+
+    /// Takes the live identifier's names. Confirmed names go into the meeting, so they are saved and used by
+    /// live answers; guesses stay on screen only. Names you set are never replaced.
+    private func applyLiveSpeakers(_ infos: [String: SpeakerInfo], meetingID: UUID) {
+        guard let s = session, s.meetingID == meetingID else { return }
+        s.liveSpeakers = infos
+        let accepted = acceptedLiveSpeakers(s)
+        if let m = meeting(meetingID) {
+            let heard = Set(m.speakerKeys)
+            var speakers = m.speakers
+            for (key, info) in accepted where !info.isProvisional && heard.contains(key) && key != Meeting.meKey {
+                if speakers[key]?.attribution != .manual { speakers[key] = info }
+            }
+            // A live name that fell back to a guess, or was rejected, comes off the meeting.
+            for (key, info) in m.speakers where info.identifiedLiveAt != nil && info.attribution != .manual {
+                if accepted[key].map({ $0.isProvisional }) ?? true { speakers[key] = SpeakerInfo(name: nil, attribution: .unknown) }
+            }
+            // Writing an unchanged meeting would still redraw every view that lists meetings.
+            if speakers != m.speakers { update(meetingID) { $0.speakers = speakers } }
+        }
+        publishLiveSpeakers()
+    }
+
+    /// Folds a merged voice's live evidence into the voice it joined, while that meeting is recording.
+    func liveSpeakersMerged(from: String, into target: String, in meetingID: UUID) {
+        guard let s = session, s.meetingID == meetingID else { return }
+        s.rejectedLive[from] = nil
+        s.identifier?.merge(from, into: target)
+        publishLiveSpeakers()
+    }
+
+    private func acceptedLiveSpeakers(_ s: RecordingSession) -> [String: SpeakerInfo] {
+        s.liveSpeakers.filter { key, info in
+            guard let rejected = s.rejectedLive[key] else { return true }
+            return info.name?.lowercased() != rejected
+        }
+    }
+
+    /// Publishes the names chips show while recording: names you set, then live names, then any other stored name.
+    private func publishLiveSpeakers() {
+        guard let s = session, let m = meeting(s.meetingID) else {
+            recording.speakers.set([:])
+            return
+        }
+        var names = acceptedLiveSpeakers(s)
+        for (key, info) in m.speakers {
+            if info.attribution == .manual || (names[key] == nil && !(info.name ?? "").isEmpty) { names[key] = info }
+        }
+        recording.speakers.set(names)
     }
 
     // MARK: After the meeting
@@ -638,6 +714,8 @@ final class AppState: ObservableObject {
         } else {
             fullPass = micDuration > 10 ? s.micWAV.map { ($0, .mic) } : nil
         }
+        // Names found while recording, and names you set, carry over to the re-diarized voices.
+        let live = m
         if let fullPass {
             do {
                 if let segments = try await batchSegments(client.tracking(.batchTranscription, m), wav: fullPass.wav, language: language, keyterms: s.keyterms) {
@@ -654,6 +732,7 @@ final class AppState: ObservableObject {
                             m.insert(Utterance(source: .mic, speakerKey: "v\(seg.speaker ?? 0)", start: seg.start, end: seg.end, text: seg.text))
                         }
                     }
+                    SpeakerResolver.carryNames(from: live, into: &m)
                 }
                 setStep(id, .transcribing, .done)
             } catch {
@@ -679,7 +758,9 @@ final class AppState: ObservableObject {
         }
         SpeakerResolver.assignSoleParticipant(in: &m, participants: m.attendees, evidence: "Only other invitee")
         if Prefs.inferNames {
-            let candidates = uniqueNames(m.attendees + namesOnScreen + (s.monitor?.observedNames ?? []) + Prefs.knownPeople)
+            let candidates = uniqueNames(
+                m.attendees + namesOnScreen + (s.monitor?.observedNames ?? []) + (s.identifier?.guessedNames ?? []) + Prefs.knownPeople
+            )
             do {
                 try await SpeakerResolver.inferNames(
                     in: &m, candidates: candidates, myName: myName, client: client.tracking(.speakerNames, m), model: model
@@ -719,6 +800,8 @@ final class AppState: ObservableObject {
             m.pinned = current.pinned
             m.templateID = current.templateID
             for (key, info) in current.speakers where info.attribution == .manual { m.speakers[key] = info }
+            // Names set on the live voices while this ran belong to the re-diarized voices now.
+            SpeakerResolver.carryNames(from: current, into: &m, onlyManual: true, includeManualTargets: true)
         }
         if m.autoTitle, let notes = m.enhancedNotes, let title = NotesGenerator.title(fromNotes: notes) {
             m.title = title

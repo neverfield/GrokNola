@@ -45,6 +45,14 @@ final class ActiveSpeakerMonitor {
 
     var samples: [Sample] { lock.withLock { recorded } }
 
+    /// Samples recorded at or after `index`, and the index to pass next time.
+    func samples(from index: Int) -> (samples: [Sample], next: Int) {
+        lock.withLock {
+            let start = min(max(index, 0), recorded.count)
+            return (Array(recorded[start...]), recorded.count)
+        }
+    }
+
     /// Names the meeting app showed as talking, most frequent first.
     var observedNames: [String] {
         lock.withLock { nameCounts.sorted { $0.value > $1.value }.map(\.key) }

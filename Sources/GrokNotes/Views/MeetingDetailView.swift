@@ -359,44 +359,75 @@ extension SpeakerColor {
 
 struct SpeakerChip: View {
     @EnvironmentObject private var state: AppState
+    @EnvironmentObject private var liveNames: LiveSpeakerNames
     @Environment(\.undoManager) private var undoManager
     let meetingID: UUID
     let key: String
     var showDetail = false
     /// The name alone in the speaker's color, as at the top of a transcript block.
     var plain = false
+    /// The font of the plain name.
+    var plainFont: Font = GrokTypography.transcriptSpeaker()
     @State private var editing = false
 
     var body: some View {
         let meeting = state.meeting(meetingID)
-        let info = meeting?.speakers[key]
+        let recording = state.recordingID == meetingID
+        // While recording, names found live show at once, including guesses that are not saved yet.
+        let info = (recording ? liveNames.infos[key] : nil) ?? meeting?.speakers[key]
+        let guess = info?.isProvisional == true
+        let identifying = recording && liveNames.identifying && key != Meeting.meKey && (info?.name ?? "").isEmpty
         let color = SpeakerColor.color(for: key, in: meeting)
+        let name = info?.name.flatMap { $0.isEmpty ? nil : $0 } ?? meeting?.displayName(for: key, myName: Prefs.myName) ?? key
+        let title = guess ? name + "?" : name
         Button {
             editing = true
         } label: {
-            let name = meeting?.displayName(for: key, myName: Prefs.myName) ?? key
             if plain {
-                Text(name)
-                    .font(GrokTypography.transcriptSpeaker())
-                    .foregroundStyle(color)
-                    .contentShape(Rectangle())
+                HStack(alignment: .firstTextBaseline, spacing: GrokSpacing.xs) {
+                    Text(title)
+                        .font(plainFont)
+                        .foregroundStyle(color)
+                        .opacity(guess ? 0.6 : 1)
+                    if identifying {
+                        Text("identifying…")
+                            .font(GrokTypography.captionMuted().italic())
+                            .foregroundStyle(GrokColors.inkMuted)
+                    }
+                }
+                .contentShape(Rectangle())
             } else {
-                GrokChip(title: name, style: .tinted(color), detail: showDetail ? info.map(detail) : nil)
+                GrokChip(
+                    title: title,
+                    style: .tinted(color),
+                    detail: showDetail ? info.map(detail) : (identifying ? "identifying…" : nil)
+                )
+                .opacity(guess ? 0.7 : 1)
             }
         }
         .buttonStyle(.plain)
-        .help(info?.evidence ?? "Click to name or merge this speaker")
+        .help(help(info, guess: guess, identifying: identifying))
+        .accessibilityLabel(guess ? "\(name), not yet confirmed" : name)
         .popover(isPresented: $editing) {
             // The popover has its own window, so it gets the meeting window's undo manager from here.
             RenameSpeakerView(meetingID: meetingID, key: key, initial: info?.name ?? "", undoManager: undoManager) { editing = false }
         }
     }
 
+    private func help(_ info: SpeakerInfo?, guess: Bool, identifying: Bool) -> String {
+        if identifying { return "Identifying this speaker. Click to name or merge them." }
+        guard let info else { return "Click to name or merge this speaker" }
+        if guess { return "Probably \(info.name ?? "this person"), not yet confirmed. \(info.evidence ?? "") Click to confirm, rename, or merge." }
+        return info.evidence ?? "Click to name or merge this speaker"
+    }
+
     private func detail(_ info: SpeakerInfo) -> String {
+        if info.isProvisional { return "identifying…" }
+        let found = info.identifiedLiveAt != nil && info.attribution != .manual ? " · found live" : ""
         guard let confidence = info.confidence, [.inferred, .activeSpeaker, .onScreen].contains(info.attribution) else {
-            return info.attribution.label
+            return info.attribution.label + found
         }
-        return "\(info.attribution.label) \(Int(confidence * 100))%"
+        return "\(info.attribution.label) \(Int(confidence * 100))%\(found)"
     }
 }
 
