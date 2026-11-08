@@ -82,6 +82,86 @@ enum SpeakerResolver {
         }
     }
 
+    /// Maps old speaker keys onto re-diarized keys by temporal overlap, then applies user merges from live aliases.
+    static func carryMerges(from old: Meeting, into meeting: inout Meeting) {
+        guard let aliases = old.speakerAliases, !aliases.isEmpty else { return }
+        let map = mapSpeakerKeys(from: old, onto: meeting)
+        var seen = Set<String>()
+
+        /// A live merge can leave one key with all utterances; batch diarization may split that voice again.
+        let mergeRoots = Set(aliases.values)
+        for root in mergeRoots where root != Meeting.meKey {
+            let oldTurns = old.utterances.filter { $0.speakerKey == root }
+            let matches = batchKeys(overlapping: oldTurns, in: meeting)
+            guard matches.count > 1, let primary = matches.first?.key else { continue }
+            for match in matches.dropFirst() {
+                let token = "\(match.key)->\(primary)"
+                guard !seen.contains(token) else { continue }
+                seen.insert(token)
+                meeting.mergeSpeaker(match.key, into: primary)
+            }
+        }
+
+        for (from, to) in aliases {
+            guard let newFrom = map[from], let newTo = map[to], newFrom != newTo else { continue }
+            let token = "\(newFrom)->\(newTo)"
+            guard !seen.contains(token) else { continue }
+            seen.insert(token)
+            meeting.mergeSpeaker(newFrom, into: newTo)
+        }
+    }
+
+    private static func batchKeys(overlapping oldTurns: [Utterance], in meeting: Meeting) -> [(key: String, seconds: Double)] {
+        guard !oldTurns.isEmpty else { return [] }
+        let oldDuration = oldTurns.reduce(0) { $0 + max(0, $1.end - $1.start) }
+        var matches: [(key: String, seconds: Double)] = []
+        for newKey in meeting.speakerKeys where newKey != Meeting.meKey {
+            let newTurns = meeting.utterances.filter { $0.speakerKey == newKey }
+            let newDuration = newTurns.reduce(0) { $0 + max(0, $1.end - $1.start) }
+            guard newDuration > 0 else { continue }
+            var overlap = 0.0
+            for turn in newTurns {
+                for oldTurn in oldTurns {
+                    overlap += max(0, min(turn.end, oldTurn.end) - max(turn.start, oldTurn.start))
+                }
+            }
+            guard overlap >= 0.5 * min(oldDuration, newDuration) else { continue }
+            matches.append((newKey, overlap))
+        }
+        return matches.sorted { $0.seconds > $1.seconds }
+    }
+
+    /// Best matching re-diarized key for each live key that had utterances, with alias keys inheriting their target.
+    static func mapSpeakerKeys(from old: Meeting, onto new: Meeting) -> [String: String] {
+        var map: [String: String] = [:]
+        let oldKeys = Set(old.utterances.map(\.speakerKey).filter { $0 != Meeting.meKey })
+        for oldKey in oldKeys {
+            let oldTurns = old.utterances.filter { $0.speakerKey == oldKey }
+            let oldDuration = oldTurns.reduce(0) { $0 + max(0, $1.end - $1.start) }
+            guard oldDuration > 0 else { continue }
+            var best: (key: String, seconds: Double)?
+            for newKey in new.speakerKeys where newKey != Meeting.meKey {
+                let newTurns = new.utterances.filter { $0.speakerKey == newKey }
+                var overlap = 0.0
+                for turn in newTurns {
+                    for oldTurn in oldTurns {
+                        overlap += max(0, min(turn.end, oldTurn.end) - max(turn.start, oldTurn.start))
+                    }
+                }
+                guard overlap > 0, overlap > best?.seconds ?? 0 else { continue }
+                best = (newKey, overlap)
+            }
+            guard let best, best.seconds >= 0.5 * oldDuration else { continue }
+            map[oldKey] = best.key
+        }
+        if let aliases = old.speakerAliases {
+            for (from, to) in aliases where map[from] == nil {
+                if let mapped = map[to] { map[from] = mapped }
+            }
+        }
+        return map
+    }
+
     /// Asks Grok whose tile is highlighted in a few snapshots taken while one voice talked alone.
     /// Used during recording for a voice that is still unnamed. Nil when the reply is unclear.
     static func identifyLive(

@@ -152,6 +152,16 @@ struct SpeakerVoteTally {
 /// It reports names through `onChange`. The caller keeps names the user set.
 @MainActor
 final class LiveSpeakerIdentifier {
+    /// Enough state to put live naming back how it was before a speaker merge was undone.
+    struct UndoSnapshot {
+        var tally: SpeakerVoteTally
+        var speech: [String: (first: Double, seconds: Double)]
+        var pending: [Utterance]
+        var firstNamedAt: [String: Double]
+        var published: [String: SpeakerInfo]
+        var lastCountedSample: [String: Double]
+    }
+
     struct Config {
         var myName: String
         /// Calendar invitees, without the user.
@@ -241,6 +251,27 @@ final class LiveSpeakerIdentifier {
         refreshSoleParticipant()
         publish()
         askVisionIfNeeded()
+    }
+
+    func undoSnapshot() -> UndoSnapshot {
+        UndoSnapshot(
+            tally: tally,
+            speech: speech,
+            pending: pending,
+            firstNamedAt: firstNamedAt,
+            published: published,
+            lastCountedSample: lastCountedSample
+        )
+    }
+
+    func restore(_ snapshot: UndoSnapshot) {
+        tally = snapshot.tally
+        speech = snapshot.speech
+        pending = snapshot.pending
+        firstNamedAt = snapshot.firstNamedAt
+        lastCountedSample = snapshot.lastCountedSample
+        published = [:]
+        publish()
     }
 
     /// The user merged one voice into another. A voice merged into you is dropped; you are never named here.

@@ -156,6 +156,19 @@ final class CarryNamesTests: XCTestCase {
         XCTAssertNil(batch.speakers["r0"])
     }
 
+    func testLiveMergesCarryThroughReDiarization() {
+        var live = meeting(
+            [u("s0-0", 0, 10), u("s0-0", 10, 20)],
+            ["s0-0": SpeakerInfo(name: "Dana Kim", attribution: .manual, confidence: 1)]
+        )
+        live.mergeSpeaker("s0-1", into: "s0-0")
+        var batch = meeting([u("r0", 0, 10), u("r1", 10, 20)], [:])
+        SpeakerResolver.carryNames(from: live, into: &batch)
+        SpeakerResolver.carryMerges(from: live, into: &batch)
+        XCTAssertEqual(Set(batch.utterances.map(\.speakerKey)), ["r0"])
+        XCTAssertEqual(batch.speakers["r0"]?.name, "Dana Kim")
+    }
+
     func testBatchVotesDoNotClobberALiveNameWithWeakEvidence() {
         var m = meeting(
             [u("r0", 0, 10)],
@@ -211,6 +224,20 @@ final class LiveSpeakerIdentifierTests: XCTestCase {
         XCTAssertNil(names()["s0-2"])
         XCTAssertEqual(names()["s0-0"]?.name, "Priya Natarajan")
         XCTAssertEqual(names()["s0-0"]?.isProvisional, false)
+    }
+
+    func testRestoreUndoSnapshotAfterMerge() {
+        let (id, names) = identifier(attendees: ["Dana Kim", "Priya Natarajan"])
+        id.heard(Utterance(source: .system, speakerKey: "s0-0", start: 1, end: 5, text: "Hi all, this is Priya."))
+        id.heard(Utterance(source: .system, speakerKey: "s0-2", start: 9, end: 12, text: "Priya here, one more thing."))
+        let snap = id.undoSnapshot()
+        id.merge("s0-2", into: "s0-0")
+        XCTAssertNil(names()["s0-2"])
+        id.restore(snap)
+        XCTAssertEqual(names()["s0-2"]?.name, "Priya Natarajan")
+        XCTAssertEqual(names()["s0-0"]?.name, "Priya Natarajan")
+        XCTAssertEqual(names()["s0-0"]?.isProvisional, true)
+        XCTAssertEqual(names()["s0-2"]?.isProvisional, true)
     }
 
     func testVoiceMergedIntoMeIsNeverNamed() {

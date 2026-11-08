@@ -639,6 +639,17 @@ final class AppState: ObservableObject {
         publishLiveSpeakers()
     }
 
+    func liveSpeakersUndoSnapshot(for meetingID: UUID) -> LiveSpeakerIdentifier.UndoSnapshot? {
+        guard let s = session, s.meetingID == meetingID else { return nil }
+        return s.identifier?.undoSnapshot()
+    }
+
+    func liveSpeakersRestore(_ snapshot: LiveSpeakerIdentifier.UndoSnapshot, in meetingID: UUID) {
+        guard let s = session, s.meetingID == meetingID else { return }
+        s.identifier?.restore(snapshot)
+        publishLiveSpeakers()
+    }
+
     private func acceptedLiveSpeakers(_ s: RecordingSession) -> [String: SpeakerInfo] {
         s.liveSpeakers.filter { key, info in
             guard let rejected = s.rejectedLive[key] else { return true }
@@ -710,6 +721,7 @@ final class AppState: ObservableObject {
                         }
                     }
                     SpeakerResolver.carryNames(from: live, into: &m)
+                    SpeakerResolver.carryMerges(from: live, into: &m)
                 }
                 setStep(id, .transcribing, .done)
             } catch {

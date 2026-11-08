@@ -8,6 +8,7 @@ struct SpeakerEdit {
     var mode: AttributionMode
     var speakerAliases: [String: String]?
     var speakersEditedAt: Date?
+    var liveSnapshot: LiveSpeakerIdentifier.UndoSnapshot?
 
     init(_ m: Meeting, lines ids: Set<UUID>) {
         keys = Dictionary(uniqueKeysWithValues: m.utterances.filter { ids.contains($0.id) }.map { ($0.id, $0.speakerKey) })
@@ -34,7 +35,8 @@ extension AppState {
         guard from != target, canEditSpeakers(id), let m = meeting(id) else { return }
         let fromName = m.displayName(for: from, myName: Prefs.myName)
         let lines = Set(m.utterances.filter { $0.speakerKey == from }.map(\.id))
-        let before = SpeakerEdit(m, lines: lines)
+        var before = SpeakerEdit(m, lines: lines)
+        before.liveSnapshot = liveSpeakersUndoSnapshot(for: id)
         update(id) { m in
             m.mergeSpeaker(from, into: target)
             m.refreshAttributionMode()
@@ -86,7 +88,9 @@ extension AppState {
     /// Restores a speaker edit and registers the opposite change, so Undo and Redo swap between them.
     private func apply(_ edit: SpeakerEdit, to id: UUID, actionName: String, undoManager: UndoManager?) {
         guard canEditSpeakers(id), let m = meeting(id) else { return }
-        let inverse = SpeakerEdit(m, lines: Set(edit.keys.keys))
+        let liveBefore = liveSpeakersUndoSnapshot(for: id)
+        var inverse = SpeakerEdit(m, lines: Set(edit.keys.keys))
+        inverse.liveSnapshot = liveBefore
         update(id) { m in
             for i in m.utterances.indices {
                 if let key = edit.keys[m.utterances[i].id] { m.utterances[i].speakerKey = key }
@@ -95,6 +99,9 @@ extension AppState {
             m.mode = edit.mode
             m.speakerAliases = edit.speakerAliases
             m.speakersEditedAt = edit.speakersEditedAt
+        }
+        if let snap = edit.liveSnapshot {
+            liveSpeakersRestore(snap, in: id)
         }
         save(id)
         registerSpeakerUndo(id, restoring: inverse, actionName: actionName, undoManager: undoManager)
