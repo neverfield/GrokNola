@@ -100,7 +100,7 @@ private struct UpNextRow: View {
             Spacer(minLength: GrokSpacing.sm)
             if let url = event.conferenceURL {
                 Link(destination: url) { Label("Join", systemImage: "video") }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(GrokSecondaryButtonStyle(size: .small))
                     .help(url.absoluteString)
             }
             if state.recordingID == nil {
@@ -109,11 +109,10 @@ private struct UpNextRow: View {
                 } label: {
                     Label("Start notes", systemImage: "record.circle")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(GrokSecondaryButtonStyle(size: .small))
                 .help("Start notes titled \"\(event.title)\" with its invitees")
             }
         }
-        .controlSize(.small)
         .padding(.vertical, GrokSpacing.sm)
     }
 

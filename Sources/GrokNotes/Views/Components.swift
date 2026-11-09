@@ -386,6 +386,80 @@ struct GrokLinkButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - Buttons
+
+/// Button sizes for the Grok styles, drawn the same on every macOS version in place of `.controlSize`.
+enum GrokButtonSize {
+    /// About 32 points tall: Start notes and other main actions.
+    case large
+    /// About 22 points tall: actions in rows, toolbars, and bars.
+    case small
+
+    fileprivate var height: CGFloat { self == .large ? 32 : 22 }
+    fileprivate var horizontalPadding: CGFloat { self == .large ? 14 : 10 }
+    fileprivate var font: Font { self == .large ? .body.weight(.medium) : .callout.weight(.medium) }
+}
+
+/// The main action: an amber capsule with a white label.
+struct GrokPrimaryButtonStyle: ButtonStyle {
+    var size: GrokButtonSize = .large
+
+    func makeBody(configuration: Configuration) -> some View {
+        GrokPrimaryLabel(configuration: configuration, size: size)
+    }
+
+    private struct GrokPrimaryLabel: View {
+        let configuration: ButtonStyleConfiguration
+        let size: GrokButtonSize
+        @Environment(\.isEnabled) private var isEnabled
+        @Environment(\.colorSchemeContrast) private var contrast
+
+        var body: some View {
+            configuration.label
+                .font(size.font)
+                .foregroundStyle(Color.white)
+                .padding(.horizontal, size.horizontalPadding)
+                .frame(minHeight: size.height)
+                .background(GrokColors.accent, in: Capsule())
+                .overlay(Capsule().fill(Color.black.opacity(configuration.isPressed ? 0.15 : 0)))
+                .overlay(
+                    Capsule().strokeBorder(GrokColors.amberText, lineWidth: contrast == .increased ? 1.5 : 0)
+                )
+                .opacity(isEnabled ? 1 : 0.45)
+                .contentShape(Capsule())
+        }
+    }
+}
+
+/// A quieter action: a `paper3` capsule with a hairline and an amber label. `tint` replaces the label color, as on Stop.
+struct GrokSecondaryButtonStyle: ButtonStyle {
+    var tint: Color = GrokColors.amberText
+    var size: GrokButtonSize = .large
+
+    func makeBody(configuration: Configuration) -> some View {
+        GrokSecondaryLabel(configuration: configuration, tint: tint, size: size)
+    }
+
+    private struct GrokSecondaryLabel: View {
+        let configuration: ButtonStyleConfiguration
+        let tint: Color
+        let size: GrokButtonSize
+        @Environment(\.isEnabled) private var isEnabled
+        @Environment(\.colorSchemeContrast) private var contrast
+
+        var body: some View {
+            configuration.label
+                .font(size.font)
+                .foregroundStyle(isEnabled ? tint : GrokColors.inkFaint)
+                .padding(.horizontal, size.horizontalPadding)
+                .frame(minHeight: size.height)
+                .background(configuration.isPressed ? GrokColors.hairline : GrokColors.paper3, in: Capsule())
+                .overlay(Capsule().strokeBorder(GrokColors.hairline, lineWidth: contrast == .increased ? 1.5 : 1))
+                .contentShape(Capsule())
+        }
+    }
+}
+
 // MARK: - Paper edge
 
 /// A faint shadow along the paper's edge where it meets a side column.

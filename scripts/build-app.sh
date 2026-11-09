@@ -14,6 +14,13 @@ if [ "$IDENTITY" = "-" ]; then
 fi
 APP="build/GrokNola.app"
 
+# The macOS 26 window style appears only in apps built with the macOS 26 SDK.
+SDK_VERSION="$(xcrun --show-sdk-version 2>/dev/null || echo unknown)"
+SDK_MAJOR="${SDK_VERSION%%.*}"
+if ! [[ "$SDK_MAJOR" =~ ^[0-9]+$ ]] || [ "$SDK_MAJOR" -lt 26 ]; then
+  echo "warning: built with SDK $SDK_VERSION; on macOS 26 the window will use the older style. Use Xcode 26 or later." >&2
+fi
+
 swift build -c "$CONFIG"
 BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
 

@@ -368,8 +368,7 @@ struct StartNotesBar: View {
             )
             .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.bordered)
-        .controlSize(.large)
+        .buttonStyle(GrokSecondaryButtonStyle())
         .padding(GrokSpacing.sidebarInset)
     }
 }
@@ -398,8 +397,7 @@ struct RecordingStatusBar: View {
             } label: {
                 Label("Stop & Write Notes", systemImage: "stop.fill")
             }
-            .buttonStyle(.bordered)
-            .tint(GrokColors.recording)
+            .buttonStyle(GrokSecondaryButtonStyle(tint: GrokColors.recording, size: .small))
             .help("Stop recording and write notes (Command-Shift-R)")
         }
         .padding(.horizontal, GrokSpacing.lg)
@@ -581,7 +579,9 @@ struct PermissionSummary: View {
             row("Screen & System Audio Recording", p.systemAudio, "Separates you from the other side")
             row("Accessibility", p.accessibility, "Reads who is talking in Zoom, Teams, Meet, and Slack")
             row("Calendar", p.calendar || p.calendarFile, p.calendarFile ? "Google via Cursor (calendar.json)" : "Titles and invitee names")
-            SettingsLink { Text("Open Settings") }.padding(.top, GrokSpacing.xs)
+            SettingsLink { Text("Open Settings") }
+                .buttonStyle(GrokSecondaryButtonStyle(size: .small))
+                .padding(.top, GrokSpacing.xs)
         }
         .font(.callout)
         .padding(GrokSpacing.lg)

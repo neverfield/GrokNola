@@ -132,16 +132,14 @@ struct NotesTab: View {
                     editing = false
                     state.requestRegenerate(meetingID, undoManager: undoManager)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
+                .buttonStyle(GrokPrimaryButtonStyle(size: .small))
                 .help("These notes were written with another template")
             } else if !recording, meeting?.speakersChangedSinceNotes == true {
                 Button("Regenerate for new speakers") {
                     editing = false
                     state.requestRegenerate(meetingID, undoManager: undoManager)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
+                .buttonStyle(GrokPrimaryButtonStyle(size: .small))
                 .help("Speakers were merged or lines moved after these notes were written")
             } else if enhanced == nil, !recording, let meeting, !meeting.utterances.isEmpty || !meeting.userNotes.isEmpty {
                 Button("Write notes") { state.requestRegenerate(meetingID, undoManager: undoManager) }
@@ -432,7 +430,7 @@ struct TranscriptTab: View {
                 } label: {
                     Label("Jump to latest", systemImage: "arrow.down.circle.fill")
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(GrokPrimaryButtonStyle(size: .small))
                 .padding(GrokSpacing.lg)
             }
         }

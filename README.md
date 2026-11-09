@@ -14,6 +14,7 @@ open "build/GrokNola.app"
 Requires macOS 14+ and Xcode command-line tools. Open Settings (Command-comma),
 paste your xAI API key (stored in the Keychain), and grant the permissions.
 Grant Screen & System Audio Recording, then relaunch the app.
+Build with Xcode 26 or later (macOS 26 SDK) so the app gets the macOS 26 window style; the build script warns on an older SDK.
 
 Permissions are tied to the code signature. Run `./scripts/create-signing-cert.sh`
 once to create a local signing certificate. The build script then uses it, so

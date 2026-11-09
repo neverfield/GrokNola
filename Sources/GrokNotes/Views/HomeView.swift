@@ -118,17 +118,15 @@ struct HomeView: View {
                     .monospacedDigit()
                     .foregroundStyle(GrokColors.recording)
                 Button("Open Live Notes") { state.openMeeting(id) }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(GrokSecondaryButtonStyle())
             }
-            .controlSize(.large)
         } else {
             Button {
                 Task { await state.startMeeting() }
             } label: {
                 Label(state.detectedApp.map { "Start notes · \($0.name)" } ?? "Start notes", systemImage: "record.circle")
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .buttonStyle(GrokPrimaryButtonStyle())
             .help("Start capturing notes for this meeting (Command-Shift-R)")
         }
     }
@@ -742,8 +740,7 @@ private struct OnboardingCard: View {
                     } label: {
                         Label("Start notes", systemImage: "record.circle")
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
+                    .buttonStyle(GrokPrimaryButtonStyle())
                 }
             }
         }
