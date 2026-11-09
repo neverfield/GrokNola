@@ -22,13 +22,9 @@ struct CalendarDriveSettingsPane: View {
                             .textSelection(.enabled)
                     }
                 }
-                HStack {
-                    Button("Reveal file") { calendars.revealFile() }
-                    Button("Copy sync prompt") { calendars.copySyncPrompt() }
-                    Button("Reload") { calendars.reload(force: true) }
-                }
-                SettingsCaption("Automatic uses calendar.json when it was synced in the last 24 hours, else Apple Calendar when allowed.")
-                SettingsCaption("To sync Google Calendar, say “\(CalendarHub.syncPrompt)” in Cursor (needs the grok-notes-calendar-sync skill and a Google Calendar connection). “/loop 30m \(CalendarHub.syncPrompt.lowercased())” keeps it fresh.")
+                googleControls
+                SettingsCaption("Automatic uses Google Calendar when it is connected, else Apple Calendar when allowed.")
+                SettingsCaption("Google sign-in opens in your browser and asks only to read calendar events. GrokNola keeps the sign-in in your Keychain and the events in memory, and talks to Google directly from this Mac.")
             }
             .onChange(of: calendarSource) { calendars.objectWillChange.send() }
 
@@ -51,14 +47,37 @@ struct CalendarDriveSettingsPane: View {
                 SettingsCaption("Uses the synced My Drive folder, so there is no Google sign-in in GrokNola. Each meeting gets a folder with notes.md: the notes only, without the transcript. Use Export Transcript and Audio… to save those.")
             }
         }
-        .onAppear { calendars.reload() }
     }
 
-    private var calendarStatusOK: Bool {
-        switch calendars.active {
-        case .none: return calendarSource == .none
-        case .apple: return true
-        case .file: return calendars.hasFreshFile && calendars.fileError == nil
+    @ViewBuilder
+    private var googleControls: some View {
+        let auth = calendars.googleAuth
+        if !auth.isConfigured {
+            SettingsCaption("Google sign-in is not configured in this build. See the README to add an OAuth client.")
+        } else if auth.isConnected {
+            HStack {
+                Button("Reload") { Task { await calendars.reload() } }
+                Button("Disconnect Google") { Task { await calendars.disconnectGoogle() } }
+            }
+        } else {
+            HStack {
+                if auth.signingIn {
+                    ProgressView().controlSize(.small)
+                    Text("Finish signing in in your browser…")
+                        .font(.callout)
+                        .foregroundStyle(GrokColors.inkMuted)
+                    Button("Cancel") { auth.cancelSignIn() }
+                } else {
+                    Button("Connect Google Calendar") { Task { await calendars.connectGoogle() } }
+                }
+            }
+        }
+        if let error = auth.lastError {
+            Text(error)
+                .font(.caption)
+                .foregroundStyle(GrokColors.warning)
         }
     }
+
+    private var calendarStatusOK: Bool { calendars.isHealthy }
 }

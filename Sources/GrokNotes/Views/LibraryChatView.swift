@@ -17,7 +17,7 @@ struct LibraryChatView: View {
 
     private let helpSuggestions = [
         "How do speaker names work?",
-        "How do I sync Google Calendar?",
+        "How do I connect Google Calendar?",
         "Why is system audio off?",
         "How do I make a custom summary template?",
     ]

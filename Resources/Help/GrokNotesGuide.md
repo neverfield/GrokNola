@@ -21,7 +21,7 @@ GrokNola asks for four macOS permissions. Only the microphone is required.
 | **Microphone** | Records your voice. | You cannot start notes. |
 | **Screen & System Audio Recording** | Records the other participants from your Mac's audio, on a separate stream from your mic. Also lets the app read meeting window titles (meeting detection) and take window snapshots for speaker names. | Microphone only. Everyone is mixed together, and remote speakers are harder to separate. |
 | **Accessibility** | Reads the meeting app's "who is talking" indicator, so remote speakers get real names. | Names come only from snapshots, the transcript, and your corrections. Often Me / Them. |
-| **Apple Calendar** | Meeting title and invitees from Apple Calendar, when Apple Calendar is the calendar source. | Use Google via Cursor, or no calendar. |
+| **Apple Calendar** | Meeting title and invitees from Apple Calendar, when Apple Calendar is the calendar source. | Connect Google Calendar instead, or use no calendar. |
 
 To grant a permission:
 
@@ -372,23 +372,22 @@ The calendar gives a meeting its title and invitees, helps name speakers, and fi
 
 | Source | Reads |
 | --- | --- |
-| **Automatic** (default) | `calendar.json` when it was synced in the last 24 hours, else Apple Calendar when allowed, else a stale `calendar.json` |
-| **Google via Cursor** | `calendar.json` only |
+| **Automatic** (default) | Google Calendar when connected, else Apple Calendar when allowed |
+| **Google Calendar** | Your primary Google Calendar |
 | **Apple Calendar** | Apple Calendar (needs the Calendar permission) |
 | **None** | Nothing |
 
-The status line shows the active source, for example "Google via Cursor · synced 12 min ago · 14 events". Buttons: **Reveal file**, **Copy sync prompt**, and **Reload**.
+The status line shows the active source, for example "Google · you@example.com · updated 2 min ago · 9 events".
 
-### Google Calendar through Cursor
+### Google Calendar
 
-GrokNola has no Google sign-in. A Cursor agent reads Google Calendar and writes `~/Library/Application Support/GrokNotes/calendar.json`. GrokNola only reads that file.
+1. Open **Settings > Calendar & Drive** and click **Connect Google Calendar**.
+2. Your browser opens Google's sign-in page. Choose your work account and allow GrokNola to see your calendar events.
+3. When the browser says you can close the tab, go back to GrokNola. The status line shows your account and the number of events.
 
-1. Install the skill: `mkdir -p ~/.cursor/skills && cp -R skills/grok-notes-calendar-sync ~/.cursor/skills/` (from the GrokNola source folder).
-2. Connect a Google Calendar MCP server in **Cursor Settings > MCP**.
-3. In Cursor, say **"Sync my calendar for GrokNola"**. (**Settings > Calendar & Drive > Copy sync prompt** copies it.)
-4. To keep it fresh while Cursor is open, run `/loop 30m sync my calendar for GrokNola` in Cursor.
+GrokNola asks only to read events. It keeps the sign-in in your Keychain and the events in memory, refreshes them every 5 minutes and when the Mac wakes, and talks to Google directly from your Mac. Events you declined are ignored. Click **Reload** to refresh now, or **Disconnect Google** to sign out; that also revokes GrokNola's access at Google.
 
-GrokNola watches the file and reloads it within a minute. Events you declined are ignored.
+If Settings says "Google sign-in is not configured in this build", the app was built without an OAuth client. Whoever builds GrokNola adds one; see the README.
 
 ### Apple Calendar
 
@@ -420,14 +419,14 @@ Everything is stored on your Mac in `~/Library/Application Support/GrokNotes/` (
 
 - `Meetings/<id>/`: `meeting.json.enc` (the notes and transcript), the audio (`mic.wav.enc`, `system.wav.enc`) if you keep it, and `frames/` (window snapshots used to name speakers). All of them are encrypted.
 - `Trash/<id>/`: deleted meetings, kept 30 days so you can undo a delete.
-- `library-chat.json` (Ask Grok history), `usage.jsonl`, `templates.json`, `tags.json`, and `calendar.json`.
-- Your API key is in the Keychain. Settings are in the app's preferences.
+- `library-chat.json` (Ask Grok history), `usage.jsonl`, `templates.json`, and `tags.json`.
+- Your API key and Google sign-in are in the Keychain. Calendar events are kept in memory only. Settings are in the app's preferences.
 
 Meeting files are encrypted with AES-GCM. The key is kept in your login Keychain as `vault_key` under `dev.local.groknotes`, readable only on this Mac. Other apps see only encrypted bytes, and macOS asks you before any other app can read the key. While a meeting records and until its notes are written, the audio is not yet encrypted. Meetings from before encryption are encrypted the next time GrokNola opens.
 
 If the `vault_key` Keychain item is deleted, encrypted meetings cannot be opened again. Use **Export Transcript and Audio…** to keep readable copies of meetings you need.
 
-What is sent to xAI (`api.x.ai`), and nowhere else:
+What is sent to xAI (`api.x.ai`), and nowhere else. (Google Calendar sign-in talks only to Google, and only to read your events.)
 
 - Your microphone and system audio, for live and full-recording transcription.
 - Transcripts, rough notes, invitee names, and notes, to write notes, find names, topics, chapters, and tags, and to answer questions.
@@ -519,8 +518,9 @@ The app automatically raises a quiet microphone by up to 12 dB while recording. 
 
 ### Calendar is stale or empty
 
-- Check the status line in **Settings > Calendar & Drive**. "Stale: last synced …" means `calendar.json` is older than 24 hours. Say "Sync my calendar for GrokNola" in Cursor, or run `/loop 30m sync my calendar for GrokNola`, then click **Reload**.
-- "calendar.json could not be read" means the file is malformed. Sync again.
+- Check the status line in **Settings > Calendar & Drive**, then click **Reload**.
+- "Google access ended" means the sign-in was revoked or expired. Click **Connect Google Calendar** again.
+- "Google sign-in timed out" means the browser step was not finished within 5 minutes. Try again.
 - For Apple Calendar, allow the Calendar permission and set the source to **Apple Calendar** or **Automatic**.
 
 ### Google Drive copies are missing

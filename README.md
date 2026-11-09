@@ -30,9 +30,8 @@ certificate in the login keychain (with a warning), else to ad hoc signing. Set
 The app is signed with the Hardened Runtime and only the entitlements in
 `Resources/GrokNola.entitlements` (microphone and calendars).
 
-The build does not install the Cursor calendar-sync skill unless you ask:
-`INSTALL_CURSOR_SKILL=1 ./scripts/build-app.sh`. If your installed copy differs,
-it shows the diff and asks before replacing it.
+Google Calendar sign-in needs an OAuth client, which the build reads from the environment or
+`scripts/google-oauth.env`; see [One-time OAuth client setup](#one-time-oauth-client-setup).
 
 The app icon is `Resources/AppIcon.icns`, built from `Resources/AppIcon-master.png` (shaped by `scripts/shape-icon.swift`; other concepts in `Resources/icon-options/`).
 
@@ -89,67 +88,49 @@ Pick the source in **Settings > Calendar & Drive**:
 
 | Source | Reads |
 | --- | --- |
-| **Automatic** (default) | `calendar.json` when it was synced in the last 24 hours, else Apple Calendar when allowed, else a stale `calendar.json` |
-| **Google via Cursor** | `calendar.json` only |
+| **Automatic** (default) | Google Calendar when connected, else Apple Calendar when allowed |
+| **Google Calendar** | Your primary Google Calendar, through the app's own sign-in |
 | **Apple Calendar** | EventKit (needs the Calendar permission) |
 | **None** | Nothing |
 
-### Google Calendar through Cursor
+### Google Calendar sign-in
 
-When Apple Calendar is not available (for example on a managed Mac) and
-Google's private iCal link is off, a Cursor agent can read Google Calendar
-through an MCP server and write a local file. GrokNola only reads the file:
-no Google sign-in and no network access in the app.
+**Settings > Calendar & Drive > Connect Google Calendar** signs in entirely on this Mac
+(`Sources/GrokNotes/Speakers/GoogleOAuth.swift`): the system browser opens Google's consent page,
+which redirects to a one-time listener on `127.0.0.1` (OAuth 2.0 for installed apps, with PKCE and a
+`state` check). There is no backend and no web view.
 
-1. Install the skill: `mkdir -p ~/.cursor/skills && cp -R skills/grok-notes-calendar-sync ~/.cursor/skills/`
-2. Connect a Google Calendar MCP server in Cursor Settings > MCP.
-3. In Cursor, say **"Sync my calendar for GrokNola"**
-   (Settings > Calendar & Drive > **Copy sync prompt** copies it).
-4. To keep it fresh while Cursor is open: `/loop 30m sync my calendar for GrokNola`.
+- Scope: `calendar.events.readonly`, plus `openid email` to show the account.
+- The refresh token is a Keychain item (service `dev.local.groknotes`, account `google_refresh_token`).
+  Access tokens and events stay in memory and are never written to disk.
+- Events from 6 hours ago through the end of tomorrow are fetched from the primary calendar every
+  5 minutes, on wake, and on **Reload** (`GoogleCalendarSource.swift`). Cancelled and declined events
+  are left out. **Disconnect Google** revokes the grant at Google and deletes the Keychain item.
+- The current meeting is the timed event that overlaps now (from 10 minutes before its start to its
+  end), preferring events with other invitees. A Meet, Zoom, or Teams link names the meeting app when
+  no running app was detected.
 
-GrokNola watches the file and reloads it within a minute of a change.
-Settings shows the status, for example "Google via Cursor · synced 12 min ago · 14 events".
+#### One-time OAuth client setup
 
-### calendar.json contract
+The repo has no OAuth client. To build with Google sign-in:
 
-Path: `~/Library/Application Support/GrokNotes/calendar.json`
-(override with the `GROK_NOTES_CALENDAR_FILE` environment variable for testing).
-Writers must replace it atomically: write a temp file in the same folder, then rename it.
+1. In a Google Cloud project owned by your organization, enable the **Google Calendar API**.
+2. Configure the OAuth consent screen with user type **Internal**, so only accounts in your Workspace
+   can sign in and no Google verification is needed. Add the scope `.../auth/calendar.events.readonly`.
+3. Create an OAuth client ID of type **Desktop app**.
+4. Give `scripts/build-app.sh` its ID and secret, either as environment variables or in the gitignored
+   `scripts/google-oauth.env`:
 
-```json
-{
-  "version": 1,
-  "source": "google-calendar-mcp",
-  "syncedAt": "2026-11-04T20:00:00Z",
-  "timeZone": "America/Los_Angeles",
-  "rangeStart": "2026-11-03T00:00:00-08:00",
-  "rangeEnd": "2026-11-12T00:00:00-08:00",
-  "events": [
-    {
-      "id": "abc123",
-      "title": "Pricing sync",
-      "start": "2026-11-04T10:00:00-08:00",
-      "end": "2026-11-04T10:30:00-08:00",
-      "allDay": false,
-      "attendees": [{"name": "Yemi A", "email": "yemi@example.com", "self": false, "response": "accepted"}],
-      "organizer": {"name": "Yemi A", "email": "yemi@example.com"},
-      "conferenceURL": "https://meet.google.com/abc-defg-hij",
-      "location": "Room 4",
-      "description": "Optional, truncated to 2000 characters"
-    }
-  ]
-}
-```
+   ```
+   GROKNOLA_GOOGLE_CLIENT_ID=1234-abc.apps.googleusercontent.com
+   GROKNOLA_GOOGLE_CLIENT_SECRET=GOCSPX-...
+   ```
 
-- Only `id`, `title`, `start`, and `end` are required.
-- Times are ISO 8601 with an offset (fractional seconds allowed). All-day events use
-  `YYYY-MM-DD` dates with an exclusive end, interpreted in `timeZone`.
-- Events you declined (`self: true`, `response: "declined"`) are ignored. Entries that
-  cannot be read are skipped and counted in the Settings status.
-- The current meeting is the timed event that overlaps now (from 10 minutes before
-  its start to its end), preferring events with other invitees. Invitee names come
-  from `name`, else the email's local part; `self` is left out. A Meet, Zoom, or Teams
-  `conferenceURL` names the meeting app when no running app was detected.
+The script writes them into the built `Info.plist` only (`GNGoogleClientID`, `GNGoogleClientSecret`).
+Google does not treat a desktop client's secret as confidential; PKCE protects the sign-in. Without
+them the build still works and Settings says Google sign-in is not configured.
+
+Older versions read a `calendar.json` written by a Cursor agent. GrokNola deletes that file at launch.
 
 ## Ask across notes
 

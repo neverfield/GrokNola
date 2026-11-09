@@ -17,7 +17,7 @@ struct UpNextCard: View {
     private func content(now: Date) -> some View {
         if calendarSource == .none {
             EmptyView()
-        } else if calendars.active == .none || (calendars.active == .file && calendars.file == nil) {
+        } else if calendars.active == .none || (calendars.active == .google && calendars.google.snapshot == nil) {
             setupHint
         } else {
             card(now: now)
@@ -27,8 +27,9 @@ struct UpNextCard: View {
     private var setupHint: some View {
         HStack(spacing: GrokSpacing.sm) {
             Image(systemName: "calendar.badge.plus").foregroundStyle(GrokColors.inkMuted)
-            Text(calendars.fileError.map { "calendar.json could not be read: \($0)" }
-                 ?? "See what's next here: in Cursor, say “\(CalendarHub.syncPrompt)”.")
+            Text(calendars.active == .google
+                 ? (calendars.google.error ?? "Loading Google Calendar…")
+                 : "See what's next here: connect Google Calendar or allow Apple Calendar.")
                 .foregroundStyle(GrokColors.inkMuted)
                 .lineLimit(1)
             SettingsLink { Text("Calendar settings") }
@@ -66,8 +67,8 @@ struct UpNextCard: View {
                             .foregroundStyle(GrokColors.inkMuted)
                     }
                 }
-                if calendars.active == .file, calendars.isStale {
-                    Label("Calendar last synced \(CalendarHub.ago(calendars.syncedAt)). Say “\(CalendarHub.syncPrompt)” in Cursor to refresh.", systemImage: "clock.badge.exclamationmark")
+                if calendars.active == .google, let error = calendars.google.error {
+                    Label("Google Calendar did not refresh: \(error)", systemImage: "clock.badge.exclamationmark")
                         .font(GrokTypography.captionMuted())
                         .foregroundStyle(GrokColors.inkMuted)
                 }

@@ -9,3 +9,4 @@ build/
 *.keychain-db
 calendar.json
 library-chat.json
+scripts/google-oauth.env

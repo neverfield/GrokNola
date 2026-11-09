@@ -5,7 +5,6 @@
 # CODESIGN_IDENTITY, else the certificate in the signing keychain from
 # create-signing-cert.sh, else the same certificate in the login keychain, else ad-hoc.
 # The signing keychain is unlocked (asking for its password) only while signing.
-# Set INSTALL_CURSOR_SKILL=1 to also install the calendar-sync skill into Cursor.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -56,6 +55,28 @@ else
   /usr/libexec/PlistBuddy -c "Delete :NSAccentColorName" "$APP/Contents/Info.plist" >/dev/null 2>&1 || true
 fi
 rm -rf "$ASSETS_TMP"
+
+# Google sign-in for the calendar needs an OAuth "Desktop app" client. Its ID and secret come from the
+# environment, else from the gitignored scripts/google-oauth.env (KEY=value lines), and go only into the
+# built Info.plist, never into the repo. Google does not treat a desktop client's secret as a secret.
+read_oauth_value() {
+  local name="$1" file="scripts/google-oauth.env"
+  if [ -n "${!name:-}" ]; then
+    printf '%s' "${!name}"
+  elif [ -f "$file" ]; then
+    sed -n "s/^[[:space:]]*$name[[:space:]]*=[[:space:]]*//p" "$file" | head -1 | sed -e 's/^["'\'']//' -e 's/["'\'']$//' -e 's/[[:space:]]*$//'
+  fi
+}
+GOOGLE_CLIENT_ID="$(read_oauth_value GROKNOLA_GOOGLE_CLIENT_ID)"
+GOOGLE_CLIENT_SECRET="$(read_oauth_value GROKNOLA_GOOGLE_CLIENT_SECRET)"
+if [ -n "$GOOGLE_CLIENT_ID" ] && [ -n "$GOOGLE_CLIENT_SECRET" ]; then
+  /usr/libexec/PlistBuddy -c "Add :GNGoogleClientID string $GOOGLE_CLIENT_ID" "$APP/Contents/Info.plist"
+  /usr/libexec/PlistBuddy -c "Add :GNGoogleClientSecret string $GOOGLE_CLIENT_SECRET" "$APP/Contents/Info.plist"
+  echo "Google sign-in is configured."
+else
+  echo "warning: no Google OAuth client set, so Google Calendar sign-in is off in this build." >&2
+  echo "warning: Set GROKNOLA_GOOGLE_CLIENT_ID and GROKNOLA_GOOGLE_CLIENT_SECRET, or put them in scripts/google-oauth.env." >&2
+fi
 
 identity_hash() {
   awk -v name="\"$CERT_NAME\"" 'index($0, name) { print $2; exit }'
@@ -114,37 +135,5 @@ fi
 
 codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP"
 close_signing_keychain
-
-# The calendar-sync skill is installed into Cursor only on request, and a changed copy only after review.
-CURSOR_SKILLS_DIR="${HOME}/.cursor/skills/grok-notes-calendar-sync"
-REPO_SKILL_DIR="$(pwd)/skills/grok-notes-calendar-sync"
-if [ -d "$REPO_SKILL_DIR" ]; then
-  if [ "${INSTALL_CURSOR_SKILL:-0}" = "1" ]; then
-    INSTALL=1
-    if [ -d "$CURSOR_SKILLS_DIR" ]; then
-      if diff -rq "$CURSOR_SKILLS_DIR" "$REPO_SKILL_DIR" >/dev/null 2>&1; then
-        INSTALL=0
-        echo "Cursor skill is up to date."
-      else
-        echo "The installed Cursor skill differs from the repo copy:"
-        diff -r "$CURSOR_SKILLS_DIR" "$REPO_SKILL_DIR" || true
-        INSTALL=0
-        if [ -t 0 ]; then
-          read -r -p "Replace the installed skill with the repo copy? [y/N] " answer
-          case "$answer" in [yY]*) INSTALL=1 ;; esac
-        else
-          echo "Not a terminal; left the installed skill unchanged."
-        fi
-      fi
-    fi
-    if [ "$INSTALL" = 1 ]; then
-      mkdir -p "$CURSOR_SKILLS_DIR"
-      cp -R "$REPO_SKILL_DIR/." "$CURSOR_SKILLS_DIR/"
-      echo "Installed the Cursor skill in $CURSOR_SKILLS_DIR."
-    fi
-  else
-    echo "Cursor calendar-sync skill not installed. To install it: INSTALL_CURSOR_SKILL=1 ./scripts/build-app.sh"
-  fi
-fi
 
 echo "Built $APP"

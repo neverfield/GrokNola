@@ -30,6 +30,9 @@ struct CalendarPerson: Codable, Hashable {
 
 /// One calendar event from any source.
 struct CalendarEvent: Identifiable, Hashable {
+    /// Event descriptions are cut to this many characters.
+    static let maxDescription = 2000
+
     var id: String
     var title: String
     var start: Date
@@ -71,7 +74,7 @@ struct CalendarEvent: Identifiable, Hashable {
     }
 }
 
-/// A source of calendar events: Apple Calendar or the file a Cursor agent writes.
+/// A source of calendar events: Apple Calendar or Google Calendar.
 protocol CalendarSource {
     func events(from start: Date, to end: Date) -> [CalendarEvent]
 }
@@ -108,64 +111,6 @@ enum CalendarMatch {
     }
 }
 
-// MARK: - calendar.json
-
-/// The file a Cursor agent writes from Google Calendar. See README "Calendar".
-struct CalendarFile: CalendarSource {
-    static let maxDescription = 2000
-
-    var version: Int
-    var source: String?
-    var syncedAt: Date?
-    var timeZone: TimeZone?
-    var rangeStart: Date?
-    var rangeEnd: Date?
-    var events: [CalendarEvent]
-    /// Entries that could not be read and were left out.
-    var skipped = 0
-
-    static var defaultURL: URL {
-        if let path = ProcessInfo.processInfo.environment["GROK_NOTES_CALENDAR_FILE"], !path.isEmpty {
-            return URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
-        }
-        return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("GrokNotes/calendar.json")
-    }
-
-    func events(from start: Date, to end: Date) -> [CalendarEvent] {
-        events.filter { $0.end > start && $0.start < end }
-    }
-
-    static func load(from url: URL) throws -> CalendarFile {
-        try parse(Data(contentsOf: url))
-    }
-
-    static func parse(_ data: Data) throws -> CalendarFile {
-        let raw = try JSONDecoder().decode(RawFile.self, from: data)
-        let zone = raw.timeZone.flatMap(TimeZone.init(identifier:)) ?? .current
-        var skipped = 0
-        var events: [CalendarEvent] = []
-        for entry in raw.events ?? [] {
-            if let e = entry.value, let event = e.event(in: zone) {
-                if !event.declinedBySelf { events.append(event.value) }
-            } else {
-                skipped += 1
-            }
-        }
-        events.sort { ($0.start, $0.title) < ($1.start, $1.title) }
-        return CalendarFile(
-            version: raw.version ?? 1,
-            source: raw.source,
-            syncedAt: raw.syncedAt.flatMap { CalendarDates.parse($0, in: zone)?.date },
-            timeZone: raw.timeZone.flatMap(TimeZone.init(identifier:)),
-            rangeStart: raw.rangeStart.flatMap { CalendarDates.parse($0, in: zone)?.date },
-            rangeEnd: raw.rangeEnd.flatMap { CalendarDates.parse($0, in: zone)?.date },
-            events: events,
-            skipped: skipped
-        )
-    }
-}
-
 enum CalendarDates {
     private static let withFraction: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
@@ -195,13 +140,13 @@ enum CalendarDates {
     }
 }
 
-private struct Lossy<T: Decodable>: Decodable {
+struct Lossy<T: Decodable>: Decodable {
     let value: T?
     init(from decoder: Decoder) throws { value = try? T(from: decoder) }
 }
 
 /// A time as a string, or Google's `{ "dateTime": …, "date": … }` object.
-private struct FlexibleTime: Decodable {
+struct FlexibleTime: Decodable {
     var text: String
     var zone: String?
 
@@ -226,52 +171,5 @@ private struct FlexibleTime: Decodable {
 
     func date(in fallback: TimeZone) -> (date: Date, dateOnly: Bool)? {
         CalendarDates.parse(text, in: zone.flatMap(TimeZone.init(identifier:)) ?? fallback)
-    }
-}
-
-private struct RawFile: Decodable {
-    var version: Int?
-    var source: String?
-    var syncedAt: String?
-    var timeZone: String?
-    var rangeStart: String?
-    var rangeEnd: String?
-    var events: [Lossy<RawEvent>]?
-}
-
-private struct RawEvent: Decodable {
-    var id: String
-    var title: String?
-    var start: FlexibleTime
-    var end: FlexibleTime?
-    var allDay: Bool?
-    var attendees: [Lossy<CalendarAttendee>]?
-    var organizer: CalendarPerson?
-    var conferenceURL: String?
-    var location: String?
-    var description: String?
-
-    func event(in zone: TimeZone) -> (value: CalendarEvent, declinedBySelf: Bool)? {
-        guard let start = start.date(in: zone) else { return nil }
-        let allDay = allDay ?? start.dateOnly
-        var endDate = end?.date(in: zone)?.date ?? start.date.addingTimeInterval(allDay ? 86_400 : 3600)
-        if endDate <= start.date { endDate = start.date.addingTimeInterval(allDay ? 86_400 : 0) }
-        let people = (attendees ?? []).compactMap(\.value)
-        let url = conferenceURL.flatMap(URL.init(string:)).flatMap { ["http", "https"].contains($0.scheme?.lowercased() ?? "") ? $0 : nil }
-        let title = self.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let event = CalendarEvent(
-            id: id,
-            title: title.isEmpty ? "Untitled event" : title,
-            start: start.date,
-            end: endDate,
-            allDay: allDay,
-            attendees: people,
-            organizer: organizer,
-            conferenceURL: url,
-            location: location,
-            notes: description.map { String($0.prefix(CalendarFile.maxDescription)) }
-        )
-        let declined = people.contains { $0.isSelf == true && $0.response?.lowercased() == "declined" }
-        return (event, declined)
     }
 }

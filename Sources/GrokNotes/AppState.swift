@@ -9,8 +9,8 @@ struct Permissions {
     var accessibility = false
     /// Apple Calendar access.
     var calendar = false
-    /// A fresh calendar.json from the Cursor sync.
-    var calendarFile = false
+    /// Google Calendar is connected in Settings.
+    var googleCalendar = false
 }
 
 /// Whether captured audio is kept. Read on the capture threads, set on the main actor.
@@ -304,7 +304,7 @@ final class AppState: ObservableObject {
             systemAudio: CGPreflightScreenCaptureAccess(),
             accessibility: ActiveSpeakerMonitor.isTrusted,
             calendar: calendars.apple.isAuthorized,
-            calendarFile: calendars.hasFreshFile
+            googleCalendar: calendars.googleAuth.isConnected
         )
     }
 
@@ -383,7 +383,6 @@ final class AppState: ObservableObject {
         let app = MeetingDetector.detect(micInUse: MeetingDetector.micInUse())
         notifiedDetection = app?.name ?? notifiedDetection
         notifications.clearMeetingDetected()
-        calendars.reload()
         let event = picked ?? calendars.currentEvent(at: now)
         let myName = Prefs.myName
         var meeting = Meeting(
