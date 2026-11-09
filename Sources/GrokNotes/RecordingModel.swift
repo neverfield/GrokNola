@@ -132,6 +132,8 @@ final class InputLevels: ObservableObject {
 
     @Published private(set) var mic = Source()
     @Published private(set) var system = Source()
+    /// When anyone, on either side, last spoke. Not published; read once a second.
+    private(set) var lastSpeech = Date.distantPast
 
     let micMeter = InputLevelMeter()
     let systemMeter = InputLevelMeter()
@@ -139,6 +141,7 @@ final class InputLevels: ObservableObject {
     func reset() {
         mic = Source()
         system = Source()
+        lastSpeech = .distantPast
     }
 
     func setActive(mic: Bool, system: Bool) {
@@ -158,6 +161,7 @@ final class InputLevels: ObservableObject {
     func sample(elapsed: TimeInterval, now: Date = Date()) {
         let m = micMeter.read()
         let s = systemMeter.read()
+        lastSpeech = max(lastSpeech, mic.active ? m.lastSpeech : .distantPast, system.active ? s.lastSpeech : .distantPast)
         let micSilent = now.timeIntervalSince(m.lastSignal)
         let systemQuiet = now.timeIntervalSince(s.lastSpeech)
         let micTalking = now.timeIntervalSince(m.lastSpeech) < Self.silenceWarningSeconds

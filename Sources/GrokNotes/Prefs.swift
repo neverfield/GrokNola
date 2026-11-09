@@ -14,6 +14,13 @@ enum Prefs {
     static var keepAudio: Bool { defaults.object(forKey: "keepAudio") as? Bool ?? false }
     /// Post a notification offering to start notes when a meeting app starts a call.
     static var notifyOnMeetingDetected: Bool { defaults.object(forKey: "notifyOnMeetingDetected") as? Bool ?? true }
+    /// Offer to stop a recording that seems to have outlived its call, and stop it if nobody answers.
+    static var autoStopForgotten: Bool { defaults.object(forKey: "autoStopForgotten") as? Bool ?? true }
+    /// Minutes with nobody speaking before a recording counts as forgotten.
+    static var autoStopSilenceMinutes: Int {
+        let minutes = defaults.integer(forKey: "autoStopSilenceMinutes")
+        return minutes > 0 ? minutes : 5
+    }
     /// Days to keep audio recordings. Nil keeps them until the meeting is deleted.
     static var audioRetentionDays: Int? {
         let days = defaults.integer(forKey: "audioRetentionDays")

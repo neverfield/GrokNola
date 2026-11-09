@@ -3,6 +3,8 @@ import SwiftUI
 struct RecordingSettingsPane: View {
     @EnvironmentObject private var state: AppState
     @AppStorage("echoCancellation") private var echoCancellation = true
+    @AppStorage("autoStopForgotten") private var autoStopForgotten = true
+    @AppStorage("autoStopSilenceMinutes") private var autoStopSilenceMinutes = 5
     @State private var requestedSystemAudio = false
 
     var body: some View {
@@ -10,6 +12,15 @@ struct RecordingSettingsPane: View {
             Section("Audio") {
                 Toggle("Echo cancellation", isOn: $echoCancellation)
                 SettingsCaption("Turn off when you always wear headphones.")
+            }
+
+            Section("Forgotten recordings") {
+                Toggle("Offer to stop when the call seems over", isOn: $autoStopForgotten)
+                Picker("Nobody speaking for", selection: $autoStopSilenceMinutes) {
+                    ForEach([3, 5, 10, 15, 30], id: \.self) { Text("\($0) minutes").tag($0) }
+                }
+                .disabled(!autoStopForgotten)
+                SettingsCaption("GrokNola asks when the call window closes, when nobody speaks for this long, or when the calendar meeting has ended and the call is quiet. Without an answer, it stops and writes notes 2 minutes later. A new time applies from the next recording.")
             }
 
             Section("Permissions") {

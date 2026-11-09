@@ -1,18 +1,24 @@
 import AppKit
 import UserNotifications
 
-/// Posts "Notes ready", "Processing failed" and "Call detected" notifications, and routes clicks back into the app.
+/// Posts "Notes ready", "Processing failed", "Call detected" and "Still recording?" notifications, and routes
+/// clicks back into the app.
 /// Authorization is requested the first time a notification is posted. When it is denied, posting does nothing.
 @MainActor
 final class AppNotifications: NSObject {
     private enum Category {
         static let notes = "notes"
         static let meetingDetected = "meetingDetected"
+        static let callEnded = "callEnded"
     }
 
     private enum Action {
         static let start = "start"
+        static let stop = "stop"
+        static let keep = "keep"
     }
+
+    private static let callEndedID = "call-ended"
 
     nonisolated private static let meetingKey = "meetingID"
 
@@ -30,10 +36,28 @@ final class AppNotifications: NSObject {
         guard let center else { return }
         center.delegate = self
         let start = UNNotificationAction(identifier: Action.start, title: "Start Notes", options: [.foreground])
+        let stop = UNNotificationAction(identifier: Action.stop, title: "Stop Now", options: [])
+        let keep = UNNotificationAction(identifier: Action.keep, title: "Keep Recording", options: [])
         center.setNotificationCategories([
             UNNotificationCategory(identifier: Category.notes, actions: [], intentIdentifiers: []),
             UNNotificationCategory(identifier: Category.meetingDetected, actions: [start], intentIdentifiers: []),
+            UNNotificationCategory(identifier: Category.callEnded, actions: [stop, keep], intentIdentifiers: []),
         ])
+    }
+
+    /// Asks whether to stop a recording that seems to have outlived its call.
+    func callSeemsEnded(_ message: String, meetingID: UUID) {
+        post(
+            id: Self.callEndedID,
+            title: "Still recording?",
+            body: "\(message) GrokNola will stop and write notes in 2 minutes.",
+            category: Category.callEnded,
+            meetingID: meetingID
+        )
+    }
+
+    func clearCallEnded() {
+        center?.removeDeliveredNotifications(withIdentifiers: [Self.callEndedID])
     }
 
     func notesReady(_ meeting: Meeting, failedSteps: [ProcessingProgress.Step]) {
@@ -86,8 +110,13 @@ final class AppNotifications: NSObject {
     }
 
     fileprivate func handle(action: String, meetingID: UUID?) {
-        bringForward()
         guard let app else { return }
+        switch action {
+        case Action.stop: return app.stopForgottenRecording()
+        case Action.keep: return app.keepForgottenRecording()
+        default: break
+        }
+        bringForward()
         if action == Action.start {
             Task { await app.startMeeting() }
         } else if let meetingID {

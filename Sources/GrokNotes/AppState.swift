@@ -34,11 +34,20 @@ private final class RecordingSession {
     var rejectedLive: [String: String] = [:]
     var hasSystemAudio = false
     var timer: Timer?
+    /// The meeting app whose call window shows whether the call is still on. Found later when recording
+    /// started before the call window opened.
+    var watchedApp: MeetingDetector.App?
+    var callWindowOpen: Bool?
+    var eventEnd: Date?
+    var endWatcher = EndOfCallWatcher(silence: TimeInterval(Prefs.autoStopSilenceMinutes * 60))
+    /// The "Still recording?" banner, while one is showing.
+    var endPromptBanner: UUID?
 
     init(meetingID: UUID, start: Date, app: MeetingDetector.App?) {
         self.meetingID = meetingID
         self.start = start
         self.app = app
+        watchedApp = app
     }
 }
 
@@ -228,6 +237,8 @@ final class AppState: ObservableObject {
     func dismissBanner(_ id: UUID) {
         bannerTimers.removeValue(forKey: id)?.cancel()
         banners.removeAll { $0.id == id }
+        // Closing "Still recording?" answers it: keep recording.
+        if let s = session, s.endPromptBanner == id { keepForgottenRecording() }
     }
 
     func dismissAllBanners() {
@@ -362,6 +373,7 @@ final class AppState: ObservableObject {
         selectedID = meeting.id
 
         let s = RecordingSession(meetingID: meeting.id, start: now, app: app)
+        s.eventEnd = event?.end
         s.keyterms = Array(uniqueNames(meeting.attendees + Prefs.knownPeople + [myName]).filter { $0.count <= 50 }.prefix(100))
         session = s
         recordingID = meeting.id
@@ -477,6 +489,7 @@ final class AppState: ObservableObject {
         guard let s = session else { return }
         let id = s.meetingID
         s.identifier?.finish()
+        clearForgottenPrompt(s)
         session = nil
         recordingID = nil
         // Show progress right away; draining the streams can take a few seconds.
@@ -605,6 +618,63 @@ final class AppState: ObservableObject {
         recording.setElapsed(elapsed)
         s.identifier?.tick(at: elapsed)
         if seconds % 30 == 0 { save(s.meetingID) }
+        checkForgotten(s, pollWindow: seconds % 3 == 0)
+    }
+
+    // MARK: Forgotten recordings
+
+    /// Asks whether to stop when the call seems over, and stops when nobody answers in time.
+    private func checkForgotten(_ s: RecordingSession, pollWindow: Bool) {
+        guard Prefs.autoStopForgotten else { return }
+        let now = Date()
+        if pollWindow {
+            if s.watchedApp == nil { s.watchedApp = MeetingDetector.detect(micInUse: false) }
+            s.callWindowOpen = s.watchedApp.flatMap(MeetingDetector.callWindowOpen(for:))
+        }
+        let event = s.endWatcher.check(
+            now: now,
+            lastSpeech: max(recording.levels.lastSpeech, s.start),
+            callWindowOpen: pollWindow ? s.callWindowOpen : nil,
+            appName: s.watchedApp?.name,
+            eventEnd: s.eventEnd
+        )
+        switch event {
+        case .ask(let prompt)?:
+            let message = "\(prompt.reason.message) Stopping and writing notes in 2 minutes."
+            showBanner(
+                message,
+                severity: .warning,
+                action: BannerItem.Action(label: "Keep Recording") { [weak self] in self?.keepForgottenRecording() }
+            )
+            s.endPromptBanner = banners.last { $0.message == message }?.id
+            notifications.callSeemsEnded(prompt.reason.message, meetingID: s.meetingID)
+        case .withdraw?:
+            clearForgottenPrompt(s)
+        case .stop?:
+            stopForgottenRecording()
+        case nil:
+            break
+        }
+    }
+
+    /// Stops the recording the "Still recording?" prompt asked about.
+    func stopForgottenRecording() {
+        guard session != nil else { return }
+        Task { await stopMeeting() }
+    }
+
+    /// Keeps recording after "Still recording?", and holds off asking again for a while.
+    func keepForgottenRecording() {
+        guard let s = session else { return }
+        s.endWatcher.keepRecording(now: Date())
+        clearForgottenPrompt(s)
+    }
+
+    private func clearForgottenPrompt(_ s: RecordingSession) {
+        notifications.clearCallEnded()
+        guard let id = s.endPromptBanner else { return }
+        s.endPromptBanner = nil
+        dismissBanner(id)
     }
 
     // MARK: Live speaker names

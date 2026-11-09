@@ -85,6 +85,18 @@ If a step fails, the reason appears under the steps. Click **Retry** to run only
 
 If you stop without any transcript or notes, a message says "Nothing was recorded, so the meeting was discarded."
 
+### If you forget to stop
+
+GrokNola asks "Still recording?" when the call seems to be over:
+
+- The call window closed, or the meeting app quit. This works for Zoom meetings, Slack huddles, and Google Meet tabs, and needs the Screen & System Audio Recording permission. For Teams, Webex, and FaceTime it notices only when the app quits.
+- Nobody spoke on either side for 5 minutes.
+- The calendar meeting ended more than 2 minutes ago and nobody spoke for 2 minutes.
+
+The question shows as a message at the top of the window and as a notification. Choose **Keep Recording**, or close the message, to carry on; it will not ask again for 10 minutes. Choose **Stop Now** in the notification to stop. If you do not answer, GrokNola stops and writes the notes 2 minutes later. When someone speaks again, or the call window comes back, the question goes away by itself.
+
+Turn this off, or change how long a silence counts, in **Settings > Recording > Forgotten recordings**.
+
 ### Notifications
 
 When processing finishes and you are not looking at that meeting, a notification says "Notes ready — <title>". Click it to open the meeting. If writing the notes failed, the notification says so instead, and the meeting keeps its step list with **Retry**. Notifications need permission, which macOS asks for the first time one is sent. Change it later in **System Settings > Notifications > GrokNola**.

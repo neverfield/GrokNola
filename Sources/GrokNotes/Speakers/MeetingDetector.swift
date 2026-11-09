@@ -84,6 +84,20 @@ enum MeetingDetector {
             ?? candidates.first
     }
 
+    /// Whether `app` still has its call open, for noticing a recording left running after the call.
+    /// False once the app quits. Nil when it cannot tell: no Screen Recording permission, or an app such as
+    /// Teams whose call window has no known title, since the microphone is always in use while recording.
+    static func callWindowOpen(for app: App) -> Bool? {
+        guard let running = NSRunningApplication(processIdentifier: app.pid), !running.isTerminated else { return false }
+        guard CGPreflightScreenCaptureAccess() else { return nil }
+        let titles = windowTitlesByPID()[app.pid] ?? []
+        if app.isBrowser {
+            return titles.contains { $0.hasPrefix("Meet - ") || $0.localizedCaseInsensitiveContains("Google Meet") }
+        }
+        guard let hints = callWindowHints[app.bundleID] else { return nil }
+        return titles.contains { title in hints.contains { title.localizedCaseInsensitiveContains($0) } }
+    }
+
     /// Window titles are only visible with the Screen Recording permission.
     private static func windowTitlesByPID() -> [pid_t: [String]] {
         guard let windows = CGWindowListCopyWindowInfo([.optionAll, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
