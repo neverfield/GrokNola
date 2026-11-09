@@ -66,4 +66,16 @@ final class EndOfCallWatcherTests: XCTestCase {
         guard case .ask(let prompt)? = check(&w, 1110, spoke: 990, eventEnd: 600) else { return XCTFail("expected a prompt") }
         XCTAssertEqual(prompt.reason, .calendarEnded)
     }
+
+    func testLongPauseAsksThenStops() {
+        var w = EndOfCallWatcher(silence: 300)
+        func paused(_ seconds: Double) -> EndOfCallWatcher.Event? {
+            w.check(now: at(seconds), lastSpeech: at(0), callWindowOpen: nil, appName: "Zoom", eventEnd: nil, pausedSince: at(0))
+        }
+        XCTAssertNil(paused(1799), "silence does not ask while paused")
+        guard case .ask(let prompt)? = paused(1800) else { return XCTFail("expected a prompt") }
+        XCTAssertEqual(prompt.reason, .pausedLong(minutes: 30))
+        XCTAssertNil(paused(1919))
+        XCTAssertEqual(paused(1920), .stop)
+    }
 }

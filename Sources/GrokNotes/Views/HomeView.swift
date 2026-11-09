@@ -67,7 +67,7 @@ struct HomeView: View {
                 state.openMeeting(id)
                 return .handled
             }
-            return .systemAction
+            return LinkPolicy.openExternal(url)
         })
         .sheet(item: $listing) { listing in
             MeetingListSheet(listing: listing) { id in

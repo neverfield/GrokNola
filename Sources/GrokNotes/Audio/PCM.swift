@@ -58,9 +58,17 @@ final class WAVWriter {
     private var firstWrite: Double?
     private var closed = false
 
+    /// The most audio a WAV header can describe, less its header. Writes past this are dropped instead of overflowing.
+    static let maxDataBytes = UInt32.max - 44
+
+    /// The file is plain until the meeting is processed and sealed, so only the owner can read it and backups skip it.
     init(url: URL) throws {
         self.url = url
-        FileManager.default.createFile(atPath: url.path, contents: Self.header(dataBytes: 0))
+        FileManager.default.createFile(atPath: url.path, contents: Self.header(dataBytes: 0), attributes: [.posixPermissions: 0o600])
+        var values = URLResourceValues()
+        values.isExcludedFromBackup = true
+        var excluded = url
+        try? excluded.setResourceValues(values)
         handle = try FileHandle(forWritingTo: url)
         handle.seekToEndOfFile()
     }
@@ -70,7 +78,7 @@ final class WAVWriter {
 
     func write(_ data: Data, at meetingTime: Double) {
         queue.async {
-            guard !self.closed else { return }
+            guard !self.closed, UInt64(self.dataBytes) + UInt64(data.count) <= UInt64(Self.maxDataBytes) else { return }
             if self.firstWrite == nil { self.firstWrite = meetingTime }
             self.handle.write(data)
             self.dataBytes += UInt32(data.count)

@@ -76,7 +76,7 @@ struct LibraryChatView: View {
                 state.openMeeting(id)
                 return .handled
             }
-            guard let link = AppLink(url) else { return .systemAction }
+            guard let link = AppLink(url) else { return LinkPolicy.openExternal(url) }
             switch link {
             case .settings: openSettings()
             case .usage: openWindow(id: "usage")

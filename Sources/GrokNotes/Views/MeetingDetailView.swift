@@ -59,7 +59,7 @@ struct MeetingDetailView: View {
                         state.toggleClip(target.meetingID, at: target.seconds)
                         return .handled
                     }
-                    guard let target = Citations.target(from: url) else { return .systemAction }
+                    guard let target = Citations.target(from: url) else { return LinkPolicy.openExternal(url) }
                     state.focusTranscript(target.meetingID, at: target.seconds)
                     return .handled
                 })

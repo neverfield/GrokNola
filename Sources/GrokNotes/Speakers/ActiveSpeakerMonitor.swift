@@ -100,7 +100,8 @@ final class ActiveSpeakerMonitor {
                 continue
             }
             scan(window) { text in
-                if let name = Self.speakerName(in: text), !ignoredNames.contains(name.lowercased()) {
+                if let name = Self.speakerName(in: text), SpeakerResolver.isPlausibleName(name),
+                   !ignoredNames.contains(name.lowercased()) {
                     speaking.insert(name)
                 }
             }

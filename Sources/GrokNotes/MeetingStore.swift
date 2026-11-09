@@ -57,9 +57,10 @@ struct MeetingStore {
         GoogleDriveExport.mirrorIfEnabled(meeting: meeting, myName: myName)
     }
 
-    /// Seals plain files left by older versions or a crash in each meeting folder under `roots`, and removes the
-    /// old local `notes.md`. Call at launch, before any recording starts. `meeting.json` is sealed here, on the
-    /// caller's actor, so it cannot race a save; recordings and frames are sealed in the background.
+    /// Seals plain files left by older versions or a crash in each meeting folder under `roots`, removes the old
+    /// local `notes.md`, and deletes leftover call-window snapshots. Call at launch, before any recording starts.
+    /// One folder that fails does not stop the others. `meeting.json` is sealed here, on the caller's actor, so it
+    /// cannot race a save; recordings are sealed in the background.
     static func sealLeftovers(in roots: [URL]) {
         let fm = FileManager.default
         var large: [URL] = []
@@ -75,11 +76,11 @@ struct MeetingStore {
                 }
             } catch {
                 NSLog("GrokNotes: could not encrypt \(dir.lastPathComponent): \(error.localizedDescription)")
-                return
             }
-            let frames = dir.appendingPathComponent("frames", isDirectory: true)
+            // Call-window snapshots are only read by the recording that took them, so any left at launch are from
+            // a crash. Delete them rather than keep screenshots of the call indefinitely.
+            try? fm.removeItem(at: dir.appendingPathComponent("frames", isDirectory: true))
             let files = [dir.appendingPathComponent("mic.wav"), dir.appendingPathComponent("system.wav")]
-                + ((try? fm.contentsOfDirectory(at: frames, includingPropertiesForKeys: nil)) ?? [])
             for file in files {
                 if file.pathExtension == "partial" { try? fm.removeItem(at: file) }
                 if ["wav", "jpg"].contains(file.pathExtension), fm.fileExists(atPath: file.path) { large.append(file) }

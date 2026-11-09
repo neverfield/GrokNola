@@ -147,7 +147,9 @@ final class AppState: ObservableObject {
         meetings = store.loadAll()
         deleteExpiredAudio()
         MeetingStore.sealLeftovers(in: [store.root, trash.root])
+        XAIClient.removeUploadLeftovers()
         tagCatalog.reconcile(with: meetings)
+        Self.sealLibraryChat()
         libraryChat = Self.loadLibraryChat()
         refreshPermissions()
         notifications.app = self
@@ -657,8 +659,17 @@ final class AppState: ObservableObject {
         // Paused: the identifier would otherwise send saved frames to Grok vision.
         if s.pausedAt == nil { s.identifier?.tick(at: elapsed) }
         if seconds % 30 == 0 { save(s.meetingID) }
+        if elapsed >= Self.maxRecordingSeconds {
+            showBanner("Recordings stop after \(Int(Self.maxRecordingSeconds / 3600)) hours. GrokNola stopped this one and is writing the notes.", severity: .info, autoDismiss: 20)
+            Task { await stopMeeting() }
+            return
+        }
         checkForgotten(s, pollWindow: seconds % 3 == 0)
     }
+
+    /// The longest recording, whether or not the forgotten-recording prompt is on. Keeps a forgotten recording
+    /// from running for days and each audio file well inside the WAV size limit.
+    static let maxRecordingSeconds: TimeInterval = 8 * 3600
 
     // MARK: Pause
 
@@ -689,6 +700,8 @@ final class AppState: ObservableObject {
         s.micStream?.resume()
         s.systemStream?.resume()
         s.snapshotter?.paused = false
+        s.endWatcher.withdraw()
+        clearForgottenPrompt(s)
         recording.levels.resume(mic: s.mic != nil, system: s.hasSystemAudio)
         s.gate.setPaused(false)
         recordingPaused = false
@@ -702,18 +715,19 @@ final class AppState: ObservableObject {
 
     /// Asks whether to stop when the call seems over, and stops when nobody answers in time.
     private func checkForgotten(_ s: RecordingSession, pollWindow: Bool) {
-        guard Prefs.autoStopForgotten, s.pausedAt == nil else { return }
+        guard Prefs.autoStopForgotten else { return }
         let now = Date()
-        if pollWindow {
+        if pollWindow, s.pausedAt == nil {
             if s.watchedApp == nil { s.watchedApp = MeetingDetector.detect(micInUse: false) }
             s.callWindowOpen = s.watchedApp.flatMap(MeetingDetector.callWindowOpen(for:))
         }
         let event = s.endWatcher.check(
             now: now,
             lastSpeech: max(recording.levels.lastSpeech, s.resumedAt ?? s.start),
-            callWindowOpen: pollWindow ? s.callWindowOpen : nil,
+            callWindowOpen: pollWindow && s.pausedAt == nil ? s.callWindowOpen : nil,
             appName: s.watchedApp?.name,
-            eventEnd: s.eventEnd
+            eventEnd: s.eventEnd,
+            pausedSince: s.pausedAt
         )
         switch event {
         case .ask(let prompt)?:
@@ -1256,13 +1270,24 @@ final class AppState: ObservableObject {
             .appendingPathComponent("GrokNotes/library-chat.json")
     }
 
+    /// The chat quotes meetings, so it is sealed like them. An older plain file is read once and sealed by `seal`.
     private static func loadLibraryChat() -> [ChatMessage] {
-        guard let data = try? Data(contentsOf: libraryChatURL) else { return [] }
+        guard let data = try? Vault.read(libraryChatURL) else { return [] }
         return (try? JSONDecoder().decode([ChatMessage].self, from: data)) ?? []
     }
 
     private func saveLibraryChat() {
-        try? JSONEncoder().encode(libraryChat).write(to: Self.libraryChatURL, options: .atomic)
+        guard let data = try? JSONEncoder().encode(libraryChat) else { return }
+        do {
+            try Vault.write(data, to: Self.libraryChatURL)
+        } catch {
+            NSLog("GrokNotes: could not save the Ask Grok history: \(error)")
+        }
+    }
+
+    /// Seals an Ask Grok history saved in plain text by an older build.
+    private static func sealLibraryChat() {
+        try? Vault.sealFile(at: libraryChatURL)
     }
 
     func copyMarkdown(_ id: UUID) {

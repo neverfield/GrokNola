@@ -194,11 +194,25 @@ struct XAIClient {
         let words: [STTWord]?
     }
 
-    /// Streams the multipart body from disk so long recordings are not loaded into memory.
+    static let uploadFilePrefix = "groknotes-"
+    static let uploadFileExtension = "multipart"
+
+    /// Removes upload bodies a crash left in the temporary folder. They hold a meeting's audio in plain form.
+    static func removeUploadLeftovers() {
+        let fm = FileManager.default
+        let tmp = fm.temporaryDirectory
+        for url in (try? fm.contentsOfDirectory(at: tmp, includingPropertiesForKeys: nil)) ?? []
+        where url.lastPathComponent.hasPrefix(uploadFilePrefix) && url.pathExtension == uploadFileExtension {
+            try? fm.removeItem(at: url)
+        }
+    }
+
+    /// Streams the multipart body from disk so long recordings are not loaded into memory. The body holds the
+    /// audio in plain form, so only the owner can read it, and it is removed after the upload or at the next launch.
     func transcribe(fileURL: URL, diarize: Bool, language: String?, keyterms: [String]) async throws -> STTResult {
-        let boundary = "groknotes-\(UUID().uuidString)"
-        let bodyURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(boundary).multipart")
-        FileManager.default.createFile(atPath: bodyURL.path, contents: nil)
+        let boundary = "\(Self.uploadFilePrefix)\(UUID().uuidString)"
+        let bodyURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(boundary).\(Self.uploadFileExtension)")
+        FileManager.default.createFile(atPath: bodyURL.path, contents: nil, attributes: [.posixPermissions: 0o600])
         defer { try? FileManager.default.removeItem(at: bodyURL) }
 
         let out = try FileHandle(forWritingTo: bodyURL)

@@ -183,7 +183,7 @@ enum SpeakerResolver {
         guard let json = extractJSONObject(reply),
               let parsed = try? JSONDecoder().decode(SnapshotReply.self, from: Data(json.utf8)),
               let mapping = parsed.mappings?.first(where: { $0.speaker == key }),
-              let name = mapping.name?.trimmingCharacters(in: .whitespaces), !name.isEmpty,
+              let name = mapping.name?.trimmingCharacters(in: .whitespaces), isPlausibleName(name),
               !isLikelyUser(name, myName: myName),
               let confidence = mapping.confidence
         else { return nil }
@@ -247,10 +247,10 @@ enum SpeakerResolver {
               let parsed = try? JSONDecoder().decode(SnapshotReply.self, from: Data(json.utf8))
         else { return [] }
 
-        let participants = uniqueNames((parsed.participants ?? []).filter { !isLikelyUser($0, myName: myName) })
+        let participants = uniqueNames((parsed.participants ?? []).filter { isPlausibleName($0) && !isLikelyUser($0, myName: myName) })
         for mapping in parsed.mappings ?? [] {
             guard unresolved.contains(mapping.speaker),
-                  let name = mapping.name?.trimmingCharacters(in: .whitespaces), !name.isEmpty,
+                  let name = mapping.name?.trimmingCharacters(in: .whitespaces), isPlausibleName(name),
                   name.caseInsensitiveCompare(myName) != .orderedSame,
                   let confidence = mapping.confidence, confidence >= 0.7
             else { continue }
@@ -272,6 +272,18 @@ enum SpeakerResolver {
               let key = remoteKeys.first, meeting.unresolvedRemoteKeys == [key]
         else { return }
         meeting.speakers[key] = SpeakerInfo(name: participants[0], attribution: .onScreen, confidence: 0.9, evidence: evidence)
+    }
+
+    /// Whether text read from a call window or the transcript can be a person's name. Accepted names are remembered
+    /// and put into later meetings' prompts, so text that reads like an instruction or a link is rejected:
+    /// at most 60 characters and 4 words of letters, spaces, and . ' ’ -, with at least one letter.
+    static func isPlausibleName(_ name: String) -> Bool {
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !n.isEmpty, n.count <= 60, n.split(separator: " ").count <= 4,
+              n.unicodeScalars.contains(where: CharacterSet.letters.contains)
+        else { return false }
+        let allowed = CharacterSet.letters.union(.init(charactersIn: " .'’-"))
+        return n.unicodeScalars.allSatisfy(allowed.contains)
     }
 
     /// The user's own tile may show their full name, their bare first name, or "(me)".
@@ -380,7 +392,7 @@ enum SpeakerResolver {
 
         for mapping in parsed.mappings {
             guard unresolved.contains(mapping.speaker),
-                  let name = mapping.name?.trimmingCharacters(in: .whitespaces), !name.isEmpty,
+                  let name = mapping.name?.trimmingCharacters(in: .whitespaces), isPlausibleName(name),
                   name.caseInsensitiveCompare(myName) != .orderedSame
             else { continue }
             let lower = name.lowercased()

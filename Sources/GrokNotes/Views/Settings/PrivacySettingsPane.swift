@@ -20,7 +20,7 @@ struct PrivacySettingsPane: View {
 
             Section("Data") {
                 Button("Show data folder") { NSWorkspace.shared.open(state.store.root) }
-                SettingsCaption("Everything stays on this Mac. Audio and text are sent only to the xAI API.")
+                SettingsCaption("Meetings are stored on this Mac. Audio, transcripts, notes, and call-window snapshots are sent to the xAI API to transcribe and write notes. When Google Drive export is on, notes are also copied to your Google Drive folder.")
                 SettingsCaption("Meetings and recordings are encrypted with a key in your Keychain (vault_key). If that Keychain item is deleted, they cannot be opened again; use Export Transcript and Audio… to keep readable copies.")
             }
 

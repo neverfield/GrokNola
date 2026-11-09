@@ -31,4 +31,25 @@ final class CitationTargetTests: XCTestCase {
         XCTAssertEqual(index(500, spans), 1)
         XCTAssertNil(index(10, []))
     }
+
+    func testLinksRejectNonFiniteAndHugeTimes() {
+        let id = UUID()
+        for seconds in ["inf", "nan", "1e999", "999999"] {
+            let cite = URL(string: "groknotes://\(Citations.host)/\(id.uuidString)/\(seconds)")!
+            let play = URL(string: "groknotes://\(Citations.playHost)/\(id.uuidString)/\(seconds)")!
+            XCTAssertNil(Citations.target(from: cite), seconds)
+            XCTAssertNil(Citations.playTarget(from: play), seconds)
+        }
+        let cite = URL(string: "groknotes://\(Citations.host)/\(id.uuidString)/125")!
+        let play = URL(string: "groknotes://\(Citations.playHost)/\(id.uuidString)/125")!
+        XCTAssertEqual(Citations.target(from: cite)?.seconds, 125)
+        XCTAssertEqual(Citations.target(from: cite)?.meetingID, id)
+        XCTAssertEqual(Citations.playTarget(from: play)?.seconds, 125)
+    }
+
+    func testLabelOfNonFiniteTimeIsZero() {
+        XCTAssertEqual(Citations.label(.infinity), "0:00")
+        XCTAssertEqual(Citations.label(.nan), "0:00")
+        XCTAssertEqual(Citations.label(125), "2:05")
+    }
 }

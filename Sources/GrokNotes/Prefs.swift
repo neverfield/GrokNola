@@ -72,9 +72,11 @@ enum Prefs {
         set { defaults.set(Array(newValue.suffix(200)), forKey: "knownPeople") }
     }
 
+    /// Remembers names confirmed in a meeting. Only plausible names are kept, since they go into later prompts.
     static func remember(_ names: [String]) {
-        var people = knownPeople
-        for name in names where !people.contains(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) {
+        var people = knownPeople.filter(SpeakerResolver.isPlausibleName)
+        for name in names where SpeakerResolver.isPlausibleName(name)
+            && !people.contains(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) {
             people.append(name)
         }
         knownPeople = people

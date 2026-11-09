@@ -17,8 +17,22 @@ Grant Screen & System Audio Recording, then relaunch the app.
 Build with Xcode 26 or later (macOS 26 SDK) so the app gets the macOS 26 window style; the build script warns on an older SDK.
 
 Permissions are tied to the code signature. Run `./scripts/create-signing-cert.sh`
-once to create a local signing certificate. The build script then uses it, so
-rebuilds keep their permissions. Set `CODESIGN_IDENTITY` to use another certificate.
+once in a terminal. It creates a self-signed certificate in a dedicated keychain,
+`~/Library/Keychains/groknola-signing.keychain-db`, with its own password, and leaves
+it locked. Each build asks for that password, unlocks the keychain only while it signs,
+then locks it and restores your keychain search list. Rebuilds keep their permissions,
+and other apps cannot sign as GrokNola without the password. The first build with the
+new certificate needs Microphone, Screen & System Audio Recording, Accessibility, and
+Calendar granted once more. Without the dedicated keychain, the build falls back to a
+certificate in the login keychain (with a warning), else to ad hoc signing. Set
+`CODESIGN_IDENTITY` to use another certificate.
+
+The app is signed with the Hardened Runtime and only the entitlements in
+`Resources/GrokNola.entitlements` (microphone and calendars).
+
+The build does not install the Cursor calendar-sync skill unless you ask:
+`INSTALL_CURSOR_SKILL=1 ./scripts/build-app.sh`. If your installed copy differs,
+it shows the diff and asks before replacing it.
 
 The app icon is `Resources/AppIcon.icns`, built from `Resources/AppIcon-master.png` (shaped by `scripts/shape-icon.swift`; other concepts in `Resources/icon-options/`).
 

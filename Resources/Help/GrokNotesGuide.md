@@ -31,7 +31,7 @@ To grant a permission:
 
 ### Keep permissions across rebuilds
 
-macOS ties privacy permissions to the app's code signature. If you build the app yourself, run `./scripts/create-signing-cert.sh` once. It creates a local certificate named "Grok Notes Local Signing" in your login keychain, and `./scripts/build-app.sh` signs every build with it, so rebuilds keep their permissions. Set `CODESIGN_IDENTITY` to use another certificate. Without a certificate, the build is signed ad hoc, the signature changes on every build, and macOS forgets the permissions.
+macOS ties privacy permissions to the app's code signature. If you build the app yourself, run `./scripts/create-signing-cert.sh` once. It creates a local certificate named "Grok Notes Local Signing" in a separate, locked keychain with its own password, and `./scripts/build-app.sh` signs every build with it (asking for that password), so rebuilds keep their permissions. Set `CODESIGN_IDENTITY` to use another certificate. Without a certificate, the build is signed ad hoc, the signature changes on every build, and macOS forgets the permissions.
 
 ## Recording a meeting
 
@@ -75,7 +75,7 @@ Click **Pause** in the bottom bar, use **Meeting > Pause Recording** (Option-Com
 
 - Nothing is recorded or transcribed. The saved audio has silence for that stretch, so playback and transcript times still match the meeting's clock. Paused time is not charged for live transcription.
 - The clock keeps running and shows **Paused**. The sidebar, Home, and the menu bar show a pause mark instead of the red dot.
-- Window snapshots stop, and GrokNola does not ask whether you forgot to stop.
+- Window snapshots stop. GrokNola does not ask whether you forgot to stop until the pause is longer than 30 minutes; then it asks "Still recording?" (see [If you forget to stop](#if-you-forget-to-stop)).
 
 Click **Resume** (Option-Command-P again) to carry on. Live speaker names may start over after a pause, as after a reconnect; the pass after the meeting names the speakers for the whole recording.
 
@@ -102,6 +102,9 @@ GrokNola asks "Still recording?" when the call seems to be over:
 - The call window closed, or the meeting app quit. This works for Zoom meetings, Slack huddles, and Google Meet tabs, and needs the Screen & System Audio Recording permission. For Teams, Webex, and FaceTime it notices only when the app quits.
 - Nobody spoke on either side for 5 minutes.
 - The calendar meeting ended more than 2 minutes ago and nobody spoke for 2 minutes.
+- The recording has been paused for more than 30 minutes.
+
+A recording stops by itself after 8 hours and writes the notes.
 
 The question shows as a message at the top of the window and as a notification. Choose **Keep Recording**, or close the message, to carry on; it will not ask again for 10 minutes. Choose **Stop Now** in the notification to stop. If you do not answer, GrokNola stops and writes the notes 2 minutes later. When someone speaks again, or the call window comes back, the question goes away by itself.
 
@@ -239,6 +242,8 @@ Facts and action items in enhanced notes end with transcript timestamps. Each ti
 - Hover a pill to read the transcript line at that time. Right-click a pill for **Play from 5:17** and **Show in Transcript**.
 
 Answers in the **Ask** tab, and action items and decisions on Home, have the same pills.
+
+Other links in notes and answers are written by Grok, so GrokNola treats them with care. Only web (`https`) and email links open, and only after GrokNola shows the address and you click **Open**. Other kinds of links show as plain text and do nothing.
 
 Clips need **Settings > Privacy & Data > Keep audio recordings after notes are written** to be on before the meeting. If it was off, a hint says "Turn on Keep audio in Settings to play clips from future meetings." Audio of past meetings cannot be recovered.
 

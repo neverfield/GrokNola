@@ -3,3 +3,9 @@ build/
 .swiftpm/
 *.xcodeproj
 .DS_Store
+.env*
+*.p12
+*.pem
+*.keychain-db
+calendar.json
+library-chat.json

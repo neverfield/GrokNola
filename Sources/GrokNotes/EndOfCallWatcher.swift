@@ -6,6 +6,7 @@ import Foundation
 /// - The meeting app's call window closed, or the app quit, after it had been seen open.
 /// - Nobody spoke on either side for `silence`.
 /// - The calendar event ended `calendarGrace` ago and nobody spoke for `calendarQuiet`.
+/// - The recording has been paused for `pauseLimit`. While paused, nothing else asks.
 ///
 /// When a signal fires it asks once and starts a countdown. Speech or a reopened call window withdraws the
 /// question. Keeping the recording holds off another question for `snooze`; a closed call window asks only once
@@ -15,12 +16,14 @@ struct EndOfCallWatcher {
         case callWindowClosed(appName: String)
         case silence(minutes: Int)
         case calendarEnded
+        case pausedLong(minutes: Int)
 
         var message: String {
             switch self {
             case .callWindowClosed(let name): "Your \(name) call seems to have ended."
             case .silence(let minutes): "Nobody has spoken for \(minutes) minutes."
             case .calendarEnded: "The meeting on your calendar has ended and the call has gone quiet."
+            case .pausedLong(let minutes): "The recording has been paused for \(minutes) minutes."
             }
         }
     }
@@ -42,6 +45,8 @@ struct EndOfCallWatcher {
     var snooze: TimeInterval = 600
     var calendarGrace: TimeInterval = 120
     var calendarQuiet: TimeInterval = 120
+    /// A pause this long counts as forgotten too; the microphone stays open while paused.
+    var pauseLimit: TimeInterval = 1800
     /// Polls in a row that must miss the call window, so a window briefly hidden while switching does not count.
     var windowMissesNeeded = 2
 
@@ -57,13 +62,21 @@ struct EndOfCallWatcher {
     }
 
     /// One poll. `callWindowOpen` is nil when the app cannot tell, for this poll or for this meeting app.
+    /// While `pausedSince` is set, only a pause longer than `pauseLimit` asks.
     mutating func check(
         now: Date,
         lastSpeech: Date,
         callWindowOpen: Bool?,
         appName: String?,
-        eventEnd: Date?
+        eventEnd: Date?,
+        pausedSince: Date? = nil
     ) -> Event? {
+        if let pausedSince {
+            if let prompt { return now >= prompt.stopAt ? .stop : nil }
+            let paused = now.timeIntervalSince(pausedSince)
+            guard now >= snoozedUntil, paused >= pauseLimit else { return nil }
+            return ask(.pausedLong(minutes: Int((paused / 60).rounded(.down))), now: now, lastSpeech: lastSpeech)
+        }
         if let open = callWindowOpen {
             if open {
                 sawWindow = true
@@ -86,6 +99,10 @@ struct EndOfCallWatcher {
             return nil
         }
         if reason.isWindow { windowReasonUsed = true }
+        return ask(reason, now: now, lastSpeech: lastSpeech)
+    }
+
+    private mutating func ask(_ reason: Reason, now: Date, lastSpeech: Date) -> Event {
         let next = Prompt(reason: reason, askedAt: now, stopAt: now.addingTimeInterval(countdown))
         prompt = next
         lastSpeechAtPrompt = lastSpeech

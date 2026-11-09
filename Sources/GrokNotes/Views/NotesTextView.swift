@@ -216,7 +216,8 @@ enum NotesRenderer {
                 if intent.contains(.strikethrough) { a[.strikethroughStyle] = NSUnderlineStyle.single.rawValue }
             }
             a[.font] = font
-            if let url = run.link {
+            // A link with a scheme that would never open shows as its text.
+            if let url = run.link, LinkPolicy.isAllowed(url) {
                 if let seconds = (Citations.playTarget(from: url) ?? Citations.target(from: url))?.seconds {
                     out.append(pill(seconds: seconds, url: url, base: base, quote: quote?(seconds)))
                     continue

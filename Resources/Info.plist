@@ -35,7 +35,7 @@
 	<key>NSAudioCaptureUsageDescription</key>
 	<string>GrokNola transcribes the other participants from your computer's audio.</string>
 	<key>NSScreenCaptureUsageDescription</key>
-	<string>GrokNola records system audio from your meeting app. It does not record your screen.</string>
+	<string>GrokNola records system audio from your meeting app. When Snapshots is on, it also takes pictures of the call window to tell who is talking; they are sent to xAI and deleted after the notes are written. It does not record video of your screen.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>GrokNola reads the current calendar event to title the meeting and know who was invited.</string>
 	<key>NSCalendarsUsageDescription</key>

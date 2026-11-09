@@ -13,12 +13,16 @@ enum Citations {
     private static let anyCitation = try! NSRegularExpression(pattern: #"\s*\[\#(time)(?:\s*[,;]\s*\#(time))*\]"#)
 
     static let playHost = "play"
+    /// The latest time a citation can point at, 48 hours. Links come from model output, so larger or
+    /// non-finite times are rejected rather than converted, which would trap.
+    static let maxSeconds: Double = 172_800
     /// Marks a citation that plays audio. The variation selector keeps it from rendering as an emoji.
     static let playGlyph = "▶\u{FE0E}"
 
     /// "5:17" or "1:02:03": no leading zero on the first unit.
     static func label(_ seconds: Double) -> String {
-        let s = max(0, Int(seconds))
+        guard seconds.isFinite else { return "0:00" }
+        let s = max(0, Int(min(seconds, maxSeconds)))
         if s >= 3600 { return String(format: "%d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60) }
         return String(format: "%d:%02d", s / 60, s % 60)
     }
@@ -78,7 +82,9 @@ enum Citations {
     private static func parse(_ url: URL, host: String) -> (meetingID: UUID, seconds: Double)? {
         guard url.scheme == LibraryAsk.linkScheme, url.host == host else { return nil }
         let parts = url.pathComponents.filter { $0 != "/" }
-        guard parts.count == 2, let id = UUID(uuidString: parts[0]), let seconds = Double(parts[1]) else { return nil }
+        guard parts.count == 2, let id = UUID(uuidString: parts[0]), let seconds = Double(parts[1]),
+              seconds.isFinite, (0...maxSeconds).contains(seconds)
+        else { return nil }
         return (id, seconds)
     }
 
