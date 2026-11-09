@@ -294,6 +294,12 @@ final class LiveSpeakerIdentifier {
         publish()
     }
 
+    /// Drops a vision request in flight, as when the recording is paused. Its answer is not used.
+    func cancelVision() {
+        visionTask?.cancel()
+        visionTask = nil
+    }
+
     /// Counts the last votes and stops. Names already reported stay with the caller.
     func finish() {
         guard !stopped else { return }

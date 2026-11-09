@@ -112,8 +112,8 @@ final class AppNotifications: NSObject {
     fileprivate func handle(action: String, meetingID: UUID?) {
         guard let app else { return }
         switch action {
-        case Action.stop: return app.stopForgottenRecording()
-        case Action.keep: return app.keepForgottenRecording()
+        case Action.stop: return app.stopForgottenRecording(meetingID)
+        case Action.keep: return app.keepForgottenRecording(meetingID)
         default: break
         }
         bringForward()

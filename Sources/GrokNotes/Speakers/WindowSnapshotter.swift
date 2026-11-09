@@ -46,6 +46,8 @@ final class WindowSnapshotter {
     private var window: SCWindow?
     private var windowCheckedAt = Date.distantPast
     private var loop: Task<Void, Never>?
+    /// While the recording is paused, no snapshot is taken or saved.
+    var paused = false
 
     init(directory: URL, start: Date, app: MeetingDetector.App?, speech: SpeechActivity) {
         self.directory = directory
@@ -60,7 +62,7 @@ final class WindowSnapshotter {
             while !Task.isCancelled {
                 try? await Task.sleep(for: Self.interval)
                 guard let self, !Task.isCancelled else { return }
-                if self.speech.isRecent(1.5) { await self.capture() }
+                if !self.paused, self.speech.isRecent(1.5) { await self.capture() }
             }
         }
     }
@@ -86,6 +88,8 @@ final class WindowSnapshotter {
         guard let image = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config),
               let jpeg = NSBitmapImageRep(cgImage: image).representation(using: .jpeg, properties: [.compressionFactor: 0.7])
         else { return }
+        // The capture may have started before a pause.
+        guard !paused else { return }
         let time = Date().timeIntervalSince(start)
         let url = directory.appendingPathComponent(String(format: "%08.1f.jpg", time))
         do {

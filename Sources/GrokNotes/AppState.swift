@@ -654,7 +654,8 @@ final class AppState: ObservableObject {
         let seconds = Int(elapsed)
         guard seconds != Int(recording.elapsed) else { return }
         recording.setElapsed(elapsed)
-        s.identifier?.tick(at: elapsed)
+        // Paused: the identifier would otherwise send saved frames to Grok vision.
+        if s.pausedAt == nil { s.identifier?.tick(at: elapsed) }
         if seconds % 30 == 0 { save(s.meetingID) }
         checkForgotten(s, pollWindow: seconds % 3 == 0)
     }
@@ -669,6 +670,8 @@ final class AppState: ObservableObject {
         s.pausedAt = Date()
         s.micStream?.pause()
         s.systemStream?.pause()
+        s.snapshotter?.paused = true
+        s.identifier?.cancelVision()
         s.endWatcher.withdraw()
         clearForgottenPrompt(s)
         recording.levels.setActive(mic: false, system: false)
@@ -685,6 +688,7 @@ final class AppState: ObservableObject {
         s.resumedAt = now
         s.micStream?.resume()
         s.systemStream?.resume()
+        s.snapshotter?.paused = false
         recording.levels.resume(mic: s.mic != nil, system: s.hasSystemAudio)
         s.gate.setPaused(false)
         recordingPaused = false
@@ -730,15 +734,16 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// Stops the recording the "Still recording?" prompt asked about.
-    func stopForgottenRecording() {
-        guard session != nil else { return }
+    /// Stops the recording the "Still recording?" prompt asked about. A notification passes its meeting, so
+    /// an old one cannot stop a later recording.
+    func stopForgottenRecording(_ meetingID: UUID? = nil) {
+        guard let s = session, meetingID.map({ $0 == s.meetingID }) ?? true else { return }
         Task { await stopMeeting() }
     }
 
     /// Keeps recording after "Still recording?", and holds off asking again for a while.
-    func keepForgottenRecording() {
-        guard let s = session else { return }
+    func keepForgottenRecording(_ meetingID: UUID? = nil) {
+        guard let s = session, meetingID.map({ $0 == s.meetingID }) ?? true else { return }
         s.endWatcher.keepRecording(now: Date())
         clearForgottenPrompt(s)
     }
