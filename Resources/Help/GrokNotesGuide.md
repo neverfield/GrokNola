@@ -67,7 +67,17 @@ The first time a call is detected, macOS asks whether GrokNola may send notifica
 - A bar at the bottom of the window shows the elapsed time, a level meter for your microphone and one for call audio, and **Stop & Write Notes**. The bars move when sound arrives, so you can see that both sides are being captured.
 - The meter bars are amber. A meter turns red when that side looks silent: your mic has had no signal for 20 seconds while others talk, or there has been no call audio for 20 seconds while you talk. Hover over it for the reason. See [No audio from your mic, or no call audio](#no-audio-from-your-mic-or-no-call-audio).
 - If the transcription connection drops, an ochre "Transcription reconnecting" message appears next to the meters. The app reconnects by itself.
-- The menu bar menu shows the meeting title, the elapsed time, **Open Notes**, and **Stop & Write Notes**.
+- The menu bar menu shows the meeting title, the elapsed time, **Open Notes**, **Pause Recording**, and **Stop & Write Notes**.
+
+### Pause
+
+Click **Pause** in the bottom bar, use **Meeting > Pause Recording** (Option-Command-P), or the menu bar menu > **Pause Recording**. While paused:
+
+- Nothing is recorded or transcribed. The saved audio has silence for that stretch, so playback and transcript times still match the meeting's clock. Paused time is not charged for live transcription.
+- The clock keeps running and shows **Paused**. The sidebar, Home, and the menu bar show a pause mark instead of the red dot.
+- Window snapshots stop, and GrokNola does not ask whether you forgot to stop.
+
+Click **Resume** (Option-Command-P again) to carry on. Live speaker names may start over after a pause, as after a reconnect; the pass after the meeting names the speakers for the whole recording.
 
 ### Stop
 
@@ -436,6 +446,7 @@ Audio settings in **Settings > Privacy & Data**:
 | Shortcut | Action |
 | --- | --- |
 | Shift-Command-R | Start notes / Stop & write notes |
+| Option-Command-P | Pause / resume recording |
 | Command-K | Ask Grok (all meetings and app help) |
 | Shift-Command-H | Home |
 | Shift-Command-U | Usage & Cost |

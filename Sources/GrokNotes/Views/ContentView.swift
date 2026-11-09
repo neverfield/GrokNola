@@ -341,7 +341,7 @@ private struct MeetingRow: View {
     private var rowIcon: some View {
         Group {
             if state.recordingID == meeting.id {
-                RecordingPulse()
+                RecordingPulse(paused: state.recordingPaused)
             } else if state.processing.contains(meeting.id) {
                 ProgressView().controlSize(.small)
             } else {
@@ -373,24 +373,38 @@ struct StartNotesBar: View {
     }
 }
 
-/// Recording status while a meeting is active: the clock, live input levels, stream health, and Stop.
+/// Recording status while a meeting is active: the clock, live input levels, stream health, Pause, and Stop.
 /// It observes neither the clock nor the levels itself; the small views inside do.
 struct RecordingStatusBar: View {
     @EnvironmentObject private var state: AppState
 
     var body: some View {
         HStack(spacing: GrokSpacing.md) {
-            RecordingPulse()
+            RecordingPulse(paused: state.recordingPaused)
             RecordingElapsedText()
                 .font(.body.monospacedDigit().weight(.medium))
                 .foregroundStyle(GrokColors.ink)
-            Text("Recording")
+            Text(state.recordingPaused ? "Paused" : "Recording")
                 .font(GrokTypography.captionMuted().weight(.medium))
-                .foregroundStyle(GrokColors.recording)
+                .foregroundStyle(state.recordingPaused ? GrokColors.inkMuted : GrokColors.recording)
 
             Spacer()
 
-            InputMeters(levels: state.recording.levels)
+            if state.recordingPaused {
+                Text("Nothing is recorded or transcribed while paused.")
+                    .font(GrokTypography.captionMuted())
+                    .foregroundStyle(GrokColors.inkMuted)
+            } else {
+                InputMeters(levels: state.recording.levels)
+            }
+
+            Button {
+                state.togglePause()
+            } label: {
+                Label(state.recordingPaused ? "Resume" : "Pause", systemImage: state.recordingPaused ? "record.circle" : "pause.fill")
+            }
+            .buttonStyle(GrokSecondaryButtonStyle(size: .small))
+            .help(state.recordingPaused ? "Resume recording (Option-Command-P)" : "Pause recording (Option-Command-P)")
 
             Button {
                 Task { await state.stopMeeting() }

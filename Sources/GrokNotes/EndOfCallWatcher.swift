@@ -92,6 +92,11 @@ struct EndOfCallWatcher {
         return .ask(next)
     }
 
+    /// Drops the open question without holding off the next one, as when the recording is paused.
+    mutating func withdraw() {
+        prompt = nil
+    }
+
     /// The user chose to keep recording.
     mutating func keepRecording(now: Date) {
         prompt = nil

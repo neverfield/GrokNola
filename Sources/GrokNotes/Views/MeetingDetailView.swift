@@ -88,10 +88,10 @@ struct MeetingDetailView: View {
                     ToolbarItemGroup(placement: .automatic) {
                         if state.recordingID == meetingID {
                             HStack(spacing: GrokSpacing.xs) {
-                                RecordingPulse()
+                                RecordingPulse(paused: state.recordingPaused)
                                 RecordingElapsedText()
                                     .font(.caption.monospacedDigit())
-                                    .foregroundStyle(GrokColors.recording)
+                                    .foregroundStyle(state.recordingPaused ? GrokColors.inkMuted : GrokColors.recording)
                             }
                         }
                     }

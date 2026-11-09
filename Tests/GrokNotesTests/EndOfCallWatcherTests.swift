@@ -52,6 +52,14 @@ final class EndOfCallWatcherTests: XCTestCase {
         XCTAssertNil(check(&w, 700, spoke: 700, window: false))
     }
 
+    func testWithdrawAsksAgainWithoutSnooze() {
+        var w = EndOfCallWatcher(silence: 300)
+        guard case .ask? = check(&w, 300) else { return XCTFail("expected a prompt") }
+        w.withdraw()
+        XCTAssertNil(w.prompt)
+        guard case .ask? = check(&w, 301) else { return XCTFail("expected a new prompt") }
+    }
+
     func testCalendarEndAsksOnceTheCallIsQuiet() {
         var w = EndOfCallWatcher(silence: 3600)
         XCTAssertNil(check(&w, 1000, spoke: 990, eventEnd: 600))

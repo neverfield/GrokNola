@@ -13,6 +13,18 @@ struct Permissions {
     var calendarFile = false
 }
 
+/// Whether captured audio is kept. Read on the capture threads, set on the main actor.
+final class RecordingGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var paused = false
+
+    var isPaused: Bool { lock.withLock { paused } }
+
+    func setPaused(_ value: Bool) {
+        lock.withLock { paused = value }
+    }
+}
+
 /// Everything that lives only while one meeting is being recorded.
 private final class RecordingSession {
     let meetingID: UUID
@@ -42,6 +54,15 @@ private final class RecordingSession {
     var endWatcher = EndOfCallWatcher(silence: TimeInterval(Prefs.autoStopSilenceMinutes * 60))
     /// The "Still recording?" banner, while one is showing.
     var endPromptBanner: UUID?
+    let gate = RecordingGate()
+    var pausedAt: Date?
+    var resumedAt: Date?
+    /// Seconds paused before the current pause, if any.
+    var pausedSeconds: TimeInterval = 0
+
+    func totalPaused(at now: Date = Date()) -> TimeInterval {
+        pausedSeconds + (pausedAt.map { now.timeIntervalSince($0) } ?? 0)
+    }
 
     init(meetingID: UUID, start: Date, app: MeetingDetector.App?) {
         self.meetingID = meetingID
@@ -77,6 +98,8 @@ final class AppState: ObservableObject {
         }
     }
     @Published private(set) var recordingID: UUID?
+    /// The recording is paused: audio is replaced with silence and not transcribed.
+    @Published private(set) var recordingPaused = false
     @Published private(set) var processing: Set<UUID> = []
     @Published private(set) var asking: Set<UUID> = []
     /// Meetings with a Find topics or Find chapters request in flight.
@@ -382,6 +405,7 @@ final class AppState: ObservableObject {
         let meetingID = meeting.id
         let micMeter = recording.levels.micMeter
         let systemMeter = recording.levels.systemMeter
+        let gate = s.gate
 
         // Remote participants: system audio, diarized.
         let system = SystemAudioCapture()
@@ -390,6 +414,11 @@ final class AppState: ObservableObject {
         let remoteSpeech = SpeechActivity()
         system.onPCM = { data in
             let t = Date().timeIntervalSince(now) - Double(data.count) / 32_000
+            // Paused audio is kept as silence, so the file stays on the meeting's clock.
+            if gate.isPaused {
+                systemWAV?.write(Data(count: data.count), at: t)
+                return
+            }
             systemStream.append(data, at: t)
             systemWAV?.write(data, at: t)
             if SpeechActivity.level(data) > InputLevelMeter.speechRMS { remoteSpeech.mark() }
@@ -421,6 +450,10 @@ final class AppState: ObservableObject {
         let micWAV = try? WAVWriter(url: dir.appendingPathComponent("mic.wav"))
         mic.onPCM = { data in
             let t = Date().timeIntervalSince(now) - Double(data.count) / 32_000
+            if gate.isPaused {
+                micWAV?.write(Data(count: data.count), at: t)
+                return
+            }
             micStream.append(data, at: t)
             micWAV?.write(data, at: t)
             micMeter.record(data)
@@ -490,8 +523,10 @@ final class AppState: ObservableObject {
         let id = s.meetingID
         s.identifier?.finish()
         clearForgottenPrompt(s)
+        let paused = s.totalPaused()
         session = nil
         recordingID = nil
+        recordingPaused = false
         // Show progress right away; draining the streams can take a few seconds.
         processing.insert(id)
         var progress = ProcessingProgress()
@@ -510,9 +545,12 @@ final class AppState: ObservableObject {
 
         let micDuration = s.micWAV?.close() ?? 0
         let systemDuration = s.systemWAV?.close() ?? 0
+        // Paused time is silence in the files but was never streamed.
+        let micStreamed = s.micStream == nil ? 0 : max(0, micDuration - paused)
+        let systemStreamed = s.systemStream == nil ? 0 : max(0, systemDuration - paused)
         UsageRecorder.recordTranscription(
             kind: .liveTranscription,
-            seconds: (s.micStream == nil ? 0 : micDuration) + (s.systemStream == nil ? 0 : systemDuration),
+            seconds: micStreamed + systemStreamed,
             context: UsageContext(kind: .liveTranscription, meetingID: s.meetingID, meetingTitle: meeting(s.meetingID)?.title)
         )
         recording.reset()
@@ -621,11 +659,46 @@ final class AppState: ObservableObject {
         checkForgotten(s, pollWindow: seconds % 3 == 0)
     }
 
+    // MARK: Pause
+
+    /// Stops keeping audio until `resumeRecording()`. The files get silence, so playback and the transcript
+    /// keep the meeting's clock; transcription and window snapshots stop.
+    func pauseRecording() {
+        guard let s = session, s.pausedAt == nil else { return }
+        s.gate.setPaused(true)
+        s.pausedAt = Date()
+        s.micStream?.pause()
+        s.systemStream?.pause()
+        s.endWatcher.withdraw()
+        clearForgottenPrompt(s)
+        recording.levels.setActive(mic: false, system: false)
+        recording.liveMe = ""
+        recording.heardLive("", key: nil, talker: nil)
+        recordingPaused = true
+    }
+
+    func resumeRecording() {
+        guard let s = session, let pausedAt = s.pausedAt else { return }
+        let now = Date()
+        s.pausedSeconds += now.timeIntervalSince(pausedAt)
+        s.pausedAt = nil
+        s.resumedAt = now
+        s.micStream?.resume()
+        s.systemStream?.resume()
+        recording.levels.resume(mic: s.mic != nil, system: s.hasSystemAudio)
+        s.gate.setPaused(false)
+        recordingPaused = false
+    }
+
+    func togglePause() {
+        recordingPaused ? resumeRecording() : pauseRecording()
+    }
+
     // MARK: Forgotten recordings
 
     /// Asks whether to stop when the call seems over, and stops when nobody answers in time.
     private func checkForgotten(_ s: RecordingSession, pollWindow: Bool) {
-        guard Prefs.autoStopForgotten else { return }
+        guard Prefs.autoStopForgotten, s.pausedAt == nil else { return }
         let now = Date()
         if pollWindow {
             if s.watchedApp == nil { s.watchedApp = MeetingDetector.detect(micInUse: false) }
@@ -633,7 +706,7 @@ final class AppState: ObservableObject {
         }
         let event = s.endWatcher.check(
             now: now,
-            lastSpeech: max(recording.levels.lastSpeech, s.start),
+            lastSpeech: max(recording.levels.lastSpeech, s.resumedAt ?? s.start),
             callWindowOpen: pollWindow ? s.callWindowOpen : nil,
             appName: s.watchedApp?.name,
             eventEnd: s.eventEnd

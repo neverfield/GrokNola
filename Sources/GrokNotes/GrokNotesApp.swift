@@ -23,6 +23,8 @@ struct GrokNotesApp: App {
                 if state.recordingID != nil {
                     Button("Stop & Write Notes") { Task { await state.stopMeeting() } }
                         .keyboardShortcut("r", modifiers: [.command, .shift])
+                    Button(state.recordingPaused ? "Resume Recording" : "Pause Recording") { state.togglePause() }
+                        .keyboardShortcut("p", modifiers: [.command, .option])
                 } else {
                     Button("Start Notes") { Task { await state.startMeeting() } }
                         .keyboardShortcut("r", modifiers: [.command, .shift])
@@ -58,7 +60,7 @@ struct GrokNotesApp: App {
                 .environmentObject(state.usage)
                 .tint(GrokColors.accent)
         } label: {
-            Image(systemName: state.recordingID != nil ? "record.circle.fill" : (state.detectedApp != nil ? "waveform.badge.exclamationmark" : "waveform"))
+            Image(systemName: state.recordingID != nil ? (state.recordingPaused ? "pause.circle.fill" : "record.circle.fill") : (state.detectedApp != nil ? "waveform.badge.exclamationmark" : "waveform"))
         }
 
         Settings {

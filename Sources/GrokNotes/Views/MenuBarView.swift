@@ -9,12 +9,13 @@ struct MenuBarView: View {
         if let id = state.recordingID {
             Text(state.meeting(id)?.title ?? "Recording")
             if let start = state.recording.startedAt {
-                Text("Recording · \(Text(start, style: .timer))")
+                Text("\(state.recordingPaused ? "Paused" : "Recording") · \(Text(start, style: .timer))")
             }
             Button("Open Notes") {
                 showWindow()
                 state.openMeeting(id)
             }
+            Button(state.recordingPaused ? "Resume Recording" : "Pause Recording") { state.togglePause() }
             Button("Stop & Write Notes") { Task { await state.stopMeeting() } }
         } else {
             Button(state.detectedApp.map { "Start Notes · \($0.name)" } ?? "Start Notes") {

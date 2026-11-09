@@ -173,6 +173,8 @@ enum GrokOpacity {
 /// `withAnimation(.repeatForever)`, which would also loop any layout change in
 /// the same transaction and make the dot slide around inside rows and toolbars.
 struct RecordingPulse: View {
+    /// A paused recording shows a still pause mark instead of the pulsing dot.
+    var paused = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let period: Double = 1.2
@@ -180,6 +182,18 @@ struct RecordingPulse: View {
     private static let containerSize: CGFloat = 16
 
     var body: some View {
+        if paused {
+            Image(systemName: "pause.circle.fill")
+                .font(.system(size: 12))
+                .foregroundStyle(GrokColors.inkMuted)
+                .frame(width: Self.containerSize, height: Self.containerSize)
+                .accessibilityLabel("Recording paused")
+        } else {
+            pulse
+        }
+    }
+
+    private var pulse: some View {
         ZStack {
             if !reduceMotion {
                 TimelineView(.animation) { context in

@@ -48,6 +48,8 @@ final class STTStream {
     private var epoch = 0
     private var attempts = 0
     private var stopping = false
+    /// Paused by the user: audio is dropped and the connection is closed until `resume()`.
+    private var paused = false
     private var doneHandler: (() -> Void)?
 
     init(config: Config) {
@@ -60,7 +62,7 @@ final class STTStream {
 
     func append(_ pcm: Data, at meetingTime: Double) {
         queue.async {
-            guard !self.stopping else { return }
+            guard !self.stopping, !self.paused else { return }
             if self.baseOffset == nil { self.baseOffset = meetingTime }
             self.buffer.append(pcm)
             if self.ready {
@@ -78,7 +80,7 @@ final class STTStream {
         queue.async {
             self.stopping = true
             self.doneHandler = completion
-            guard let task = self.task, self.ready else {
+            guard let task = self.task, self.ready, !self.paused else {
                 self.finish()
                 return
             }
@@ -86,6 +88,48 @@ final class STTStream {
             task.send(.string(#"{"type":"audio.done"}"#)) { _ in }
             self.queue.asyncAfter(deadline: .now() + 8) { self.finish() }
         }
+    }
+
+    /// Sends the audio so far, lets the server finish it, and closes the connection without reconnecting.
+    /// Nothing is sent, and nothing is billed, until `resume()`.
+    func pause() {
+        queue.async {
+            guard !self.stopping, !self.paused else { return }
+            self.paused = true
+            guard let task = self.task, self.ready else {
+                self.closePaused()
+                return
+            }
+            self.flush(force: true)
+            task.send(.string(#"{"type":"audio.done"}"#)) { _ in }
+            self.queue.asyncAfter(deadline: .now() + 8) {
+                if self.paused, self.task === task { self.closePaused() }
+            }
+        }
+    }
+
+    /// Opens a new connection whose times start at the next appended audio. Speaker numbers restart, as after a reconnect.
+    func resume() {
+        queue.async {
+            guard !self.stopping, self.paused else { return }
+            if self.task != nil { self.closePaused() }
+            self.paused = false
+            self.epoch += 1
+            self.attempts = 0
+            self.connect()
+        }
+    }
+
+    private func closePaused() {
+        commit(chunkFinals)
+        chunkFinals = []
+        task?.cancel(with: .normalClosure, reason: nil)
+        task = nil
+        ready = false
+        buffer.removeAll()
+        baseOffset = nil
+        onLive?("", nil, epoch)
+        onStatus?(nil)
     }
 
     // MARK: Connection
@@ -141,6 +185,10 @@ final class STTStream {
             finish()
             return
         }
+        if paused {
+            closePaused()
+            return
+        }
         commit(chunkFinals)
         chunkFinals = []
         task?.cancel(with: .goingAway, reason: nil)
@@ -154,7 +202,7 @@ final class STTStream {
         onStatus?("Transcription reconnecting: \(reason)")
         let delay = min(30, 1.5 * pow(2, Double(attempts - 1)))
         queue.asyncAfter(deadline: .now() + delay) {
-            if !self.stopping && self.task == nil { self.connect() }
+            if !self.stopping && !self.paused && self.task == nil { self.connect() }
         }
     }
 
@@ -217,7 +265,11 @@ final class STTStream {
             }
 
         case "transcript.done":
-            if stopping { finish() }
+            if stopping {
+                finish()
+            } else if paused {
+                closePaused()
+            }
 
         case "error":
             onStatus?("Transcription error: \(event["message"] as? String ?? "unknown")")

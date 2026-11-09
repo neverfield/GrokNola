@@ -12,6 +12,15 @@ final class InputLevelMeter: @unchecked Sendable {
     private var lastSignal = Date()
     private var lastSpeech = Date.distantPast
 
+    /// Starts the silence clocks over, after a pause in which nothing was measured.
+    func restartClocks(at now: Date = Date()) {
+        lock.withLock {
+            peak = 0
+            lastSignal = now
+            lastSpeech = now
+        }
+    }
+
     /// Called from the audio thread with each PCM16 chunk.
     func record(_ pcm: Data) {
         let rms = SpeechActivity.level(pcm)
@@ -147,6 +156,15 @@ final class InputLevels: ObservableObject {
     func setActive(mic: Bool, system: Bool) {
         self.mic.active = mic
         self.system.active = system
+        if !mic { self.mic.warning = nil; self.mic.level = 0 }
+        if !system { self.system.warning = nil; self.system.level = 0 }
+    }
+
+    /// Resumes metering after a pause, so the silence warnings do not count the paused time.
+    func resume(mic: Bool, system: Bool) {
+        micMeter.restartClocks()
+        systemMeter.restartClocks()
+        setActive(mic: mic, system: system)
     }
 
     func setStreamStatus(_ status: String?, source: AudioSource) {

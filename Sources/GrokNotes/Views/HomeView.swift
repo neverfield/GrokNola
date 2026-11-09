@@ -113,10 +113,10 @@ struct HomeView: View {
     private var recordControl: some View {
         if let id = state.recordingID {
             HStack(spacing: GrokSpacing.sm) {
-                RecordingPulse()
-                RecordingElapsedText(prefix: "Recording · ")
+                RecordingPulse(paused: state.recordingPaused)
+                RecordingElapsedText(prefix: state.recordingPaused ? "Paused · " : "Recording · ")
                     .monospacedDigit()
-                    .foregroundStyle(GrokColors.recording)
+                    .foregroundStyle(state.recordingPaused ? GrokColors.inkMuted : GrokColors.recording)
                 Button("Open Live Notes") { state.openMeeting(id) }
                     .buttonStyle(GrokSecondaryButtonStyle())
             }
@@ -534,7 +534,7 @@ private struct RecentMeetingRow: View {
     private var icon: some View {
         Group {
             if state.recordingID == meeting.id {
-                RecordingPulse()
+                RecordingPulse(paused: state.recordingPaused)
             } else if state.processing.contains(meeting.id) {
                 ProgressView().controlSize(.small)
             } else {
