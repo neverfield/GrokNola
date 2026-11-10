@@ -60,15 +60,17 @@ final class AppNotifications: NSObject {
         center?.removeDeliveredNotifications(withIdentifiers: [Self.callEndedID])
     }
 
+    /// Notifications show on the lock screen, so they never include the meeting's title or content.
+    /// The meeting ID in `userInfo` routes the click.
     func notesReady(_ meeting: Meeting, failedSteps: [ProcessingProgress.Step]) {
         let body = failedSteps.isEmpty
             ? "Click to open the notes."
             : "Notes are ready, but \(failedSteps.map { $0.title.lowercased() }.joined(separator: " and ")) failed. Click to retry."
-        post(id: "notes-\(meeting.id)", title: "Notes ready — \(meeting.title)", body: body, category: Category.notes, meetingID: meeting.id)
+        post(id: "notes-\(meeting.id)", title: "Notes ready", body: body, category: Category.notes, meetingID: meeting.id)
     }
 
-    func processingFailed(_ meeting: Meeting, message: String) {
-        post(id: "notes-\(meeting.id)", title: "Grok could not write the notes — \(meeting.title)", body: message, category: Category.notes, meetingID: meeting.id)
+    func processingFailed(_ meeting: Meeting) {
+        post(id: "notes-\(meeting.id)", title: "Grok could not write the notes", body: "Click to open the meeting and try again.", category: Category.notes, meetingID: meeting.id)
     }
 
     func meetingDetected(_ appName: String) {

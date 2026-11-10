@@ -1090,8 +1090,8 @@ final class AppState: ObservableObject {
         }
         let viewing = NSApp.isActive && selectedID == id
         if !viewing {
-            if case .failed(let message) = progress.status(.writing) {
-                notifications.processingFailed(m, message: message)
+            if case .failed = progress.status(.writing) {
+                notifications.processingFailed(m)
             } else {
                 notifications.notesReady(m, failedSteps: progress.failures.map(\.step))
             }
