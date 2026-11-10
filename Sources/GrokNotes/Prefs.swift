@@ -52,11 +52,14 @@ enum Prefs {
         set { defaults.set(newValue, forKey: "othersMuted") }
     }
     static var inferNames: Bool { defaults.object(forKey: "inferNames") as? Bool ?? true }
-    static var useSnapshots: Bool { defaults.object(forKey: "useSnapshots") as? Bool ?? true }
+    /// Save snapshots of the call window and send them to xAI to name speakers. Off unless turned on.
+    static var useSnapshots: Bool { defaults.object(forKey: "useSnapshots") as? Bool ?? false }
+    /// Read the meeting app's "who is talking" labels through Accessibility. Off unless turned on.
+    static var useAccessibilitySpeakers: Bool { defaults.object(forKey: "useAccessibilitySpeakers") as? Bool ?? false }
     /// Put names on speakers while recording, not only after the meeting.
     static var liveSpeakerID: Bool { defaults.object(forKey: "liveSpeakerID") as? Bool ?? true }
-    /// While recording, ask Grok about snapshots for a voice that stays unnamed, at most once a minute.
-    static var liveSpeakerSnapshots: Bool { defaults.object(forKey: "liveSpeakerSnapshots") as? Bool ?? true }
+    /// While recording, ask Grok about snapshots for a voice that stays unnamed, at most once a minute. Off unless turned on.
+    static var liveSpeakerSnapshots: Bool { defaults.object(forKey: "liveSpeakerSnapshots") as? Bool ?? false }
     static var exportToGoogleDrive: Bool { defaults.object(forKey: "exportToGoogleDrive") as? Bool ?? false }
     static var googleDriveSubfolder: String? { nonEmpty(defaults.string(forKey: "googleDriveSubfolder")) }
     static var autoTag: Bool { defaults.object(forKey: "autoTag") as? Bool ?? true }

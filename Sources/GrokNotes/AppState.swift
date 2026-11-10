@@ -485,7 +485,7 @@ final class AppState: ObservableObject {
         }
         recording.levels.setActive(mic: s.mic != nil, system: s.hasSystemAudio)
 
-        if let app, ActiveSpeakerMonitor.isTrusted, s.hasSystemAudio {
+        if let app, Prefs.useAccessibilitySpeakers, ActiveSpeakerMonitor.isTrusted, s.hasSystemAudio {
             let monitor = ActiveSpeakerMonitor(app: app, meetingStart: now, ignoredNames: [myName, "you"])
             monitor.begin()
             s.monitor = monitor

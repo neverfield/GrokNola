@@ -591,7 +591,7 @@ struct PermissionSummary: View {
             row("xAI API key", hasKey, "Required")
             row("Microphone", p.microphone, "Required")
             row("Screen & System Audio Recording", p.systemAudio, "Separates you from the other side")
-            row("Accessibility", p.accessibility, "Reads who is talking in Zoom, Teams, Meet, and Slack")
+            row("Accessibility", p.accessibility, "Optional. Reads who is talking, when turned on in Settings > Speakers")
             row("Calendar", p.calendar || p.googleCalendar, p.googleCalendar ? "Google Calendar" : "Titles and invitee names")
             SettingsLink { Text("Open Settings") }
                 .buttonStyle(GrokSecondaryButtonStyle(size: .small))

@@ -36,7 +36,7 @@ struct RecordingSettingsPane: View {
                     requestedSystemAudio = true
                     state.requestSystemAudio()
                 }
-                PermissionRow(title: "Accessibility", detail: "Reads who is talking in the meeting app. Without it, speakers are Me / Them.", granted: state.permissions.accessibility) {
+                PermissionRow(title: "Accessibility", detail: "Optional. Reads who is talking in the call window when that is turned on in Speakers.", granted: state.permissions.accessibility) {
                     state.requestAccessibility()
                 }
                 PermissionRow(title: "Apple Calendar", detail: "Meeting title and invitees, when Apple Calendar is the source", granted: state.permissions.calendar) {
