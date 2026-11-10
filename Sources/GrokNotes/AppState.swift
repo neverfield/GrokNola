@@ -45,6 +45,8 @@ private final class RecordingSession {
     /// Live names you cleared, by speaker key, lowercased, so the same guess does not come back.
     var rejectedLive: [String: String] = [:]
     var hasSystemAudio = false
+    /// True when echo cancellation was wanted but is off, so microphone lines that repeat the call audio are dropped.
+    var removesEcho = false
     var timer: Timer?
     /// The meeting app whose call window shows whether the call is still on. Found later when recording
     /// started before the call window opened.
@@ -459,14 +461,19 @@ final class AppState: ObservableObject {
             micWAV?.write(data, at: t)
             micMeter.record(data)
         }
+        mic.onEchoCancellationLost = { [weak self] in
+            Task { @MainActor in
+                guard let self, let s = self.session, s.meetingID == meetingID else { return }
+                s.removesEcho = true
+                self.showEchoFallbackBanner()
+            }
+        }
         do {
             let wantsEchoCancellation = Prefs.echoCancellation && s.hasSystemAudio
             try mic.start(echoCancellation: wantsEchoCancellation)
             if wantsEchoCancellation && !mic.echoCancellationActive {
-                showBanner(
-                    "Echo cancellation is not supported by your current audio devices. Use headphones so other voices are not transcribed as you.",
-                    severity: .warning
-                )
+                s.removesEcho = true
+                showEchoFallbackBanner()
             }
             s.mic = mic
             s.micStream = micStream
@@ -583,7 +590,7 @@ final class AppState: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 if source == .mic {
-                    self.recording.liveMe = text
+                    self.recording.liveMe = self.isLiveEcho(text, meetingID: meetingID) ? "" : text
                 } else {
                     self.heardLiveThem(text, speaker: speaker, epoch: epoch, meetingID: meetingID)
                 }
@@ -617,6 +624,22 @@ final class AppState: ObservableObject {
         recording.heardLive(text, key: key, talker: key == nil ? talker : nil)
     }
 
+    private func showEchoFallbackBanner() {
+        showBanner(
+            "Echo cancellation isn't available with these devices, so GrokNola removes the call audio that your mic picks up from the speakers. Headphones give the cleanest result.",
+            severity: .info,
+            autoDismiss: 15
+        )
+    }
+
+    /// True when interim microphone text repeats call audio from the last few seconds.
+    private func isLiveEcho(_ text: String, meetingID: UUID) -> Bool {
+        guard let s = session, s.meetingID == meetingID, s.removesEcho, !text.isEmpty else { return false }
+        let since = Date().timeIntervalSince(s.start) - 15
+        let recent = meeting(meetingID)?.utterances.filter { $0.source == .system && $0.end >= since }.map(\.text) ?? []
+        return EchoFilter.isEchoText(text, of: (recent + [recording.liveThem]).joined(separator: " "))
+    }
+
     private static func drain(_ stream: STTStream?) async {
         guard let stream else { return }
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
@@ -625,6 +648,7 @@ final class AppState: ObservableObject {
     }
 
     private func ingest(_ segments: [STTStream.Segment], meetingID: UUID, source: AudioSource, epoch: Int, diarized: Bool) {
+        let removesEcho = session.map { $0.meetingID == meetingID && $0.removesEcho } ?? false
         var added: [Utterance] = []
         update(meetingID) { m in
             for segment in segments {
@@ -637,8 +661,17 @@ final class AppState: ObservableObject {
                 case (.system, _): key = "s\(epoch)-\(segment.speaker ?? 0)"
                 }
                 let utterance = Utterance(source: source, speakerKey: m.aliasedKey(key), start: segment.start, end: segment.end, text: text)
+                if removesEcho, source == .mic, EchoFilter.isEcho(utterance, system: m.utterances) { continue }
                 m.insert(utterance)
                 added.append(utterance)
+            }
+            // Call audio can be transcribed after the microphone line that echoes it.
+            if removesEcho, source == .system, let from = added.map(\.start).min(), let to = added.map(\.end).max() {
+                let echoes = Set(m.utterances.filter {
+                    $0.source == .mic && $0.end >= from - EchoFilter.window && $0.start <= to + EchoFilter.window
+                        && EchoFilter.isEcho($0, system: m.utterances)
+                }.map(\.id))
+                if !echoes.isEmpty { m.utterances.removeAll { echoes.contains($0.id) } }
             }
         }
         guard meetingID == recordingID else { return }
@@ -890,6 +923,11 @@ final class AppState: ObservableObject {
             }
         } else {
             setStep(id, .transcribing, .done)
+        }
+        // Again after the batch pass, against its call-audio lines, and for lines that arrived after recording stopped.
+        if s.removesEcho {
+            let echoes = EchoFilter.echoIDs(in: m.utterances)
+            m.utterances.removeAll { echoes.contains($0.id) }
         }
         if !s.hasSystemAudio { SpeakerResolver.assignDominantMicSpeakerToMe(&m) }
 

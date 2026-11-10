@@ -11,7 +11,7 @@ struct RecordingSettingsPane: View {
         Form {
             Section("Audio") {
                 Toggle("Echo cancellation", isOn: $echoCancellation)
-                SettingsCaption("Turn off when you always wear headphones.")
+                SettingsCaption("Keeps call audio from your speakers out of your lines. When your devices can't cancel echo, GrokNola removes your lines that repeat the call instead. Turn off when you always wear headphones.")
             }
 
             Section("Forgotten recordings") {

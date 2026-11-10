@@ -499,8 +499,10 @@ Both warnings are hints. A quiet listener or a long monologue can trigger them; 
 
 ### Microphone error or echo cancellation message
 
-- With system audio on, the app uses echo cancellation so remote voices from your speakers are not transcribed as you. Some devices (for example Bluetooth headsets, or input and output at different sample rates) refuse it with error -10875. Then the app falls back to the plain microphone and shows "Echo cancellation is not supported by your current audio devices. Use headphones so other voices are not transcribed as you."
-- If you always wear headphones, turn off **Settings > Recording > Echo cancellation**.
+- With system audio on, the app uses echo cancellation so remote voices from your speakers are not transcribed as you. macOS echo cancellation works with the default input and output in **System Settings > Sound**. Some device combinations, such as some Bluetooth headsets, still refuse it.
+- Then the app records the plain microphone and shows "Echo cancellation isn't available with these devices, so GrokNola removes the call audio that your mic picks up from the speakers." Because the app also records the call audio, it drops your lines that repeat what someone on the call said at the same moment, while recording and again after the call. Short replies such as "yeah" are dropped only when the call had the same words at the same moment.
+- Your own words spoken over someone else can still be lost or mixed in. Headphones give the cleanest result.
+- If you always wear headphones, turn off **Settings > Recording > Echo cancellation**. That also turns off removing repeated call audio.
 - "Could not start the microphone" means no input device is available or another app holds it. Check **System Settings > Sound > Input**, then start again.
 - "GrokNola needs microphone access" means the Microphone permission is off. Turn it on in **System Settings > Privacy & Security > Microphone**.
 
