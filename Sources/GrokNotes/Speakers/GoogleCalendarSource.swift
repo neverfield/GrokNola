@@ -86,7 +86,7 @@ final class GoogleCalendarSource: ObservableObject {
         ]
         var request = URLRequest(url: components.url!, timeoutInterval: 30)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await Network.session.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         if status == 401 { return nil }
         guard (200..<300).contains(status) else { throw GoogleOAuth.OAuthError.server("Calendar request failed (HTTP \(status))") }

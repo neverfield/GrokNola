@@ -152,7 +152,7 @@ final class STTStream {
 
         var request = URLRequest(url: components.url!)
         request.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
-        let task = URLSession.shared.webSocketTask(with: request)
+        let task = Network.session.webSocketTask(with: request)
         task.maximumMessageSize = 16 << 20
         self.task = task
         ready = false

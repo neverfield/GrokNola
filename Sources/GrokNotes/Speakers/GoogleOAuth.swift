@@ -215,7 +215,7 @@ final class GoogleOAuth: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         request.httpBody = Data(OAuthPKCE.formEncode(form).utf8)
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await Network.session.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
             let reply = try? JSONDecoder().decode(ErrorReply.self, from: data)

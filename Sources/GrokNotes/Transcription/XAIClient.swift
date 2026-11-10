@@ -89,7 +89,7 @@ struct XAIClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["model": model, "stream": false, "messages": rawMessages])
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await Network.session.data(for: request)
         try Self.check(response, data)
         let decoded = try JSONDecoder().decode(Response.self, from: data)
         if let usage = decoded.usage {
@@ -145,10 +145,13 @@ struct XAIClient {
                 }
                 do {
                     _ = try encoded.get()
-                    let (bytes, response) = try await URLSession.shared.bytes(for: prepared)
+                    let (bytes, response) = try await Network.session.bytes(for: prepared)
                     if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
                         var data = Data()
-                        for try await byte in bytes { data.append(byte) }
+                        for try await byte in bytes {
+                            data.append(byte)
+                            if data.count >= Network.maxErrorBody { break }
+                        }
                         try Self.check(response, data)
                     }
                     lines: for try await line in bytes.lines {
@@ -174,7 +177,7 @@ struct XAIClient {
             struct Model: Decodable { let id: String }
             let data: [Model]
         }
-        let (data, response) = try await URLSession.shared.data(for: makeRequest("models", timeout: 30))
+        let (data, response) = try await Network.session.data(for: makeRequest("models", timeout: 30))
         try Self.check(response, data)
         return try JSONDecoder().decode(Response.self, from: data).data.count
     }
@@ -235,7 +238,7 @@ struct XAIClient {
         var request = makeRequest("stt", timeout: 1800)
         request.httpMethod = "POST"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        let (data, response) = try await URLSession.shared.upload(for: request, fromFile: bodyURL)
+        let (data, response) = try await Network.session.upload(for: request, fromFile: bodyURL)
         try Self.check(response, data)
         let result = try JSONDecoder().decode(STTResult.self, from: data)
         let seconds = result.duration ?? Double((try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? Int) ?? 0) / 32_000
