@@ -3,12 +3,18 @@ import Foundation
 /// Reads the same UserDefaults keys that `SettingsView` binds with `@AppStorage`.
 enum Prefs {
     static let defaultModel = "grok-4.7"
-    /// Models offered in Settings for notes. Any other id can be typed as a custom model.
+    /// The only models GrokNola uses for notes, naming, tags, and Ask Grok.
     static let notesModels = ["grok-4.7", "grok-4.6", "grok-4.3", "grok-4.20-non-reasoning"]
     private static var defaults: UserDefaults { .standard }
 
     static var myName: String { nonEmpty(defaults.string(forKey: "myName")) ?? NSFullUserName() }
-    static var model: String { nonEmpty(defaults.string(forKey: "chatModel")) ?? defaultModel }
+    /// The chosen notes model. An id that is not in `notesModels`, such as one typed in an older build, means the default.
+    static var model: String { allowedModel(defaults.string(forKey: "chatModel")) }
+
+    static func allowedModel(_ id: String?) -> String {
+        guard let id = nonEmpty(id), notesModels.contains(id) else { return defaultModel }
+        return id
+    }
     static var language: String { defaults.string(forKey: "language") ?? "en" }
     static var echoCancellation: Bool { defaults.object(forKey: "echoCancellation") as? Bool ?? true }
     static var keepAudio: Bool { defaults.object(forKey: "keepAudio") as? Bool ?? false }

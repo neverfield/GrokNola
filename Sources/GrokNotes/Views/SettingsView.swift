@@ -135,16 +135,3 @@ struct PresetPicker: View {
         }
     }
 }
-
-extension PresetPicker {
-    /// Model ids, with "(default)" after the default one.
-    init(_ title: String, models: [String], defaultModel: String, value: Binding<String>) {
-        self.init(
-            title: title,
-            options: models.map { Option(id: $0, label: $0 == defaultModel ? "\($0) (default)" : $0) },
-            emptyMeans: defaultModel,
-            customLabel: "Model ID",
-            value: value
-        )
-    }
-}

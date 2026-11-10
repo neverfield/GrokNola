@@ -26,10 +26,10 @@ struct XAIClient {
         return copy
     }
 
+    /// The API key saved in Settings. The Keychain is the only source.
     static func storedAPIKey() -> String? {
-        if let key = Keychain.get(keychainAccount), !key.isEmpty { return key }
-        if let key = ProcessInfo.processInfo.environment["XAI_API_KEY"], !key.isEmpty { return key }
-        return nil
+        guard let key = Keychain.get(keychainAccount), !key.isEmpty else { return nil }
+        return key
     }
 
     static func fromSettings() throws -> XAIClient {

@@ -20,7 +20,11 @@ struct ModelsSettingsPane: View {
             }
 
             Section("Notes") {
-                PresetPicker("Notes model", models: Prefs.notesModels, defaultModel: Prefs.defaultModel, value: $model)
+                Picker("Notes model", selection: Binding(get: { Prefs.allowedModel(model) }, set: { model = $0 })) {
+                    ForEach(Prefs.notesModels, id: \.self) { id in
+                        Text(id == Prefs.defaultModel ? "\(id) (default)" : id).tag(id)
+                    }
+                }
                 SettingsCaption("Writes notes, names speakers, suggests tags, and answers Ask Grok. Transcription uses \(XAIClient.transcribeModel).")
             }
         }

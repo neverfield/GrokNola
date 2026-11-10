@@ -5,7 +5,7 @@ GrokNola is a meeting notepad for macOS. No bot joins your call. The app listens
 ## Getting started
 
 1. Open **Settings** (Command-comma, or **Settings** in the menu bar menu).
-2. In the **Models & API** pane, under **xAI API**, paste your key into **API key** and click **Save key**. The key is stored in the macOS Keychain. Click **Test connection** to check it. ("Connected. N models available." means it works.) The app also reads an `XAI_API_KEY` environment variable when no key is saved.
+2. In the **Models & API** pane, under **xAI API**, paste your key into **API key** and click **Save key**. The key is stored in the macOS Keychain. Click **Test connection** to check it. ("Connected. N models available." means it works.) The Keychain is the only place GrokNola reads the key from.
 3. In the **General** pane, under **You**, check **Your name**. It defaults to your macOS account name. The app uses it for your speaker label and never gives your name to another speaker.
 4. In the **Recording** pane, under **Permissions**, click **Allow** next to each permission you want (see [Permissions](#permissions)). After you grant **Screen & System Audio Recording**, click **Relaunch GrokNola**.
 5. Click **Refresh status** to update the check marks.
@@ -441,9 +441,9 @@ Audio settings in **Settings > Privacy & Data**:
 
 - Transcription always uses `grok-voice-transcribe-2.0`.
 - Notes, names, tags, and answers use the model in **Settings > Models & API > Notes model** (default `grok-4.7`).
-- The model menu has **Custom…** to type any other model ID.
+- The model menu lists the only models GrokNola uses: `grok-4.7`, `grok-4.6`, `grok-4.3`, and `grok-4.20-non-reasoning`. A model ID typed in an older version is replaced by the default.
 - **Settings > General > Meeting language** (default English, `en`) sets the transcription language. Pick **Custom…** to type another language code.
-- Transcription gets your invitees and remembered people as key terms, so names are spelled right.
+- Transcription gets this meeting's invitees and your name as key terms (at most 40), so names are spelled right. Remembered people from past meetings are not sent; they are only matched on your Mac.
 
 ## Keyboard shortcuts
 
