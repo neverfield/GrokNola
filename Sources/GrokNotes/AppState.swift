@@ -228,7 +228,10 @@ final class AppState: ObservableObject {
         saveTasks[id] = nil
         guard let m = meeting(id) else { return }
         do {
-            try store.save(m, myName: Prefs.myName)
+            try store.save(m)
+            if recordingID != id {
+                GoogleDriveExport.mirrorIfEnabled(meeting: m, myName: Prefs.myName, accountEmail: calendars.googleAuth.email)
+            }
         } catch {
             showBanner("Could not save \"\(m.title)\": \(error.localizedDescription)", severity: .error)
         }

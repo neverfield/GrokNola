@@ -72,6 +72,8 @@ enum Prefs {
     static var companyDomains: Set<String> { ConsentReminder.domains(in: defaults.string(forKey: "companyDomains")) }
     static var exportToGoogleDrive: Bool { defaults.object(forKey: "exportToGoogleDrive") as? Bool ?? false }
     static var googleDriveSubfolder: String? { nonEmpty(defaults.string(forKey: "googleDriveSubfolder")) }
+    /// The Google Drive for desktop mount picked in Settings, such as `GoogleDrive-ana@example.com`. Nil chooses by account.
+    static var googleDriveMount: String? { nonEmpty(defaults.string(forKey: "googleDriveMount")) }
     static var autoTag: Bool { defaults.object(forKey: "autoTag") as? Bool ?? true }
     static var dynamicTags: Bool { defaults.object(forKey: "dynamicTags") as? Bool ?? true }
     static var defaultTemplateID: String { nonEmpty(defaults.string(forKey: "defaultTemplate")) ?? SummaryTemplate.generalID }

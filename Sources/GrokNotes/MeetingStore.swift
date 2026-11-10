@@ -50,11 +50,10 @@ struct MeetingStore {
         return try encoder.encode(meeting)
     }
 
-    func save(_ meeting: Meeting, myName: String) throws {
+    func save(_ meeting: Meeting) throws {
         let dir = directory(for: meeting.id)
         try Vault.write(Self.encode(meeting), to: dir.appendingPathComponent(Self.meetingFile))
         try? FileManager.default.removeItem(at: dir.appendingPathComponent(Self.notesFile))
-        GoogleDriveExport.mirrorIfEnabled(meeting: meeting, myName: myName)
     }
 
     /// Seals plain files left by older versions or a crash in each meeting folder under `roots`, removes the old
