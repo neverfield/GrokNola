@@ -348,7 +348,16 @@ enum SpeakerResolver {
         meeting.speakers[Meeting.meKey] = SpeakerInfo(name: nil, attribution: .me)
     }
 
-    static func inferNames(in meeting: inout Meeting, candidates: [String], myName: String, client: XAIClient, model: String) async throws {
+    /// Asks Grok which labels the transcript names. `candidates` go into the prompt; `localNames`, such as people
+    /// from past meetings, are only matched against the reply on this Mac, so they never leave it.
+    static func inferNames(
+        in meeting: inout Meeting,
+        candidates: [String],
+        localNames: [String] = [],
+        myName: String,
+        client: XAIClient,
+        model: String
+    ) async throws {
         let unresolved = meeting.unresolvedRemoteKeys
         guard !unresolved.isEmpty else { return }
 
@@ -374,7 +383,7 @@ enum SpeakerResolver {
         """
         let user = """
         User (label `me`): \(myName.isEmpty ? "unknown" : myName)
-        Candidates (calendar invitees, names shown in the meeting app, people from past meetings): \(candidates.isEmpty ? "none" : candidates.joined(separator: ", "))
+        Candidates (calendar invitees and names shown in the meeting app): \(candidates.isEmpty ? "none" : candidates.joined(separator: ", "))
         Already identified: \(identified.isEmpty ? "none" : identified.joined(separator: "; "))
         Labels to identify: \(unresolved.joined(separator: ", "))
 
@@ -396,7 +405,7 @@ enum SpeakerResolver {
                   name.caseInsensitiveCompare(myName) != .orderedSame
             else { continue }
             let lower = name.lowercased()
-            let candidate = candidates.first { $0.lowercased() == lower || $0.lowercased().hasPrefix(lower + " ") }
+            let candidate = (candidates + localNames).first { $0.lowercased() == lower || $0.lowercased().hasPrefix(lower + " ") }
             let confidence = mapping.confidence ?? 0
             // A name that is not on any list needs stronger evidence.
             guard confidence >= (candidate == nil ? 0.85 : 0.75) else { continue }

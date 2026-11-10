@@ -73,13 +73,13 @@ enum Prefs {
         defaults.string(forKey: "calendarSource").flatMap(CalendarChoice.init(rawValue:)) ?? .automatic
     }
 
-    /// Names confirmed in past meetings. Used as transcription key terms and naming candidates.
+    /// Names confirmed in past meetings. Matched on this Mac only: never sent as transcription key terms or in prompts.
     static var knownPeople: [String] {
         get { defaults.stringArray(forKey: "knownPeople") ?? [] }
         set { defaults.set(Array(newValue.suffix(200)), forKey: "knownPeople") }
     }
 
-    /// Remembers names confirmed in a meeting. Only plausible names are kept, since they go into later prompts.
+    /// Remembers names confirmed in a meeting. Only plausible names are kept.
     static func remember(_ names: [String]) {
         var people = knownPeople.filter(SpeakerResolver.isPlausibleName)
         for name in names where SpeakerResolver.isPlausibleName(name)

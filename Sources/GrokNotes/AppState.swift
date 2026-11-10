@@ -400,7 +400,7 @@ final class AppState: ObservableObject {
 
         let s = RecordingSession(meetingID: meeting.id, start: now, app: app)
         s.eventEnd = event?.end
-        s.keyterms = Array(uniqueNames(meeting.attendees + Prefs.knownPeople + [myName]).filter { $0.count <= 50 }.prefix(100))
+        s.keyterms = Self.transcriptionKeyterms(attendees: meeting.attendees, myName: myName)
         session = s
         recordingID = meeting.id
         recording.reset(startedAt: now)
@@ -527,6 +527,15 @@ final class AppState: ObservableObject {
         s.timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
         }
+    }
+
+    nonisolated static let maxKeyterms = 40
+    nonisolated static let maxKeytermLength = 40
+
+    /// Names that help transcription spell people right: this meeting's invitees and you. They go into the
+    /// streaming URL's query, so names from other meetings are never included.
+    nonisolated static func transcriptionKeyterms(attendees: [String], myName: String) -> [String] {
+        Array(uniqueNames(attendees + [myName]).filter { $0.count <= maxKeytermLength }.prefix(maxKeyterms))
     }
 
     /// Whether the event's invitees include someone outside your domains: those set in Settings, your own
@@ -961,11 +970,12 @@ final class AppState: ObservableObject {
         SpeakerResolver.assignSoleParticipant(in: &m, participants: m.attendees, evidence: "Only other invitee")
         if Prefs.inferNames {
             let candidates = uniqueNames(
-                m.attendees + namesOnScreen + (s.monitor?.observedNames ?? []) + (s.identifier?.guessedNames ?? []) + Prefs.knownPeople
+                m.attendees + namesOnScreen + (s.monitor?.observedNames ?? []) + (s.identifier?.guessedNames ?? [])
             )
             do {
                 try await SpeakerResolver.inferNames(
-                    in: &m, candidates: candidates, myName: myName, client: client.tracking(.speakerNames, m), model: model
+                    in: &m, candidates: candidates, localNames: Prefs.knownPeople, myName: myName,
+                    client: client.tracking(.speakerNames, m), model: model
                 )
             } catch {
                 namingErrors.append("Could not match names to voices: \(error.localizedDescription)")
@@ -1128,7 +1138,7 @@ final class AppState: ObservableObject {
         SpeakerResolver.assignSoleParticipant(in: &m, participants: m.attendees, evidence: "Only other invitee")
         do {
             try await SpeakerResolver.inferNames(
-                in: &m, candidates: uniqueNames(m.attendees + Prefs.knownPeople), myName: Prefs.myName,
+                in: &m, candidates: uniqueNames(m.attendees), localNames: Prefs.knownPeople, myName: Prefs.myName,
                 client: client.tracking(.speakerNames, m), model: Prefs.model
             )
         } catch {
