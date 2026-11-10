@@ -706,7 +706,7 @@ final class AppState: ObservableObject {
     // MARK: Pause
 
     /// Stops keeping audio until `resumeRecording()`. The files get silence, so playback and the transcript
-    /// keep the meeting's clock; transcription and window snapshots stop.
+    /// keep the meeting's clock; transcription, window snapshots, and reading the meeting app stop.
     func pauseRecording() {
         guard let s = session, s.pausedAt == nil else { return }
         s.gate.setPaused(true)
@@ -714,6 +714,7 @@ final class AppState: ObservableObject {
         s.micStream?.pause()
         s.systemStream?.pause()
         s.snapshotter?.paused = true
+        s.monitor?.pause()
         s.identifier?.cancelVision()
         s.endWatcher.withdraw()
         clearForgottenPrompt(s)
@@ -732,6 +733,7 @@ final class AppState: ObservableObject {
         s.micStream?.resume()
         s.systemStream?.resume()
         s.snapshotter?.paused = false
+        s.monitor?.resume()
         s.endWatcher.withdraw()
         clearForgottenPrompt(s)
         recording.levels.resume(mic: s.mic != nil, system: s.hasSystemAudio)

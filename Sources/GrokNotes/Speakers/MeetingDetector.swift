@@ -49,6 +49,22 @@ enum MeetingDetector {
         "com.tinyspeck.slackmacgap": ["Huddle"],
     ]
 
+    /// Whether the app's call window can be told apart by its title: Google Meet tabs, Zoom, and Slack huddles.
+    static func knowsCallWindowTitle(bundleID: String, isBrowser: Bool) -> Bool {
+        isBrowser || callWindowHints[bundleID] != nil
+    }
+
+    /// Whether a window title is the app's call window. Nil for an app whose call window has no known title.
+    static func isCallWindowTitle(_ title: String, bundleID: String, isBrowser: Bool) -> Bool? {
+        if isBrowser { return isMeetTitle(title) }
+        guard let hints = callWindowHints[bundleID] else { return nil }
+        return hints.contains { title.localizedCaseInsensitiveContains($0) }
+    }
+
+    private static func isMeetTitle(_ title: String) -> Bool {
+        title.hasPrefix("Meet - ") || title.localizedCaseInsensitiveContains("Google Meet")
+    }
+
     /// Returns the app that is in a call right now, or nil.
     /// Pass `micInUse` from before this app opens the microphone.
     /// With readable window titles, Zoom and Slack need a call window. Otherwise an app
@@ -63,14 +79,14 @@ enum MeetingDetector {
             let pid = app.processIdentifier
             if let name = nativeApps[id] {
                 let inCall: Bool
-                if canReadTitles, let hints = callWindowHints[id] {
-                    inCall = (titles[pid] ?? []).contains { title in hints.contains { title.localizedCaseInsensitiveContains($0) } }
+                if canReadTitles, callWindowHints[id] != nil {
+                    inCall = (titles[pid] ?? []).contains { isCallWindowTitle($0, bundleID: id, isBrowser: false) == true }
                 } else {
                     inCall = micInUse
                 }
                 if inCall { candidates.append(App(bundleID: id, name: name, pid: pid, isBrowser: false)) }
             } else if browsers.contains(id) || id.hasPrefix("com.google.Chrome.app."),
-                      (titles[pid] ?? []).contains(where: { $0.hasPrefix("Meet - ") || $0.localizedCaseInsensitiveContains("Google Meet") }) {
+                      (titles[pid] ?? []).contains(where: isMeetTitle) {
                 candidates.append(App(bundleID: id, name: "Google Meet", pid: pid, isBrowser: true))
             }
         }
@@ -91,11 +107,8 @@ enum MeetingDetector {
         guard let running = NSRunningApplication(processIdentifier: app.pid), !running.isTerminated else { return false }
         guard CGPreflightScreenCaptureAccess() else { return nil }
         let titles = windowTitlesByPID()[app.pid] ?? []
-        if app.isBrowser {
-            return titles.contains { $0.hasPrefix("Meet - ") || $0.localizedCaseInsensitiveContains("Google Meet") }
-        }
-        guard let hints = callWindowHints[app.bundleID] else { return nil }
-        return titles.contains { title in hints.contains { title.localizedCaseInsensitiveContains($0) } }
+        guard knowsCallWindowTitle(bundleID: app.bundleID, isBrowser: app.isBrowser) else { return nil }
+        return titles.contains { isCallWindowTitle($0, bundleID: app.bundleID, isBrowser: app.isBrowser) == true }
     }
 
     /// Window titles are only visible with the Screen Recording permission.
