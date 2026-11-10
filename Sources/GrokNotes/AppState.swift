@@ -519,11 +519,23 @@ final class AppState: ObservableObject {
         }
         save(meetingID)
         refreshPermissions()
+        if Prefs.consentReminder, let event, needsConsentReminder(event) {
+            showBanner(ConsentReminder.message, severity: .warning)
+        }
 
         // Ten times a second for the level meters; the once-a-second work runs when the second changes.
         s.timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
         }
+    }
+
+    /// Whether the event's invitees include someone outside your domains: those set in Settings, your own
+    /// address on the invite, and the signed-in Google account.
+    private func needsConsentReminder(_ event: CalendarEvent) -> Bool {
+        var own = Prefs.companyDomains
+        let selfEmails = event.attendees.filter { $0.isSelf == true }.compactMap(\.email) + [calendars.googleAuth.email].compactMap { $0 }
+        own.formUnion(selfEmails.compactMap(ConsentReminder.domain(of:)))
+        return ConsentReminder.hasExternalAttendees(event.attendeeEmails, ownDomains: own)
     }
 
     func stopMeeting() async {

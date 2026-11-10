@@ -60,6 +60,10 @@ enum Prefs {
     static var liveSpeakerID: Bool { defaults.object(forKey: "liveSpeakerID") as? Bool ?? true }
     /// While recording, ask Grok about snapshots for a voice that stays unnamed, at most once a minute. Off unless turned on.
     static var liveSpeakerSnapshots: Bool { defaults.object(forKey: "liveSpeakerSnapshots") as? Bool ?? false }
+    /// When a recording starts, remind you to ask for consent if invitees are outside your company.
+    static var consentReminder: Bool { defaults.object(forKey: "consentReminder") as? Bool ?? true }
+    /// Your company's email domains, typed in Settings, such as "example.com, example.org".
+    static var companyDomains: Set<String> { ConsentReminder.domains(in: defaults.string(forKey: "companyDomains")) }
     static var exportToGoogleDrive: Bool { defaults.object(forKey: "exportToGoogleDrive") as? Bool ?? false }
     static var googleDriveSubfolder: String? { nonEmpty(defaults.string(forKey: "googleDriveSubfolder")) }
     static var autoTag: Bool { defaults.object(forKey: "autoTag") as? Bool ?? true }

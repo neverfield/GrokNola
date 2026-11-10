@@ -57,7 +57,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         case .templates: 560
         case .tags: 600
         case .calendarDrive: 560
-        case .privacy: 400
+        case .privacy: 560
         case .models: 320
         }
     }

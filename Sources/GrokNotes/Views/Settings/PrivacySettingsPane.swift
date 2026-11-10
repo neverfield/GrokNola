@@ -4,9 +4,18 @@ struct PrivacySettingsPane: View {
     @EnvironmentObject private var state: AppState
     @AppStorage("keepAudio") private var keepAudio = false
     @AppStorage("audioRetentionDays") private var audioRetentionDays = 0
+    @AppStorage("consentReminder") private var consentReminder = true
+    @AppStorage("companyDomains") private var companyDomains = ""
 
     var body: some View {
         Form {
+            Section("Consent") {
+                Toggle("Remind me to ask for consent when outside people are invited", isOn: $consentReminder)
+                TextField("Company email domains", text: $companyDomains, prompt: Text("example.com, example.org"))
+                    .disabled(!consentReminder)
+                SettingsCaption("When a recording starts, GrokNola compares the invitees' email domains with these, your address on the invite, and your Google account. If it can't tell which domain is yours, it reminds you whenever the invite lists anyone.")
+            }
+
             Section("Audio") {
                 Toggle("Keep audio recordings after notes are written", isOn: $keepAudio)
                 Picker("Delete kept audio after", selection: $audioRetentionDays) {
