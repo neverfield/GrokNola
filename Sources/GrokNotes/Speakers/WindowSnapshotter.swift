@@ -43,8 +43,7 @@ final class WindowSnapshotter {
     private let directory: URL
     private let start: Date
     private let speech: SpeechActivity
-    private var window: SCWindow?
-    private var windowCheckedAt = Date.distantPast
+    private var detectedAt = Date.distantPast
     private var loop: Task<Void, Never>?
     /// While the recording is paused, no snapshot is taken or saved.
     var paused = false
@@ -100,25 +99,27 @@ final class WindowSnapshotter {
         }
     }
 
-    /// The call window: a titled call window first ("Zoom Meeting", "Huddle", "Meet - "), else the largest window.
-    /// Rechecked every 30 seconds so a call that starts after recording is still found.
+    /// The largest window of the meeting app whose title marks it as the call ("Zoom Meeting", "Huddle", "Meet - "),
+    /// read fresh on every capture so a window that stops being the call is not captured. Apps without a known
+    /// call-window title, such as Teams, are never captured.
     private func meetingWindow() async -> SCWindow? {
-        if let window, Date().timeIntervalSince(windowCheckedAt) < 30 { return window }
-        windowCheckedAt = Date()
-        if app == nil { app = MeetingDetector.detect(micInUse: true) }
+        if app == nil, Date().timeIntervalSince(detectedAt) >= 30 {
+            detectedAt = Date()
+            app = MeetingDetector.detect(micInUse: false)
+        }
         guard let app,
               let content = try? await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
-        else {
-            window = nil
-            return nil
+        else { return nil }
+        let windows = content.windows.filter { w in
+            w.owningApplication?.processID == app.pid && w.frame.width >= 320 && w.frame.height >= 240
+                && Self.isCallWindow(title: w.title, app: app)
         }
-        let windows = content.windows.filter {
-            $0.owningApplication?.processID == app.pid && $0.frame.width >= 320 && $0.frame.height >= 240
-        }
-        let callHints = ["Zoom Meeting", "Zoom Webinar", "Huddle", "Meet - ", "Google Meet", "Meeting", "Call"]
-        let titled = windows.filter { w in callHints.contains { (w.title ?? "").localizedCaseInsensitiveContains($0) } }
-        let pool = app.isBrowser ? titled : (titled.isEmpty ? windows : titled)
-        window = pool.max { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }
-        return window
+        return windows.max { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }
+    }
+
+    /// Only a window titled as the app's call is captured.
+    nonisolated static func isCallWindow(title: String?, app: MeetingDetector.App) -> Bool {
+        guard let title, !title.isEmpty else { return false }
+        return MeetingDetector.isCallWindowTitle(title, bundleID: app.bundleID, isBrowser: app.isBrowser) == true
     }
 }

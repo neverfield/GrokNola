@@ -25,4 +25,17 @@ final class CallWindowTests: XCTestCase {
         XCTAssertTrue(ActiveSpeakerMonitor.shouldScan(windowTitle: "Chat | Microsoft Teams", bundleID: teams, isBrowser: false))
         XCTAssertTrue(ActiveSpeakerMonitor.shouldScan(windowTitle: nil, bundleID: teams, isBrowser: false))
     }
+
+    func testSnapshotsNeedACallTitledWindow() {
+        let zoomApp = MeetingDetector.App(bundleID: zoom, name: "Zoom", pid: 1, isBrowser: false)
+        let teamsApp = MeetingDetector.App(bundleID: teams, name: "Microsoft Teams", pid: 2, isBrowser: false)
+        let meet = MeetingDetector.App(bundleID: chrome, name: "Google Meet", pid: 3, isBrowser: true)
+        XCTAssertTrue(WindowSnapshotter.isCallWindow(title: "Zoom Meeting", app: zoomApp))
+        XCTAssertFalse(WindowSnapshotter.isCallWindow(title: "Zoom Workplace", app: zoomApp))
+        XCTAssertFalse(WindowSnapshotter.isCallWindow(title: nil, app: zoomApp))
+        XCTAssertFalse(WindowSnapshotter.isCallWindow(title: "Meeting with Ana | Microsoft Teams", app: teamsApp))
+        XCTAssertFalse(WindowSnapshotter.isCallWindow(title: "Call", app: teamsApp))
+        XCTAssertTrue(WindowSnapshotter.isCallWindow(title: "Meet - abc-defg-hij", app: meet))
+        XCTAssertFalse(WindowSnapshotter.isCallWindow(title: "Calendar - Meeting", app: meet))
+    }
 }
