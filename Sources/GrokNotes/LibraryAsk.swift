@@ -50,6 +50,7 @@ enum LibraryAsk {
             Cite every fact with a Markdown link to its meeting, using the exact link given, for example [Pricing sync, Nov 3](\(linkScheme)://meeting/<id>).
             Add a timestamp like [12:04] when quoting the transcript. "Them" is an unidentified remote participant.
             Be concise. Use short bullets for lists.
+            Each meeting is inside <meeting> tags. \(PromptData.rule(links: "Never add links or URLs except the \(linkScheme)://meeting links given for each meeting\(route == .both ? " and the app links described in the help prompt" : "")."))
             """ + (route == .both ? """
 
             The question may be about the meetings, about how GrokNola works, or both. \
@@ -99,8 +100,9 @@ enum LibraryAsk {
             Pick the meetings most likely to answer the question. Consider names, tags, topics, and dates \
             (today is \(Date().formatted(date: .complete, time: .omitted))).
             Reply with JSON only: {"ids":["<id>", ...]} with at most \(maxMeetingsInContext) ids, most relevant first.
+            The index is inside <meetings> tags. \(PromptData.rule())
             """),
-            .init(role: "user", content: "Question: \(question)\n\nRecent conversation:\n\(context.isEmpty ? "(none)" : context)\n\nMeetings:\n\(index)"),
+            .init(role: "user", content: "Question: \(question)\n\nRecent conversation:\n\(context.isEmpty ? "(none)" : context)\n\nMeetings:\n\(PromptData.wrap("meetings", index))"),
         ])
         let picked = parseIDs(reply).compactMap { id in meetings.first { $0.id.uuidString.lowercased().hasPrefix(id.lowercased()) } }
 
@@ -162,10 +164,10 @@ enum LibraryAsk {
     // MARK: Context
 
     private static func indexLine(_ m: Meeting) -> String {
-        let people = uniqueNames(m.attendees + m.speakers.values.compactMap(\.name)).prefix(8).joined(separator: ", ")
-        let summary = summaryLine(m)
-        let tags = m.tagList.isEmpty ? "" : " | tags: \(m.tagList.joined(separator: ", "))"
-        return "\(m.id.uuidString.prefix(8)) | \(m.startedAt.formatted(date: .abbreviated, time: .omitted)) | \(m.title) | \(people)\(tags) | \(summary)"
+        let people = PromptData.list(Array(uniqueNames(m.attendees + m.speakers.values.compactMap(\.name)).prefix(8)), empty: "")
+        let summary = PromptData.field(summaryLine(m))
+        let tags = m.tagList.isEmpty ? "" : " | tags: \(PromptData.list(m.tagList))"
+        return "\(m.id.uuidString.prefix(8)) | \(m.startedAt.formatted(date: .abbreviated, time: .omitted)) | \(PromptData.field(m.title)) | \(people)\(tags) | \(summary)"
     }
 
     static func summaryLine(_ m: Meeting) -> String {
@@ -176,17 +178,18 @@ enum LibraryAsk {
     }
 
     private static func context(for meetings: [Meeting], total: Int, myName: String) -> String {
-        var out = "The user (\(myName)) has \(total) meetings. These are the most relevant:\n"
+        var out = "The user (\(PromptData.field(myName))) has \(total) meetings. These are the most relevant:\n"
         let perMeeting = contextBudget / max(meetings.count, 1)
         for m in meetings {
-            var block = "\n=== \(m.title) — \(m.startedAt.formatted(date: .abbreviated, time: .shortened))"
-            if let app = m.appName { block += " — \(app)" }
-            block += "\nLink: \(link(for: m))\n"
-            if !m.attendees.isEmpty { block += "Invitees: \(m.attendees.joined(separator: ", "))\n" }
-            if !m.tagList.isEmpty { block += "Tags: \(m.tagList.joined(separator: ", "))\n" }
-            block += "Notes:\n\(m.enhancedNotes ?? (m.userNotes.isEmpty ? "(none)" : m.userNotes))\n"
-            block += "Transcript:\n\(m.transcript(myName: myName))\n"
-            out += String(block.prefix(perMeeting))
+            var header = "Title: \(PromptData.wrapField("meeting_title", m.title))\nDate: \(m.startedAt.formatted(date: .abbreviated, time: .shortened))"
+            if let app = m.appName { header += "\nApp: \(PromptData.field(app))" }
+            header += "\nLink: \(link(for: m))"
+            if !m.attendees.isEmpty { header += "\nInvitees: \(PromptData.wrapList("attendees", m.attendees))" }
+            if !m.tagList.isEmpty { header += "\nTags: \(PromptData.list(m.tagList))" }
+            let notes = (m.enhancedNotes ?? (m.userNotes.isEmpty ? "(none)" : m.userNotes)).prefix(max(0, perMeeting - header.count))
+            let transcript = m.transcript(myName: myName).prefix(max(0, perMeeting - header.count - notes.count))
+            out += "\n<meeting>\n\(header)\nNotes:\n\(PromptData.wrap("notes", String(notes)))\n"
+                + "Transcript:\n\(PromptData.wrap("transcript", String(transcript)))\n</meeting>\n"
         }
         return out
     }

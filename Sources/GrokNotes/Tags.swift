@@ -206,23 +206,24 @@ enum TagSuggester {
         Pick only tags that clearly apply. Fewer is better: usually 1 to 3 tags in total.
         \(newRule)
         Reply with JSON only: {"tags":["<catalog tag>", ...],"new":["<new tag>", ...]}
+        \(PromptData.rule())
         """
 
-        let people = uniqueNames(meeting.speakers.values.compactMap(\.name)).joined(separator: ", ")
+        let people = uniqueNames(meeting.speakers.values.compactMap(\.name))
         var body: String
         if let notes = meeting.enhancedNotes, !notes.isEmpty {
-            body = "Notes:\n\(notes.prefix(notesBudget))"
+            body = "Notes:\n\(PromptData.wrap("notes", String(notes.prefix(notesBudget))))"
         } else {
-            body = "My rough notes:\n\(meeting.userNotes.isEmpty ? "(none)" : String(meeting.userNotes.prefix(notesBudget)))"
-            body += "\n\nTranscript excerpt:\n\(meeting.transcript(myName: myName).prefix(transcriptBudget))"
+            body = "My rough notes:\n\(PromptData.wrap("user_notes", meeting.userNotes.isEmpty ? "(none)" : String(meeting.userNotes.prefix(notesBudget))))"
+            body += "\n\nTranscript excerpt:\n\(PromptData.wrap("transcript", String(meeting.transcript(myName: myName).prefix(transcriptBudget))))"
         }
         let user = """
         Tag catalog:
         \(catalogText.isEmpty ? "(empty)" : catalogText)
 
-        Meeting: \(meeting.title)
-        Invitees: \(meeting.attendees.isEmpty ? "unknown" : meeting.attendees.joined(separator: ", "))
-        Speakers: \(people.isEmpty ? "unknown" : people)
+        Meeting: \(PromptData.wrapField("meeting_title", meeting.title))
+        Invitees: \(PromptData.wrapList("attendees", meeting.attendees))
+        Speakers: \(PromptData.wrapList("speakers", people))
 
         \(body)
         """

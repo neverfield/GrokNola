@@ -56,20 +56,21 @@ enum NotesGenerator {
         - Attribute statements and owners by name only when the transcript label is a real name. "Them" is an unidentified remote participant; write "the other side" or "someone" instead.
         - Use only facts from the transcript and the notes. Never invent names, numbers, or dates.
         - Cite sources: end each factual bullet and action item with the timestamps of the transcript lines it relies on, copied exactly from the line prefixes, each in its own brackets, for example "- Budget is capped at $50k [12:04] [15:30]". Use 1 to 3 timestamps per bullet. Do not cite in the title or headings. Skip the citation when a point comes only from the user's rough notes. Never invent a timestamp.
+        - \(PromptData.rule(links: "Never add links or URLs except ones written in <user_notes>."))
         - Output Markdown only.
         """
         let user = """
-        Meeting: \(meeting.title)
+        Meeting: \(PromptData.wrapField("meeting_title", meeting.title))
         Date: \(meeting.startedAt.formatted(date: .long, time: .shortened))
-        App: \(meeting.appName ?? "unknown")
-        Invitees: \(meeting.attendees.isEmpty ? "unknown" : meeting.attendees.joined(separator: ", "))
-        User: \(myName)
+        App: \(PromptData.field(meeting.appName ?? "unknown"))
+        Invitees: \(PromptData.wrapList("attendees", meeting.attendees))
+        User: \(PromptData.field(myName))
 
         My rough notes:
-        \(meeting.userNotes.isEmpty ? "(none)" : meeting.userNotes)
+        \(PromptData.wrap("user_notes", meeting.userNotes.isEmpty ? "(none)" : meeting.userNotes))
 
         Transcript:
-        \(String(meeting.transcript(myName: myName).prefix(maxTranscriptCharacters)))\(Topics.vocabularyBlock(topicVocabulary))
+        \(PromptData.wrap("transcript", String(meeting.transcript(myName: myName).prefix(maxTranscriptCharacters))))\(Topics.vocabularyBlock(topicVocabulary))
         """
         let reply = try await client.chat(model: model, messages: [
             .init(role: "system", content: system),
@@ -97,12 +98,13 @@ enum NotesGenerator {
             \(Topics.rules(template: template, vocabulary: topicVocabulary))
             \(Chapters.rules)
             Reply with the line "Chapters:" and then one line per chapter, like "[04:12] Pricing and Packaging", and nothing else.
+            \(PromptData.rule())
             """),
             .init(role: "user", content: """
-            Meeting: \(meeting.title)\(Topics.vocabularyBlock(topicVocabulary))
+            Meeting: \(PromptData.wrapField("meeting_title", meeting.title))\(Topics.vocabularyBlock(topicVocabulary))
 
             Transcript:
-            \(String(meeting.transcript(myName: myName).prefix(maxTranscriptCharacters)))
+            \(PromptData.wrap("transcript", String(meeting.transcript(myName: myName).prefix(maxTranscriptCharacters))))
             """),
         ])
         return Chapters.build(Chapters.entries(in: reply), end: Chapters.end(of: meeting), vocabulary: topicVocabulary)
@@ -113,17 +115,18 @@ enum NotesGenerator {
             .init(role: "system", content: """
             You answer questions about one meeting using its transcript and notes. Cite timestamps copied from transcript lines, \
             each in its own brackets like [12:04], when useful. \
-            If the meeting does not contain the answer, say so. "Them" is an unidentified remote participant.
+            If the meeting does not contain the answer, say so. "Them" is an unidentified remote participant. \
+            \(PromptData.rule(links: "Never add links or URLs except ones that appear in <notes>."))
             """),
             .init(role: "user", content: """
-            Meeting: \(meeting.title) (\(meeting.startedAt.formatted(date: .long, time: .shortened)))
-            User: \(myName)
+            Meeting: \(PromptData.wrapField("meeting_title", meeting.title)) (\(meeting.startedAt.formatted(date: .long, time: .shortened)))
+            User: \(PromptData.field(myName))
 
             Notes:
-            \(meeting.enhancedNotes ?? meeting.userNotes)
+            \(PromptData.wrap("notes", meeting.enhancedNotes ?? meeting.userNotes))
 
             Transcript:
-            \(String(meeting.transcript(myName: myName).prefix(maxTranscriptCharacters)))
+            \(PromptData.wrap("transcript", String(meeting.transcript(myName: myName).prefix(maxTranscriptCharacters))))
             """),
         ]
         messages += meeting.chat.suffix(20).map { .init(role: $0.role, content: $0.content) }
@@ -142,17 +145,18 @@ enum NotesGenerator {
     ) async throws -> [String] {
         let source: String
         if let notes = meeting.enhancedNotes, !notes.isEmpty {
-            source = "Meeting notes:\n\(notes)"
+            source = "Meeting notes:\n\(PromptData.wrap("notes", notes))"
         } else {
-            source = "Transcript:\n\(String(meeting.transcript(myName: myName).prefix(maxTranscriptCharacters)))"
+            source = "Transcript:\n\(PromptData.wrap("transcript", String(meeting.transcript(myName: myName).prefix(maxTranscriptCharacters))))"
         }
         let reply = try await client.chat(model: model, messages: [
             .init(role: "system", content: """
             You name the themes of a meeting (meeting type: \(template.name)).
             \(Topics.rules(template: template, vocabulary: topicVocabulary))
             Reply with one line and nothing else: "Topics: Theme One; Theme Two; Theme Three".
+            \(PromptData.rule())
             """),
-            .init(role: "user", content: "Meeting: \(meeting.title)\(Topics.vocabularyBlock(topicVocabulary))\n\n\(source)"),
+            .init(role: "user", content: "Meeting: \(PromptData.wrapField("meeting_title", meeting.title))\(Topics.vocabularyBlock(topicVocabulary))\n\n\(source)"),
         ])
         return parseTopics(reply, vocabulary: topicVocabulary)
     }

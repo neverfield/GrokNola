@@ -120,6 +120,6 @@ enum Topics {
     }
 
     static func vocabularyBlock(_ vocabulary: [String]) -> String {
-        vocabulary.isEmpty ? "" : "\n\nExisting topics (most used first): \(vocabulary.joined(separator: "; "))"
+        vocabulary.isEmpty ? "" : "\n\nExisting topics (most used first): <topics>\(vocabulary.map(PromptData.field).joined(separator: "; "))</topics>"
     }
 }
