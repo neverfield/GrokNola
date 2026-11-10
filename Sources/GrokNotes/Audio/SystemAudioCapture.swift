@@ -3,21 +3,42 @@ import ScreenCaptureKit
 
 /// Captures what the other participants say by recording system audio with ScreenCaptureKit.
 /// This needs the Screen & System Audio Recording permission. No video is kept.
+/// With a known meeting app, only that app's audio is captured; otherwise all audio except GrokNola's.
 final class SystemAudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     var onPCM: ((Data) -> Void)?
     var onError: ((String) -> Void)?
 
+    private let app: MeetingDetector.App?
     private var stream: SCStream?
     private let converter = PCM16Converter()
     private let queue = DispatchQueue(label: "groknotes.system-audio")
+
+    init(app: MeetingDetector.App?) {
+        self.app = app
+    }
+
+    /// Whether a running process is part of the meeting app: the app itself or one of its helpers, such as
+    /// `com.google.Chrome.helper`, which plays a browser tab's audio.
+    static func belongsToMeetingApp(bundleID: String, pid: pid_t, app: MeetingDetector.App) -> Bool {
+        pid == app.pid || bundleID == app.bundleID || bundleID.hasPrefix(app.bundleID + ".")
+    }
 
     func start() async throws {
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
         guard let display = content.displays.first else {
             throw XAIError(message: "No display is available for audio capture.")
         }
-        let ownApp = content.applications.filter { $0.bundleIdentifier == Bundle.main.bundleIdentifier }
-        let filter = SCContentFilter(display: display, excludingApplications: ownApp, exceptingWindows: [])
+        let meetingApps = app.map { app in
+            content.applications.filter { Self.belongsToMeetingApp(bundleID: $0.bundleIdentifier, pid: $0.processID, app: app) }
+        } ?? []
+        let filter: SCContentFilter
+        if !meetingApps.isEmpty {
+            filter = SCContentFilter(display: display, including: meetingApps, exceptingWindows: [])
+        } else {
+            NSLog("GrokNotes: no meeting app found for system audio; capturing all apps except GrokNola")
+            let ownApp = content.applications.filter { $0.bundleIdentifier == Bundle.main.bundleIdentifier }
+            filter = SCContentFilter(display: display, excludingApplications: ownApp, exceptingWindows: [])
+        }
 
         let config = SCStreamConfiguration()
         config.capturesAudio = true

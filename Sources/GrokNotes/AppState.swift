@@ -411,7 +411,7 @@ final class AppState: ObservableObject {
         let gate = s.gate
 
         // Remote participants: system audio, diarized.
-        let system = SystemAudioCapture()
+        let system = SystemAudioCapture(app: app)
         let systemStream = makeStream(apiKey: apiKey, diarize: true, keyterms: s.keyterms, meetingID: meetingID, source: .system)
         let systemWAV = try? WAVWriter(url: dir.appendingPathComponent("system.wav"))
         let remoteSpeech = SpeechActivity()
