@@ -19,8 +19,8 @@ GrokNola asks for four macOS permissions. Only the microphone is required.
 | Permission | Why it matters | Without it |
 | --- | --- | --- |
 | **Microphone** | Records your voice. | You cannot start notes. |
-| **Screen & System Audio Recording** | Records the other participants from your Mac's audio, on a separate stream from your mic. Also lets the app read meeting window titles (meeting detection) and take window snapshots for speaker names. | Microphone only. Everyone is mixed together, and remote speakers are harder to separate. |
-| **Accessibility** | Reads the meeting app's "who is talking" indicator, so remote speakers get real names. | Names come only from snapshots, the transcript, and your corrections. Often Me / Them. |
+| **Screen & System Audio Recording** | Records the other participants from the meeting app's audio, on a separate stream from your mic. Also lets the app read meeting window titles (meeting detection) and, when you turn it on, take call-window snapshots for speaker names. | Microphone only. Everyone is mixed together, and remote speakers are harder to separate. |
+| **Accessibility** | Optional. When you turn on **Settings > Speakers > Read who is talking from the meeting app**, reads the call window's "who is talking" indicator, so remote speakers get real names. | Names come from the transcript, snapshots if on, and your corrections. Often Me / Them. |
 | **Apple Calendar** | Meeting title and invitees from Apple Calendar, when Apple Calendar is the calendar source. | Connect Google Calendar instead, or use no calendar. |
 
 To grant a permission:
@@ -49,6 +49,16 @@ When a meeting app is in a call, the buttons read **Start notes · Zoom** (or th
 
 When you start, the app uses the current calendar event (from 10 minutes before its start to its end) for the title and invitees. Without an event, the title is the app name and time, and Grok replaces it with a title from the notes when they are written. A title you type yourself is never replaced.
 
+When GrokNola finds the meeting app in a call (Zoom, Teams, Slack, Webex, FaceTime, or a Google Meet tab), it records system audio from that app only. Other apps, such as music or a video in another browser, are not recorded. When no meeting app is found, it records all of your Mac's audio except GrokNola's own.
+
+### Consent reminder
+
+When the calendar invite lists people outside your company, a warning says: "This meeting includes people outside your company. Tell everyone you're taking AI notes, and get their consent where the law requires it." It stays until you close it.
+
+- Your company's domains come from **Settings > Privacy & Data > Company email domains** (for example `example.com, example.org`), your own address on the invite, and your Google Calendar sign-in. Subdomains count as yours. Calendar rooms do not count as people.
+- If GrokNola can't tell which domain is yours, it reminds you whenever the invite lists anyone.
+- Turn it off in **Settings > Privacy & Data > Remind me to ask for consent when outside people are invited**. The reminder does not replace your company's recording policy.
+
 ### Meeting detection
 
 Every few seconds, the app checks for a call in Zoom, Microsoft Teams, Slack (huddles), Webex, FaceTime, or Google Meet in a browser (Chrome, Safari, Arc, Edge, Brave, Firefox, Vivaldi). When it finds one, the menu bar icon changes and the menu offers **Start Notes · <App>**. Detection never starts recording by itself.
@@ -75,7 +85,7 @@ Click **Pause** in the bottom bar, use **Meeting > Pause Recording** (Option-Com
 
 - Nothing is recorded or transcribed. The saved audio has silence for that stretch, so playback and transcript times still match the meeting's clock. Paused time is not charged for live transcription.
 - The clock keeps running and shows **Paused**. The sidebar, Home, and the menu bar show a pause mark instead of the red dot.
-- Window snapshots stop. GrokNola does not ask whether you forgot to stop until the pause is longer than 30 minutes; then it asks "Still recording?" (see [If you forget to stop](#if-you-forget-to-stop)).
+- Window snapshots, and reading who is talking from the meeting app, stop. GrokNola does not ask whether you forgot to stop until the pause is longer than 30 minutes; then it asks "Still recording?" (see [If you forget to stop](#if-you-forget-to-stop)).
 
 Click **Resume** (Option-Command-P again) to carry on. Live speaker names may start over after a pause, as after a reconnect; the pass after the meeting names the speakers for the whole recording.
 
@@ -112,7 +122,7 @@ Turn this off, or change how long a silence counts, in **Settings > Recording > 
 
 ### Notifications
 
-When processing finishes and you are not looking at that meeting, a notification says "Notes ready — <title>". Click it to open the meeting. If writing the notes failed, the notification says so instead, and the meeting keeps its step list with **Retry**. Notifications need permission, which macOS asks for the first time one is sent. Change it later in **System Settings > Notifications > GrokNola**.
+When processing finishes and you are not looking at that meeting, a notification says "Notes ready". Click it to open the meeting. If writing the notes failed, the notification says "Grok could not write the notes" instead, and the meeting keeps its step list with **Retry**. Notifications can show on the lock screen, so they never include the meeting title or any notes. Notifications need permission, which macOS asks for the first time one is sent. Change it later in **System Settings > Notifications > GrokNola**.
 
 ### Messages
 
@@ -123,10 +133,10 @@ Messages appear across the top of the window. Slate-blue messages are informatio
 Your microphone and your Mac's audio are recorded on separate streams. Your mic is **you**. The system audio is diarized (split by voice) into remote speakers. Then the app puts names on remote speakers from this evidence, strongest first:
 
 1. **Your corrections.** A name you set is never overwritten.
-2. **Active speaker** (needs Accessibility and system audio). While you record, the app reads the meeting app's accessibility labels once a second, such as "Talking: Ana" or "Ana is speaking". A voice gets a name when that name was shown in at least 3 samples and in 60% or more of the samples during that voice's speech. Label: "active speaker".
-3. **Window snapshots** (needs Screen & System Audio Recording). While remote participants talk, the app saves a snapshot of the meeting window every 4 seconds. After the meeting, Grok vision reads the highlighted tile and participant names. It accepts a name at 70% confidence or more. The snapshots are sent to xAI and deleted after processing. Label: "seen on screen". Turn this off in **Settings > Speakers > Identify speakers from meeting-window snapshots**.
+2. **Active speaker** (off by default; needs Accessibility and system audio). Turn it on in **Settings > Speakers > Read who is talking from the meeting app**. While you record, the app reads the meeting app's accessibility labels once a second, such as "Talking: Ana" or "Ana is speaking". For Zoom, Slack, and Google Meet it reads only the call window ("Zoom Meeting", "Huddle", "Meet - …"); for other apps it reads at most 3 windows. Reading stops while the recording is paused, and the accessibility settings GrokNola turned on in the meeting app are put back when you stop. A voice gets a name when that name was shown in at least 3 samples and in 60% or more of the samples during that voice's speech. Label: "active speaker".
+3. **Window snapshots** (off by default; needs Screen & System Audio Recording). Turn it on in **Settings > Speakers > Identify speakers from meeting-window snapshots**. While remote participants talk, the app saves an encrypted snapshot of the call window every 4 seconds. Only a window whose title shows the call is captured: "Zoom Meeting", "Zoom Webinar", a Slack "Huddle", or a Google Meet tab. The title is checked before every snapshot, and Teams, Webex, and FaceTime windows are never captured. Snapshots can show faces, chat, and shared screens. After the meeting, Grok vision reads the highlighted tile and participant names. It accepts a name at 70% confidence or more. The snapshots are sent to xAI and deleted after processing. Label: "seen on screen".
 4. **One-on-one rule.** When there is exactly one remote voice and exactly one other invitee (or one other participant visible in the call window), that voice gets that name.
-5. **Transcript inference.** Grok reads the transcript for introductions ("This is Dana from finance") and people addressed by name, matched against calendar invitees, names seen in the meeting app, and people from past meetings. It needs 75% confidence for a known name and 85% for any other name. Label: "inferred by Grok". Turn this off in **Settings > Speakers > Let Grok infer names from the conversation**.
+5. **Transcript inference.** Grok reads the transcript for introductions ("This is Dana from finance") and people addressed by name, matched against calendar invitees and names seen in the meeting app. People from past meetings are not sent to Grok; a name Grok returns is matched to them on your Mac. It needs 75% confidence for a known name and 85% for any other name. Label: "inferred by Grok". Turn this off in **Settings > Speakers > Let Grok infer names from the conversation**.
 
 A remote speaker without strong evidence stays **Them**. When permissions are missing or the app is not supported, you fall back to Me / Them. Without system audio, the microphone alone is diarized and the voice that talks most is labeled as you.
 
@@ -137,7 +147,7 @@ With **Settings > Speakers > Identify speakers live** on (the default) and syste
 - **Active speaker.** Each second the meeting app shows one person talking counts as a vote for the voice heard at that moment.
 - **Introductions.** "This is Dana", "I'm Dana", or "Dana here" counts when Dana is an invitee, a person from past meetings, or a name shown in the meeting app. "My name is …" counts for any name.
 - **One-on-one calls.** With one other invitee and one remote voice, that voice is named at once. The name is taken back if a second voice or another name shows up.
-- **Snapshots.** If a voice is still unnamed after about 30 seconds, Grok reads the call-window snapshots for it, at most once a minute and 8 times a meeting. These requests appear in **Usage & Cost** as "Speaker names (snapshots)". Turn this off in **Settings > Speakers > Read snapshots for unnamed speakers during the call**.
+- **Snapshots.** If a voice is still unnamed after about 30 seconds, Grok reads the call-window snapshots for it, at most once a minute and 8 times a meeting. These requests appear in **Usage & Cost** as "Speaker names (snapshots)". This is off by default; turn it on in **Settings > Speakers > Send snapshots for unnamed speakers during the call** (needs snapshots on).
 
 A name first shows dimmed with a **?**, such as "Dana?", while it is a guess. It is confirmed when the evidence adds up, for example 4 active-speaker samples with 70% or more agreeing, and the **?** goes away. A voice with no name yet shows "identifying…". Confirmed names are saved with the meeting; guesses are not. Click a name to confirm it or set another. If you clear a name, the same guess does not come back for that voice.
 
@@ -160,7 +170,7 @@ Sometimes one person shows up as several speakers, for example two or three **Th
 
 While recording, later lines from a merged voice join the speaker you merged it into. Edit > Undo (Command-Z) takes back a merge or a move. When the meeting already has enhanced notes, a banner offers **Regenerate notes**, and **Regenerate for new speakers** shows above the notes until you do.
 
-Names you set, and names confirmed by the active speaker or snapshots, are remembered. They help name speakers and spell names in later meetings. **Settings > Speakers** shows the count under **Remembered people**.
+Names you set, and names confirmed by the active speaker or snapshots, are remembered on your Mac. They help match names in later meetings and appear as suggestions, but they are not sent to xAI. **Settings > Speakers** shows the count under **Remembered people**.
 
 **Meeting info > Attribution > Mode** shows how a meeting was named: **Identifying speakers** (still working), **Named speakers**, **Me / Them**, or **Microphone only** (system audio was off). Each speaker shows its source and confidence, for example "active speaker 92%". Hover a name to see the evidence.
 
@@ -243,7 +253,9 @@ Facts and action items in enhanced notes end with transcript timestamps. Each ti
 
 Answers in the **Ask** tab, and action items and decisions on Home, have the same pills.
 
-Other links in notes and answers are written by Grok, so GrokNola treats them with care. Only web (`https`) and email links open, and only after GrokNola shows the address and you click **Open**. Other kinds of links show as plain text and do nothing.
+Other links in notes and answers are written by Grok, so GrokNola treats them with care. Only web (`https`) and email links open, and only after you click **Open**. The question names the site, or the email's recipient, and the full address shows in a box you can scroll and select. When the address is long enough to carry meeting text (over 200 characters, or a query over 100), it also says "This link carries a lot of data in its address." Email links open without their message body and Cc or Bcc recipients, so a link cannot send your notes to someone else. Other kinds of links show as plain text and do nothing.
+
+Grok is told that transcripts, notes, titles, and names are meeting data, not instructions, and to add no links except GrokNola's own. Check links anyway: someone on a call can still say a web address.
 
 Clips need **Settings > Privacy & Data > Keep audio recordings after notes are written** to be on before the meeting. If it was off, a hint says "Turn on Keep audio in Settings to play clips from future meetings." Audio of past meetings cannot be recovered.
 
@@ -400,9 +412,10 @@ With **Google Drive for desktop** installed and signed in, GrokNola can copy eac
 
 1. Open **Settings > Calendar & Drive**.
 2. Turn on **Copy notes to Google Drive when saved**.
-3. Optionally set **Subfolder under My Drive (optional)**, for example `GrokNola`. Leave it blank to write at the top of My Drive.
+3. Pick the **Drive account**. **Match my Google sign-in** uses the Drive account with the same email as your Google Calendar sign-in, or else the only one in your **Company email domains** (**Settings > Privacy & Data**). With no match, nothing is copied until you pick an account. An account you pick is never swapped for another, even when it is not mounted.
+4. Optionally set **Subfolder under My Drive (optional)**, for example `GrokNola`. Leave it blank to write at the top of My Drive. A name made only of dots is refused, and a leading dot becomes `_`.
 
-On each save, the app writes `notes.md` to `My Drive/<subfolder>/<yyyy-MM-dd Meeting title>/`. It holds the notes and call summary only. The transcript and recordings are never copied to Drive automatically; use **Export Transcript and Audio…** to save them yourself. Settings shows "Google Drive for desktop is mounted." or "Drive not found. Install Google Drive for desktop and sign in." If Drive is not mounted, the app keeps saving locally and does not show an error.
+After recording stops, each save writes `notes.md` to `My Drive/<subfolder>/<yyyy-MM-dd Meeting title>/`. Nothing is copied while the meeting records. It holds the notes and call summary only. The transcript and recordings are never copied to Drive automatically; use **Export Transcript and Audio…** to save them yourself. Settings shows where notes go, such as "Notes go to ana@example.com.", or what is missing. If Drive is not mounted, the app keeps saving locally and does not show an error.
 
 ## Usage and cost
 
@@ -428,9 +441,11 @@ If the `vault_key` Keychain item is deleted, encrypted meetings cannot be opened
 
 What is sent to xAI (`api.x.ai`), and nowhere else. (Google Calendar sign-in talks only to Google, and only to read your events.)
 
-- Your microphone and system audio, for live and full-recording transcription.
+- Your microphone and the meeting app's audio, for live and full-recording transcription. This meeting's invitee names and your name go with it as key terms.
 - Transcripts, rough notes, invitee names, and notes, to write notes, find names, topics, chapters, and tags, and to answer questions.
-- Meeting-window snapshots, when snapshot naming is on. They are deleted after processing.
+- Call-window snapshots, only when snapshot naming is on (off by default). They are deleted after processing.
+
+GrokNola talks to xAI and Google over TLS 1.2 or later, and keeps no web cache or cookies for those connections. Your API key is read only from the Keychain.
 
 Audio settings in **Settings > Privacy & Data**:
 
@@ -512,9 +527,10 @@ The app automatically raises a quiet microphone by up to 12 dB while recording. 
 
 ### Names are not detected (everyone is "Them")
 
+- Active-speaker names and snapshots are off by default. Turn on **Read who is talking from the meeting app** or **Identify speakers from meeting-window snapshots** in **Settings > Speakers** if your company allows it.
 - Check **Accessibility** and **Screen & System Audio Recording** in **Settings > Recording**. Active-speaker names and snapshots need system audio.
 - Start notes while the call is open, so the meeting app is detected (the button reads **Start notes · <App>**).
-- Make sure **Identify speakers from meeting-window snapshots**, **Let Grok infer names from the conversation**, and **Identify speakers live** are on.
+- Make sure **Let Grok infer names from the conversation** and **Identify speakers live** are on.
 - A calendar event with invitees helps a lot, especially in one-on-ones.
 - Rename speakers yourself. Your names are remembered for later meetings. Then choose **Regenerate Notes** (Option-Command-R) to rewrite the notes with the names.
 
@@ -527,7 +543,7 @@ The app automatically raises a quiet microphone by up to 12 dB while recording. 
 
 ### Google Drive copies are missing
 
-Settings says "Drive not found" when Google Drive for desktop is not installed, not signed in, or not mounted under `~/Library/CloudStorage`. Open Google Drive for desktop and sign in. The app keeps saving locally. Copies are made on the next save of each meeting.
+Settings says "Drive not found" when Google Drive for desktop is not installed, not signed in, or not mounted under `~/Library/CloudStorage`. Open Google Drive for desktop and sign in. If it says "Pick a Drive account", choose one under **Drive account**. The app keeps saving locally. Copies are made on the next save of each meeting after recording stops.
 
 ### Other messages
 

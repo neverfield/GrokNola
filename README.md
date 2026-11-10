@@ -69,9 +69,10 @@ The app icon is `Resources/AppIcon.icns`, built from `Resources/AppIcon-master.p
 | --- | --- | --- |
 | Microphone vs. system audio on separate streams | Microphone + Screen & System Audio Recording | You vs. everyone else |
 | Diarization of system audio | Same | Remote voices split into separate speakers |
-| The meeting app's "who is talking" indicator, read through Accessibility and matched to speech timing | Accessibility | Real names (`active speaker`) |
+| The meeting app's "who is talking" indicator, read through Accessibility from the call window only and matched to speech timing | Accessibility + **Settings > Speakers > Read who is talking from the meeting app** (off by default) | Real names (`active speaker`) |
+| Call-window snapshots read by Grok vision, only from a window titled as the call (Zoom Meeting, Huddle, Meet tab) | **Settings > Speakers > Identify speakers from meeting-window snapshots** (off by default) | Real names (`seen on screen`) |
 | Calendar invitees plus Grok reading the transcript for introductions and name use | A calendar source (optional, see [Calendar](#calendar)) | Real names (`inferred`) with a confidence bar |
-| Your corrections | None | Saved, and reused as hints in later meetings |
+| Your corrections | None | Saved, and matched on this Mac in later meetings (never sent to xAI) |
 
 A speaker without strong evidence stays **Them**, so you fall back to Me / Them
 when permissions are missing or the app is not supported. Without system audio,
@@ -79,6 +80,28 @@ the microphone alone is diarized and the main voice is labeled as you.
 
 The active-speaker patterns in `Sources/GrokNotes/Speakers/ActiveSpeakerMonitor.swift`
 are heuristics. Meeting apps change their labels, so add a pattern there if names stop appearing.
+The monitor restores the meeting app's `AXManualAccessibility` / `AXEnhancedUserInterface` when recording
+stops and does not poll while the recording is paused. Call-window titles live in `MeetingDetector.callWindowHints`.
+
+## Security and privacy defaults
+
+- **Capture scope.** With a detected meeting app, system audio comes only from that app and its helper
+  processes (`SCContentFilter(display:including:exceptingWindows:)` in `Audio/SystemAudioCapture.swift`).
+  Without one, it is all audio except GrokNola's, and the log says so.
+- **Consent reminder.** When an invite lists anyone outside your company domains (Settings > Privacy & Data),
+  a warning asks you to tell everyone and get consent (`ConsentReminder.swift`).
+- **Prompts.** Transcripts, notes, titles, and names go into prompts inside tags such as `<transcript>`
+  (`PromptData.swift`), with a rule that tagged text is data, not instructions, and that no links may be added.
+  Titles and names are one line, at most 200 characters.
+- **Key terms.** Transcription key terms are this meeting's invitees and your name only (at most 40), since
+  the streaming request carries them in its URL.
+- **Models and key.** Only the models in `Prefs.notesModels` are used; any other stored id falls back to the
+  default. The xAI key is read only from the Keychain.
+- **Links.** The link dialog names the host or mail recipient, shows the full address, warns on long
+  addresses, and opens mail links without `body`, `cc`, or `bcc` (`LinkPolicy.swift`).
+- **Network.** One ephemeral `URLSession` with no cache, cookies, or credential store and TLS 1.2+
+  (`Network.swift`) serves xAI and Google.
+- **Notifications** never include a meeting's title or content.
 
 ## Calendar
 
@@ -184,9 +207,13 @@ With **Google Drive for desktop** installed and signed in, you can mirror export
 
 1. Open Settings (Command-comma) → **Calendar & Drive**.
 2. Turn on **Copy notes to Google Drive when saved**.
-3. Optionally set a **Subfolder under My Drive** (for example `GrokNola`). Leave it blank to write at the top level of My Drive.
+3. Pick the **Drive account**, or leave **Match my Google sign-in**: the mount whose email matches the Google
+   Calendar sign-in, else the only one in your company domains. With no match, nothing is copied. A picked
+   account is never replaced by another mount.
+4. Optionally set a **Subfolder under My Drive** (for example `GrokNola`). Leave it blank to write at the top level of My Drive.
+   Dot-only names are refused, and leading dots become `_`.
 
-On each save, GrokNola writes the notes without the transcript (`Meeting.notesMarkdown`) as `notes.md` into:
+On each save after recording stops (never during a recording), GrokNola writes the notes without the transcript (`Meeting.notesMarkdown`) as `notes.md` into:
 
 `~/Library/CloudStorage/GoogleDrive-<account>/My Drive/<subfolder>/<yyyy-MM-dd Meeting title>/`
 
