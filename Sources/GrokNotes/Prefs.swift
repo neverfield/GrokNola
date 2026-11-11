@@ -77,6 +77,15 @@ enum Prefs {
     }
     /// Your company's email domains, typed in Settings, such as "example.com, example.org".
     static var companyDomains: Set<String> { ConsentReminder.domains(in: defaults.string(forKey: "companyDomains")) }
+    /// Which meetings may be recorded. `.internalOnly` is the strictest setting.
+    static var recordingScope: RecordingScope {
+        defaults.string(forKey: "recordingScope").flatMap(RecordingScope.init(rawValue:)) ?? .warnExternal
+    }
+    /// Domains never recorded, subdomains included, whatever the scope. Edited in Settings as a list.
+    static var blockedDomains: Set<String> {
+        guard let list = defaults.string(forKey: "blockedDomains") else { return Set(RecordingPolicy.defaultBlockedDomains) }
+        return ConsentReminder.domains(in: list)
+    }
     static var exportToGoogleDrive: Bool { defaults.object(forKey: "exportToGoogleDrive") as? Bool ?? false }
     static var googleDriveSubfolder: String? { nonEmpty(defaults.string(forKey: "googleDriveSubfolder")) }
     /// The Google Drive for desktop mount picked in Settings, such as `GoogleDrive-ana@example.com`. Nil chooses by account.

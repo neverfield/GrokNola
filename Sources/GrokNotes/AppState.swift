@@ -386,13 +386,20 @@ final class AppState: ObservableObject {
         let emails = event?.attendeeEmails ?? []
         let externalDomains = ConsentReminder.externalDomains(emails, ownDomains: ownDomains)
         let knownInternal = event != nil && ConsentReminder.isKnownInternalOnly(emails, ownDomains: ownDomains)
+        let decision = RecordingPolicy.decide(
+            emails: event == nil ? nil : emails, ownDomains: ownDomains, blocked: Prefs.blockedDomains, scope: Prefs.recordingScope
+        )
+        if case .refuse(let reason) = decision {
+            showBanner(reason, severity: .error, action: Self.openSettingsAction)
+            return
+        }
         var consentConfirmedAt: Date?
-        if ConsentReminder.needsConfirmation(
+        if decision == .requireConfirmation || ConsentReminder.needsConfirmation(
             enabled: Prefs.consentConfirmation,
             skipInternalOnly: Prefs.skipInternalConsentConfirmation,
             knownInternalOnly: knownInternal
         ) {
-            guard confirmConsent(externalDomains: externalDomains, offerSkip: knownInternal) else { return }
+            guard confirmConsent(externalDomains: externalDomains, offerSkip: knownInternal && decision != .requireConfirmation) else { return }
             consentConfirmedAt = Date()
         }
 

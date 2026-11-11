@@ -9,8 +9,20 @@ struct PrivacySettingsPane: View {
     @AppStorage("consentConfirmation") private var consentConfirmation = true
     @AppStorage("skipInternalConsentConfirmation") private var skipInternalConsentConfirmation = false
 
+    @AppStorage("recordingScope") private var recordingScope = RecordingScope.warnExternal
+    @AppStorage("blockedDomains") private var blockedDomains = RecordingPolicy.defaultBlockedDomains.joined(separator: ", ")
+
     var body: some View {
         Form {
+            Section("Which meetings to record") {
+                Picker("Record", selection: $recordingScope) {
+                    ForEach(RecordingScope.allCases) { Text($0.label).tag($0) }
+                }
+                SettingsCaption("Internal meetings only refuses to start when the invite lists anyone outside your company domains, and asks for the consent confirmation when there is no invite. Pilot builds always use it.")
+                TextField("Never record meetings with", text: $blockedDomains, prompt: Text("example.org, example.net"))
+                SettingsCaption("GrokNola never records a meeting whose invite lists anyone at these domains or their subdomains, whatever the setting above.")
+            }
+
             Section("Consent") {
                 Toggle("Confirm consent before every recording", isOn: $consentConfirmation)
                 Toggle("Don't ask for internal-only meetings", isOn: $skipInternalConsentConfirmation)
