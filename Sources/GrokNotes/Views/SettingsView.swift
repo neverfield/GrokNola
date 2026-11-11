@@ -53,7 +53,7 @@ enum SettingsPane: String, CaseIterable, Identifiable {
         switch self {
         case .general: 340
         case .recording: 440
-        case .speakers: 470
+        case .speakers: 600
         case .templates: 560
         case .tags: 600
         case .calendarDrive: 560

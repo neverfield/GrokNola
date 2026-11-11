@@ -64,7 +64,7 @@ struct PrivacySettingsPane: View {
                 SettingsCaption("When GrokNola opens, meetings that started longer ago than this are deleted for good: transcript, notes, and audio. Pinned meetings are deleted too.")
                 Toggle("Legal hold", isOn: $legalHold)
                 SettingsCaption(legalHold
-                    ? "Legal hold is on. Nothing is deleted: meeting and audio retention are suspended, the trash is not emptied, and Delete only moves a meeting to the trash."
+                    ? "Legal hold is on. Nothing is deleted: meeting and audio retention are suspended, the trash is not emptied, and Delete only moves a meeting to the trash. Forget person is unavailable."
                     : "Turn on when Legal asks you to preserve your meetings. It suspends every deletion until you turn it off.")
                 Button("Export all for Legal…") { state.exportAllForLegal() }
                 SettingsCaption("Writes readable copies of every meeting, including the trash, to a folder you choose: notes.md, transcript.txt, meeting.json, and any kept audio, with a manifest.json of SHA-256 hashes. The copies are not encrypted.")

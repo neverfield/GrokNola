@@ -168,6 +168,20 @@ extension Meeting {
         return "Them"
     }
 
+    /// Clears `name` from every speaker who has it, ignoring case and surrounding spaces, so those voices read as
+    /// unidentified. Transcript text is not changed. Returns how many speakers changed.
+    @discardableResult
+    mutating func forgetSpeaker(named name: String) -> Int {
+        let target = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !target.isEmpty else { return 0 }
+        let keys = speakers.filter { $0.value.name?.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(target) == .orderedSame }.keys
+        for key in keys {
+            speakers[key] = SpeakerInfo(name: nil, attribution: key == Meeting.meKey ? .me : .unknown)
+        }
+        if !keys.isEmpty { refreshAttributionMode() }
+        return keys.count
+    }
+
     var speakerKeys: [String] {
         var seen = Set<String>()
         return utterances.map(\.speakerKey).filter { seen.insert($0).inserted }

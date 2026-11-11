@@ -127,6 +127,12 @@ enum Prefs {
         knownPeople = people
     }
 
+    /// `people` without `name`, ignoring case and surrounding spaces.
+    static func removing(_ name: String, from people: [String]) -> [String] {
+        let target = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return people.filter { $0.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(target) != .orderedSame }
+    }
+
     private static func clampVoiceGain(_ dB: Double) -> Double {
         dB.isFinite ? min(max(dB, voiceGainRange.lowerBound), voiceGainRange.upperBound) : 0
     }

@@ -106,4 +106,43 @@ extension AppState {
         save(id)
         registerSpeakerUndo(id, restoring: inverse, actionName: actionName, undoManager: undoManager)
     }
+
+    // MARK: Forget a person
+
+    /// Why Forget person cannot run now, or nil when it can. Legal hold wins over forgetting.
+    func forgetPersonBlocker() -> String? {
+        if Prefs.legalHold { return "Legal hold is on, so GrokNola can't forget anyone until the hold is lifted." }
+        if recordingID != nil || !processing.isEmpty { return "Wait until recording and note writing finish, then forget this person." }
+        return nil
+    }
+
+    /// Removes `name` from remembered people and from the speakers of every meeting, the trash included, and saves.
+    /// Transcript text, notes, and invitee lists are not changed. Returns how many meetings changed, or nil when refused.
+    @discardableResult
+    func forgetPerson(_ name: String) -> Int? {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return nil }
+        if let reason = forgetPersonBlocker() {
+            showBanner(reason, severity: .warning)
+            return nil
+        }
+        Prefs.knownPeople = Prefs.removing(name, from: Prefs.knownPeople)
+        var changed = 0
+        for var m in meetings where m.forgetSpeaker(named: name) > 0 {
+            update(m.id) { $0 = m }
+            save(m.id)
+            changed += 1
+        }
+        let trashStore = MeetingStore(root: trash.root)
+        for var m in trashStore.loadAll() where m.forgetSpeaker(named: name) > 0 {
+            do {
+                try trashStore.save(m)
+                changed += 1
+            } catch {
+                NSLog("GrokNotes: could not update a trashed meeting: \(error.localizedDescription)")
+            }
+        }
+        showBanner("GrokNola forgot \(name) in \(changed) \(changed == 1 ? "meeting" : "meetings"). Transcript text was not changed.", severity: .info)
+        return changed
+    }
 }
