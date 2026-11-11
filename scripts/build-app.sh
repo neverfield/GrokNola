@@ -82,7 +82,7 @@ fi
 # Sources/GrokNotes/PilotBuild.swift.
 if [ "${GROKNOLA_PILOT:-0}" = 1 ]; then
   /usr/libexec/PlistBuddy -c "Add :GNPilotBuild bool true" "$APP/Contents/Info.plist"
-  echo "Pilot build: Drive copy off, internal meetings only, snapshots and Accessibility speakers off, consent confirmation on."
+  echo "Pilot build: Drive copy off, internal meetings only, snapshots and Accessibility speakers off, consent confirmation on, FileVault required."
 fi
 
 identity_hash() {

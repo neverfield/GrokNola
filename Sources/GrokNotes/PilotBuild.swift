@@ -2,8 +2,8 @@ import Foundation
 
 /// A pilot build is made with `GROKNOLA_PILOT=1 ./scripts/build-app.sh`, which writes `GNPilotBuild` into the
 /// signed Info.plist. It locks these settings: no Google Drive copy, internal meetings
-/// only, no call-window snapshots, no Accessibility speaker reading, and the consent confirmation on every
-/// recording. `Prefs` applies the locks; Settings shows them disabled.
+/// only, no call-window snapshots, no Accessibility speaker reading, the consent confirmation on every recording,
+/// and no recording unless FileVault is on. `Prefs` applies the locks; Settings shows them disabled.
 enum PilotBuild {
     static let infoKey = "GNPilotBuild"
     static let lockedCaption = "Set by the pilot build."

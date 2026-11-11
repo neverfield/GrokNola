@@ -399,6 +399,17 @@ final class AppState: ObservableObject {
             showBanner(reason, severity: .error, action: Self.openSettingsAction)
             return
         }
+        let root = store.root
+        let encrypted = await Task.detached(priority: .userInitiated) { DiskEncryption.isEncrypted(root) }.value
+        switch DiskEncryption.decide(encrypted: encrypted, pilot: PilotBuild.isOn) {
+        case .ok:
+            break
+        case .warn(let message):
+            showBanner(message, severity: .warning, action: fileVaultAction)
+        case .refuse(let message):
+            showBanner(message, severity: .error, action: fileVaultAction)
+            return
+        }
         var consentConfirmedAt: Date?
         if decision == .requireConfirmation || ConsentReminder.needsConfirmation(
             enabled: Prefs.consentConfirmation,
@@ -585,6 +596,10 @@ final class AppState: ObservableObject {
         let selfEmails = event.attendees.filter { $0.isSelf == true }.compactMap(\.email) + [calendars.googleAuth.email].compactMap { $0 }
         own.formUnion(selfEmails.compactMap(ConsentReminder.domain(of:)))
         return own
+    }
+
+    private var fileVaultAction: BannerItem.Action {
+        BannerItem.Action(label: "Open FileVault Settings") { [weak self] in self?.openPrivacyPane("FileVault") }
     }
 
     /// Asks you to confirm consent before recording. True for Start Notes. "Don't ask again" is offered only
