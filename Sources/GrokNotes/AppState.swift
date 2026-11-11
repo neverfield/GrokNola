@@ -653,7 +653,7 @@ final class AppState: ObservableObject {
         UsageRecorder.recordTranscription(
             kind: .liveTranscription,
             seconds: micStreamed + systemStreamed,
-            context: UsageContext(kind: .liveTranscription, meetingID: s.meetingID, meetingTitle: meeting(s.meetingID)?.title)
+            context: UsageContext(kind: .liveTranscription, meetingID: s.meetingID)
         )
         recording.reset()
         if let m = meeting(id), m.utterances.isEmpty, m.userNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

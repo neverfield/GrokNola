@@ -33,11 +33,12 @@ enum UsageKind: String, Codable, CaseIterable {
     }
 }
 
+/// One request in the ledger. It names the meeting only by id; Usage & Cost looks the title up when it shows it,
+/// so the plain ledger holds no meeting content. Older lines also had a `meetingTitle`, dropped on load.
 struct UsageEntry: Codable, Identifiable {
     var id = UUID()
     var date: Date
     var meetingID: UUID?
-    var meetingTitle: String?
     var kind: UsageKind
     var model: String
     var audioSeconds: Double?
@@ -52,7 +53,6 @@ struct UsageEntry: Codable, Identifiable {
 struct UsageContext {
     var kind: UsageKind
     var meetingID: UUID?
-    var meetingTitle: String?
 }
 
 /// `XAIClient` reports each request here with the context it was given, and the ledger stores it.
@@ -98,7 +98,6 @@ enum UsageRecorder {
         let entry = UsageEntry(
             date: Date(),
             meetingID: context?.meetingID,
-            meetingTitle: context?.meetingTitle,
             kind: kind,
             model: model,
             audioSeconds: audioSeconds,
@@ -124,6 +123,7 @@ final class UsageLedger: ObservableObject {
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         url = dir.appendingPathComponent("usage.jsonl")
         entries = Self.load(url)
+        Self.dropTitles(url, entries: entries)
         UsageRecorder.sink = { [weak self] entry in
             Task { @MainActor in self?.append(entry) }
         }
@@ -131,10 +131,7 @@ final class UsageLedger: ObservableObject {
 
     func append(_ entry: UsageEntry) {
         entries.append(entry)
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        guard var line = try? encoder.encode(entry) else { return }
-        line.append(0x0A)
+        guard let line = Self.lines([entry]) else { return }
         if let handle = try? FileHandle(forWritingTo: url) {
             handle.seekToEndOfFile()
             handle.write(line)
@@ -160,21 +157,49 @@ final class UsageLedger: ObservableObject {
         }
     }
 
-    func byMeeting(since start: Date?) -> [(id: UUID, title: String, date: Date, cost: Double)] {
+    func byMeeting(since start: Date?) -> [(id: UUID, date: Date, cost: Double)] {
         let filtered = entries.filter { $0.meetingID != nil && (start == nil || $0.date >= start!) }
         let groups = Dictionary(grouping: filtered) { $0.meetingID! }
         return groups.map { id, items in
-            (id, items.last(where: { $0.meetingTitle != nil })?.meetingTitle ?? "Meeting",
-             items.map(\.date).min() ?? Date(), items.reduce(0) { $0 + $1.costUSD })
+            (id, items.map(\.date).min() ?? Date(), items.reduce(0) { $0 + $1.costUSD })
         }
         .sorted { $0.date > $1.date }
     }
 
-    private static func load(_ url: URL) -> [UsageEntry] {
-        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+    nonisolated static func decode(_ text: String) -> [UsageEntry] {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return text.split(separator: "\n").compactMap { try? decoder.decode(UsageEntry.self, from: Data($0.utf8)) }
+    }
+
+    /// JSON Lines for `entries`, each line ending in a newline.
+    nonisolated static func lines(_ entries: [UsageEntry]) -> Data? {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = .sortedKeys
+        var out = Data()
+        for entry in entries {
+            guard let line = try? encoder.encode(entry) else { return nil }
+            out += line
+            out.append(0x0A)
+        }
+        return out
+    }
+
+    private static func load(_ url: URL) -> [UsageEntry] {
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        return decode(text)
+    }
+
+    /// Rewrites a ledger from an older build, whose lines carried meeting titles, without them.
+    private static func dropTitles(_ url: URL, entries: [UsageEntry]) {
+        guard let text = try? String(contentsOf: url, encoding: .utf8), text.contains("\"meetingTitle\""),
+              let data = lines(entries) else { return }
+        do {
+            try data.write(to: url, options: .atomic)
+        } catch {
+            NSLog("GrokNotes: could not rewrite the usage log without titles: \(error.localizedDescription)")
+        }
     }
 }
 

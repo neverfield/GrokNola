@@ -16,13 +16,13 @@ struct XAIClient {
 
     func tracking(_ kind: UsageKind) -> XAIClient {
         var copy = self
-        copy.usageContext = UsageContext(kind: kind, meetingID: nil, meetingTitle: nil)
+        copy.usageContext = UsageContext(kind: kind, meetingID: nil)
         return copy
     }
 
     func tracking(_ kind: UsageKind, _ meeting: Meeting) -> XAIClient {
         var copy = self
-        copy.usageContext = UsageContext(kind: kind, meetingID: meeting.id, meetingTitle: meeting.title)
+        copy.usageContext = UsageContext(kind: kind, meetingID: meeting.id)
         return copy
     }
 

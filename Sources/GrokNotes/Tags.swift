@@ -46,7 +46,7 @@ struct TagBackfillProgress {
     var total: Int
 }
 
-/// The global tag catalog at ~/Library/Application Support/GrokNotes/tags.json.
+/// The global tag catalog at ~/Library/Application Support/GrokNotes/tags.json, sealed by `Vault` as tags.json.enc.
 /// Renames and deletes that touch meetings go through `AppState` so meetings stay in sync.
 @MainActor
 final class TagCatalog: ObservableObject {
@@ -62,9 +62,10 @@ final class TagCatalog: ObservableObject {
             .appendingPathComponent("GrokNotes", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         url = dir.appendingPathComponent("tags.json")
-        if let data = try? Data(contentsOf: url) {
+        if let data = try? Vault.read(url) {
             tags = (try? JSONDecoder().decode([TagDefinition].self, from: data)) ?? []
         }
+        try? Vault.sealFile(at: url)
     }
 
     var userTags: [TagDefinition] { tags.filter { !$0.isDynamic } }
@@ -153,7 +154,11 @@ final class TagCatalog: ObservableObject {
     private func save() {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try? encoder.encode(tags).write(to: url, options: .atomic)
+        do {
+            try Vault.write(encoder.encode(tags), to: url)
+        } catch {
+            NSLog("GrokNotes: could not save the tag catalog: \(error.localizedDescription)")
+        }
     }
 
     nonisolated static func clean(_ name: String) -> String {

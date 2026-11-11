@@ -133,7 +133,8 @@ struct SummaryTemplate: Codable, Identifiable, Hashable {
     ]
 }
 
-/// Built-in templates plus the user's custom ones at ~/Library/Application Support/GrokNotes/templates.json.
+/// Built-in templates plus the user's custom ones at ~/Library/Application Support/GrokNotes/templates.json,
+/// sealed by `Vault` as templates.json.enc.
 @MainActor
 final class TemplateCatalog: ObservableObject {
     @Published private(set) var custom: [SummaryTemplate] = []
@@ -144,13 +145,14 @@ final class TemplateCatalog: ObservableObject {
             .appendingPathComponent("GrokNotes", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         url = dir.appendingPathComponent("templates.json")
-        if let data = try? Data(contentsOf: url) {
+        if let data = try? Vault.read(url) {
             custom = ((try? JSONDecoder().decode([SummaryTemplate].self, from: data)) ?? []).map { t in
                 var t = t
                 t.builtIn = false
                 return t
             }
         }
+        try? Vault.sealFile(at: url)
     }
 
     var all: [SummaryTemplate] { SummaryTemplate.builtIns + custom }
@@ -193,6 +195,10 @@ final class TemplateCatalog: ObservableObject {
     private func persist() {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try? encoder.encode(custom).write(to: url, options: .atomic)
+        do {
+            try Vault.write(encoder.encode(custom), to: url)
+        } catch {
+            NSLog("GrokNotes: could not save the templates: \(error.localizedDescription)")
+        }
     }
 }

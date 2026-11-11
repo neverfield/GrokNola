@@ -112,9 +112,10 @@ enum Prefs {
     }
 
     /// Names confirmed in past meetings. Matched on this Mac only: never sent as transcription key terms or in prompts.
+    /// Kept sealed by `KnownPeople`, not in UserDefaults.
     static var knownPeople: [String] {
-        get { defaults.stringArray(forKey: "knownPeople") ?? [] }
-        set { defaults.set(Array(newValue.suffix(200)), forKey: "knownPeople") }
+        get { KnownPeople.all }
+        set { KnownPeople.set(newValue) }
     }
 
     /// Remembers names confirmed in a meeting. Only plausible names are kept.

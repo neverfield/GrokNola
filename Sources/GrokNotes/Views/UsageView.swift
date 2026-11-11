@@ -90,7 +90,7 @@ struct UsageView: View {
                             List(meetings, id: \.id) { item in
                                 HStack {
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(state.meeting(item.id)?.title ?? item.title).lineLimit(1)
+                                        Text(state.meeting(item.id)?.title ?? "Deleted meeting").lineLimit(1)
                                         Text(item.date.formatted(date: .abbreviated, time: .shortened))
                                             .font(GrokTypography.captionMuted())
                                             .foregroundStyle(GrokColors.inkMuted)
