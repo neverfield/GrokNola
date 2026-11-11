@@ -51,11 +51,25 @@ When you start, the app uses the current calendar event (from 10 minutes before 
 
 When GrokNola finds the meeting app in a call (Zoom, Teams, Slack, Webex, FaceTime, or a Google Meet tab), it records system audio from that app only. Other apps, such as music or a video in another browser, are not recorded. When no meeting app is found, it records all of your Mac's audio except GrokNola's own.
 
+### Before recording starts
+
+Every way to start (the sidebar, Home, **Up next**, the menu bar, **Meeting > Start Notes**, and the "call detected" notification) runs the same checks, in this order:
+
+1. **Blocked domains.** If the invite lists anyone at a domain in **Settings > Privacy & Data > Never record meetings with** (by default `example.org` and `example.net`, including subdomains such as `eng.example.org`), recording does not start and a message says "GrokNola doesn't record meetings with people at blocked domains." This applies whatever the other settings are.
+2. **Which meetings to record** (**Settings > Privacy & Data > Record**):
+   - **Internal meetings only** (the strictest setting): recording does not start when the invite lists anyone outside your company domains. Without an invite, or with no invitees, you must confirm consent first.
+   - **Any meeting, confirm when outside people are invited** (the default): outside invitees always bring up the consent confirmation, even when it is turned off.
+   - **Any meeting**: only the consent settings below apply.
+3. **FileVault.** If FileVault is off, or GrokNola can't confirm it is on, a warning appears with **Open FileVault Settings**. A pilot build does not record until FileVault is on.
+4. **Consent confirmation.** A dialog says "Everyone in this meeting knows you're taking AI notes and agreed where the law requires it." When the invite lists outside people, it names their domains. Click **Start Notes** to record, or **Cancel**. The time you confirmed and the outside domains are saved with the meeting.
+
+The confirmation is on by default (**Settings > Privacy & Data > Confirm consent before every recording**). For a meeting whose invitees are all in your company domains, the dialog offers **Don't ask again for internal-only meetings**; turn that back off with **Don't ask for internal-only meetings** in the same place. A meeting with outside invitees, or without an invite, always asks.
+
 ### Consent reminder
 
-When the calendar invite lists people outside your company, a warning says: "This meeting includes people outside your company. Tell everyone you're taking AI notes, and get their consent where the law requires it." It stays until you close it.
+When the calendar invite lists people outside your company and you did not just confirm consent, a warning says: "This meeting includes people outside your company. Tell everyone you're taking AI notes, and get their consent where the law requires it." It stays until you close it.
 
-- Your company's domains come from **Settings > Privacy & Data > Company email domains** (for example `example.com, example.org`), your own address on the invite, and your Google Calendar sign-in. Subdomains count as yours. Calendar rooms do not count as people.
+- Your company's domains come from **Settings > Privacy & Data > Company email domains** (for example `example.com`), your own address on the invite, and your Google Calendar sign-in. Subdomains count as yours. Calendar rooms do not count as people.
 - If GrokNola can't tell which domain is yours, it reminds you whenever the invite lists anyone.
 - Turn it off in **Settings > Privacy & Data > Remind me to ask for consent when outside people are invited**. The reminder does not replace your company's recording policy.
 
@@ -241,7 +255,7 @@ Meetings without a choice use the default. Set it in **Settings > Templates > De
 3. Set the icon and **Name**, the **Instructions** (what Grok should focus on and how to write each section), the **Sections, in order** (each becomes a heading; empty sections are left out), and the **Topic focus** (what counts as a topic for this kind of meeting).
 4. Click **Save**.
 
-Built-in templates cannot be edited, only duplicated. Custom templates have edit (pencil) and delete buttons. When you delete a template, its meetings switch to the default template, and their notes stay until you regenerate them. Custom templates are saved in `templates.json`.
+Built-in templates cannot be edited, only duplicated. Custom templates have edit (pencil) and delete buttons. When you delete a template, its meetings switch to the default template, and their notes stay until you regenerate them. Custom templates are saved encrypted in `templates.json.enc`.
 
 ### Citations and clips
 
@@ -376,7 +390,7 @@ Delete a meeting from the sidebar (swipe or right-click) or from **More > Delete
 3. Or press Command-Z (**Edit > Undo Delete Meeting**) while GrokNola is open. Shift-Command-Z deletes it again.
 4. GrokNola removes meetings from the Trash folder 30 days after you delete them, when it opens. To restore one later, quit GrokNola and move its folder from `Trash` back to `Meetings`.
 
-You cannot delete a meeting while it is recording.
+You cannot delete a meeting while it is recording. Under legal hold (see [Retention, legal hold, and export for Legal](#retention-legal-hold-and-export-for-legal)), Delete still moves the meeting to the trash, a message says it is kept until the hold is lifted, and the trash is not emptied.
 
 ## Calendar
 
@@ -408,7 +422,7 @@ If Settings says "Google sign-in is not configured in this build", the app was b
 
 ## Google Drive export
 
-With **Google Drive for desktop** installed and signed in, GrokNola can copy each meeting into your synced My Drive. There is no Google sign-in in the app.
+With **Google Drive for desktop** installed and signed in, GrokNola can copy each meeting into your synced My Drive. There is no Google sign-in in the app. A pilot build, or the `allowDriveExport` policy switch set to false, turns this off: the toggle is disabled and nothing is copied.
 
 1. Open **Settings > Calendar & Drive**.
 2. Turn on **Copy notes to Google Drive when saved**.
@@ -424,7 +438,7 @@ After recording stops, each save writes `notes.md` to `My Drive/<subfolder>/<yyy
 - **Exact**: Grok requests (notes, names, topics, tags, answers, help questions) use the exact cost xAI returns.
 - **Estimated**: transcription is estimated from recorded audio at list price: $0.20 per hour for live streaming, $0.10 per hour for the full-recording pass. Requests without a reported cost are estimated from tokens.
 
-Help questions answered from this guide are listed as **Help questions**. The log is `~/Library/Application Support/GrokNotes/usage.jsonl`. Usage from before this page existed is not included.
+Help questions answered from this guide are listed as **Help questions**. The log is `~/Library/Application Support/GrokNotes/usage.jsonl`. It names meetings only by ID; the window looks up each title, and a deleted meeting shows as "Deleted meeting". Usage from before this page existed is not included.
 
 ## Privacy and data
 
@@ -432,7 +446,7 @@ Everything is stored on your Mac in `~/Library/Application Support/GrokNotes/` (
 
 - `Meetings/<id>/`: `meeting.json.enc` (the notes and transcript), the audio (`mic.wav.enc`, `system.wav.enc`) if you keep it, and `frames/` (window snapshots used to name speakers). All of them are encrypted.
 - `Trash/<id>/`: deleted meetings, kept 30 days so you can undo a delete.
-- `library-chat.json` (Ask Grok history), `usage.jsonl`, `templates.json`, and `tags.json`.
+- `library-chat.json.enc` (Ask Grok history), `known-people.json.enc` (remembered people), `templates.json.enc`, and `tags.json.enc`, all encrypted, and `usage.jsonl` (costs by meeting ID, without titles).
 - Your API key and Google sign-in are in the Keychain. Calendar events are kept in memory only. Settings are in the app's preferences.
 
 Meeting files are encrypted with AES-GCM. The key is kept in your login Keychain as `vault_key` under `dev.local.groknotes`, readable only on this Mac. Other apps see only encrypted bytes, and macOS asks you before any other app can read the key. While a meeting records and until its notes are written, the audio is not yet encrypted. Meetings from before encryption are encrypted the next time GrokNola opens.
@@ -451,6 +465,22 @@ Audio settings in **Settings > Privacy & Data**:
 
 - **Keep audio recordings after notes are written** (off by default). When off, the audio is deleted after the notes are written, and clips and the player are not available.
 - **Delete kept audio after**: **Never**, **7 days**, **30 days**, or **90 days**. Old recordings are removed when GrokNola opens. Notes and transcripts stay.
+
+### Retention, legal hold, and export for Legal
+
+In **Settings > Privacy & Data > Retention and legal hold**:
+
+- **Delete meetings after**: **Never** (the default), **30 days**, **90 days**, **180 days**, or **365 days**. When GrokNola opens, meetings that started longer ago are deleted for good, with their transcript, notes, and audio. Pinned meetings are deleted too.
+- **Legal hold** (off by default). Turn it on when Legal asks you to preserve meetings. While it is on, nothing is deleted: meeting and audio retention are suspended, the trash is not emptied, Delete only moves a meeting to the trash, and **Forget person** is unavailable.
+- **Export all for Legal…** asks for a folder, then writes `GrokNola Legal Export <date>` there. Each meeting, including those in the trash, gets a folder with `notes.md`, `transcript.txt`, `meeting.json`, and any kept audio. `manifest.json` lists each meeting's ID, title, start time, whether it was in the trash, and each file's name, size, and SHA-256 hash. The copies are not encrypted. Wait until nothing is recording or being processed.
+
+### Forget a person
+
+**Settings > Speakers > Forget person…** asks for a name, then removes it from your remembered people and from the speakers of every meeting, including the trash, ignoring capitals. Those voices show as unidentified. Transcript text, notes, and invitee lists are not changed. It is not available while a meeting records or its notes are being written, or under legal hold.
+
+### Pilot builds
+
+A pilot build is made with `GROKNOLA_PILOT=1 ./scripts/build-app.sh`. It turns off the Google Drive copy, records internal meetings only, keeps snapshots and **Read who is talking from the meeting app** off, always asks for the consent confirmation, always blocks `example.org` and `example.net`, and does not record unless FileVault is on. In Settings these switches are disabled and say "Set by the pilot build."
 
 ## Models and language
 
@@ -544,6 +574,13 @@ The app automatically raises a quiet microphone by up to 12 dB while recording. 
 ### Google Drive copies are missing
 
 Settings says "Drive not found" when Google Drive for desktop is not installed, not signed in, or not mounted under `~/Library/CloudStorage`. Open Google Drive for desktop and sign in. If it says "Pick a Drive account", choose one under **Drive account**. The app keeps saving locally. Copies are made on the next save of each meeting after recording stops.
+
+### Recording won't start
+
+- "GrokNola doesn't record meetings with people at blocked domains." The invite lists someone at a blocked domain. See [Before recording starts](#before-recording-starts).
+- "GrokNola records only internal meetings." The invite lists people outside your company domains and **Record** is **Internal meetings only**. Check **Company email domains** in **Settings > Privacy & Data**.
+- "This pilot build records only when FileVault is on." Turn on FileVault in **System Settings > Privacy & Security > FileVault**, then start again.
+- Clicking **Cancel** in the consent confirmation does not record anything.
 
 ### Other messages
 

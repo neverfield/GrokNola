@@ -59,7 +59,8 @@ The app icon is `Resources/AppIcon.icns`, built from `Resources/AppIcon-master.p
    right-clicking a block copies that block.
 7. In the **Transcript** tab, Command-F finds text: Return and Shift-Return step through matches.
 8. Deleting a meeting moves it to `~/Library/Application Support/GrokNotes/Trash/`. Click **Undo**
-   in the bar that appears, or press Command-Z. The trash is emptied of meetings older than 30 days at launch.
+   in the bar that appears, or press Command-Z. The trash is emptied of meetings older than 30 days at launch,
+   except under legal hold.
 9. With kept audio, the speaker icon in the player opens separate **My voice** and **Others**
    sliders (−12 to +12 dB around the balanced level), mute buttons, and **Balance voices**.
 
@@ -88,8 +89,36 @@ stops and does not poll while the recording is paused. Call-window titles live i
 - **Capture scope.** With a detected meeting app, system audio comes only from that app and its helper
   processes (`SCContentFilter(display:including:exceptingWindows:)` in `Audio/SystemAudioCapture.swift`).
   Without one, it is all audio except GrokNola's, and the log says so.
-- **Consent reminder.** When an invite lists anyone outside your company domains (Settings > Privacy & Data),
-  a warning asks you to tell everyone and get consent (`ConsentReminder.swift`).
+- **Before recording.** Every Start Notes path goes through `AppState.startMeeting`, which checks, in order:
+  - **Blocked domains.** Invitees at `Prefs.blockedDomains` (default `example.org`, `example.net`, subdomains
+    included) always refuse recording: "GrokNola doesn't record meetings with people at blocked
+    domains." (`RecordingPolicy.swift`)
+  - **Recording scope.** `Prefs.recordingScope` is `.warnExternal` by default: outside invitees force the consent
+    confirmation. `.internalOnly`, the strictest setting, refuses any outside invitee and requires the confirmation when
+    there is no invite. `.any` leaves it to the consent settings.
+  - **FileVault.** The data folder's `volumeIsEncrypted` is trusted when true; otherwise `fdesetup status` decides,
+    since the APFS value can read false on a FileVault-protected Apple silicon volume. Off or unknown warns, and a
+    pilot build refuses (`DiskEncryption.swift`).
+  - **Consent confirmation.** On by default (`Prefs.consentConfirmation`): "Everyone in this meeting knows you're
+    taking AI notes and agreed where the law requires it.", naming outside domains. **Start Notes** or **Cancel**.
+    `Meeting.consentConfirmedAt` and `Meeting.externalDomains` record it. "Don't ask again" is offered only for
+    invites whose invitees are all in your company domains.
+- **Consent reminder.** When an invite lists anyone outside your company domains (Settings > Privacy & Data) and
+  the confirmation was not shown, a warning asks you to tell everyone and get consent (`ConsentReminder.swift`).
+- **Retention.** `Prefs.textRetentionDays` (Never by default; 30, 90, 180, 365) deletes meetings by `startedAt`
+  at launch, next to the audio retention (`Retention` in `LegalExport.swift`).
+- **Legal hold.** `Prefs.legalHold` suspends every deletion: meeting and audio retention, `MeetingTrash.purge`,
+  and permanent deletes. Delete still moves a meeting to the trash, with a message; Forget person is refused.
+- **Export all for Legal…** (Settings > Privacy & Data) writes every meeting, the trash included, as `notes.md`,
+  `transcript.txt`, `meeting.json`, and kept audio, plus `manifest.json` with each meeting's id, title, `startedAt`,
+  and each file's name, size, and SHA-256 (`LegalExport.swift`). The copies are plain text.
+- **Forget person…** (Settings > Speakers) removes a name from remembered people and from every meeting's
+  speakers, case-insensitively. Transcript text, notes, and invitee lists are left alone.
+- **Sealed sidecars.** Remembered people (`known-people.json.enc`, moved once from UserDefaults), `tags.json.enc`,
+  `templates.json.enc`, and `library-chat.json.enc` are sealed by `Vault`. `usage.jsonl` keeps meeting ids only;
+  titles are looked up when shown, and older lines are rewritten without them.
+- **Drive policy.** `Prefs.allowDriveExport` (default true) gates the Drive copy and its Settings. Turn it off with
+  `defaults write dev.local.groknotes allowDriveExport -bool false`.
 - **Prompts.** Transcripts, notes, titles, and names go into prompts inside tags such as `<transcript>`
   (`PromptData.swift`), with a rule that tagged text is data, not instructions, and that no links may be added.
   Titles and names are one line, at most 200 characters.
@@ -102,6 +131,20 @@ stops and does not poll while the recording is paused. Call-window titles live i
 - **Network.** One ephemeral `URLSession` with no cache, cookies, or credential store and TLS 1.2+
   (`Network.swift`) serves xAI and Google.
 - **Notifications** never include a meeting's title or content.
+
+### Pilot builds
+
+To make a pilot build:
+
+```bash
+GROKNOLA_PILOT=1 ./scripts/build-app.sh
+```
+
+The script writes `GNPilotBuild` = true into the signed `Info.plist`. The app then turns off the Drive copy, uses
+`.internalOnly`, always blocks `example.org` and `example.net`, keeps snapshots and Accessibility speaker reading off,
+forces the consent confirmation on every recording, and refuses to record without FileVault (`PilotBuild.swift`).
+Settings shows those switches disabled with "Set by the pilot build." `GROKNOLA_PILOT=1 swift run` previews the same
+locks; neither the key nor the variable can turn them off.
 
 ## Calendar
 
@@ -189,7 +232,7 @@ the last 7 days, this month, or all time, broken down by feature and by meeting.
 header also shows its own cost. Grok requests use the exact `cost_in_usd_ticks` that xAI
 returns. Transcription is estimated from recorded audio at list price ($0.20 per hour
 streaming, $0.10 per hour for the full-recording pass). The log is
-`~/Library/Application Support/GrokNotes/usage.jsonl`.
+`~/Library/Application Support/GrokNotes/usage.jsonl`, which names meetings by id only.
 
 ## Data
 
@@ -203,7 +246,8 @@ Audio and text leave the Mac only to reach `api.x.ai`, plus the notes-only Drive
 
 ### Google Drive (optional)
 
-With **Google Drive for desktop** installed and signed in, you can mirror exports into synced **My Drive**:
+Pilot builds, and `allowDriveExport` set to false, turn this off. Otherwise, with **Google Drive for desktop**
+installed and signed in, you can mirror exports into synced **My Drive**:
 
 1. Open Settings (Command-comma) → **Calendar & Drive**.
 2. Turn on **Copy notes to Google Drive when saved**.
