@@ -6,6 +6,7 @@ struct CalendarDriveSettingsPane: View {
     @AppStorage("exportToGoogleDrive") private var exportToGoogleDrive = false
     @AppStorage("googleDriveSubfolder") private var googleDriveSubfolder = ""
     @AppStorage("googleDriveMount") private var googleDriveMount = ""
+    @AppStorage("allowDriveExport") private var allowDriveExport = true
 
     var body: some View {
         Form {
@@ -30,24 +31,42 @@ struct CalendarDriveSettingsPane: View {
             .onChange(of: calendarSource) { calendars.objectWillChange.send() }
 
             Section("Google Drive") {
-                Toggle("Copy notes to Google Drive when saved", isOn: $exportToGoogleDrive)
-                if exportToGoogleDrive {
-                    let mounts = GoogleDriveExport.mounts()
-                    Picker("Drive account", selection: $googleDriveMount) {
-                        Text("Match my Google sign-in").tag("")
-                        ForEach(mounts, id: \.self) { mount in
-                            Text(GoogleDriveExport.account(ofMount: mount) ?? mount).tag(mount)
-                        }
-                        if !googleDriveMount.isEmpty, !mounts.contains(googleDriveMount) {
-                            Text("\(GoogleDriveExport.account(ofMount: googleDriveMount) ?? googleDriveMount) (not mounted)").tag(googleDriveMount)
-                        }
+                if !driveAllowed {
+                    Toggle("Copy notes to Google Drive when saved", isOn: .constant(false))
+                        .disabled(true)
+                    if PilotBuild.isOn {
+                        PilotLockedCaption()
+                    } else {
+                        SettingsCaption("Copying to Google Drive is turned off by policy (allowDriveExport).")
                     }
-                    TextField("Subfolder under My Drive (optional)", text: $googleDriveSubfolder)
-                    driveStatus(mounts: mounts)
+                } else {
+                    driveControls
                 }
-                SettingsCaption("Uses the synced My Drive folder, so there is no Google sign-in in GrokNola. Notes go only to the account you pick, or to the one matching your Google Calendar sign-in or company domain (Settings > Privacy & Data). Notes are copied after recording stops. Each meeting gets a folder with notes.md: the notes only, without the transcript. Use Export Transcript and Audio… to save those.")
             }
         }
+    }
+
+    /// Pilot builds and the `allowDriveExport` policy switch turn the Drive copy off.
+    private var driveAllowed: Bool { !PilotBuild.isOn && allowDriveExport }
+
+    @ViewBuilder
+    private var driveControls: some View {
+        Toggle("Copy notes to Google Drive when saved", isOn: $exportToGoogleDrive)
+        if exportToGoogleDrive {
+            let mounts = GoogleDriveExport.mounts()
+            Picker("Drive account", selection: $googleDriveMount) {
+                Text("Match my Google sign-in").tag("")
+                ForEach(mounts, id: \.self) { mount in
+                    Text(GoogleDriveExport.account(ofMount: mount) ?? mount).tag(mount)
+                }
+                if !googleDriveMount.isEmpty, !mounts.contains(googleDriveMount) {
+                    Text("\(GoogleDriveExport.account(ofMount: googleDriveMount) ?? googleDriveMount) (not mounted)").tag(googleDriveMount)
+                }
+            }
+            TextField("Subfolder under My Drive (optional)", text: $googleDriveSubfolder)
+            driveStatus(mounts: mounts)
+        }
+        SettingsCaption("Uses the synced My Drive folder, so there is no Google sign-in in GrokNola. Notes go only to the account you pick, or to the one matching your Google Calendar sign-in or company domain (Settings > Privacy & Data). Notes are copied after recording stops. Each meeting gets a folder with notes.md: the notes only, without the transcript. Use Export Transcript and Audio… to save those.")
     }
 
     @ViewBuilder

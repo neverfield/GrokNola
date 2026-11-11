@@ -78,6 +78,13 @@ else
   echo "warning: Set GROKNOLA_GOOGLE_CLIENT_ID and GROKNOLA_GOOGLE_CLIENT_SECRET, or put them in scripts/google-oauth.env." >&2
 fi
 
+# GROKNOLA_PILOT=1 makes a pilot build: GNPilotBuild in the signed Info.plist locks the settings listed in
+# Sources/GrokNotes/PilotBuild.swift.
+if [ "${GROKNOLA_PILOT:-0}" = 1 ]; then
+  /usr/libexec/PlistBuddy -c "Add :GNPilotBuild bool true" "$APP/Contents/Info.plist"
+  echo "Pilot build: Drive copy off, internal meetings only, snapshots and Accessibility speakers off, consent confirmation on."
+fi
+
 identity_hash() {
   awk -v name="\"$CERT_NAME\"" 'index($0, name) { print $2; exit }'
 }

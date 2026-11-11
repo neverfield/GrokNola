@@ -8,7 +8,6 @@ struct PrivacySettingsPane: View {
     @AppStorage("companyDomains") private var companyDomains = ""
     @AppStorage("consentConfirmation") private var consentConfirmation = true
     @AppStorage("skipInternalConsentConfirmation") private var skipInternalConsentConfirmation = false
-
     @AppStorage("textRetentionDays") private var textRetentionDays = 0
     @AppStorage("legalHold") private var legalHold = false
     @AppStorage("recordingScope") private var recordingScope = RecordingScope.warnExternal
@@ -17,18 +16,24 @@ struct PrivacySettingsPane: View {
     var body: some View {
         Form {
             Section("Which meetings to record") {
-                Picker("Record", selection: $recordingScope) {
+                Picker("Record", selection: PilotBuild.isOn ? .constant(.internalOnly) : $recordingScope) {
                     ForEach(RecordingScope.allCases) { Text($0.label).tag($0) }
                 }
+                .disabled(PilotBuild.isOn)
+                if PilotBuild.isOn { PilotLockedCaption() }
                 SettingsCaption("Internal meetings only refuses to start when the invite lists anyone outside your company domains, and asks for the consent confirmation when there is no invite. Pilot builds always use it.")
                 TextField("Never record meetings with", text: $blockedDomains, prompt: Text("example.org, example.net"))
-                SettingsCaption("GrokNola never records a meeting whose invite lists anyone at these domains or their subdomains, whatever the setting above.")
+                SettingsCaption(PilotBuild.isOn
+                    ? "GrokNola never records a meeting whose invite lists anyone at these domains or their subdomains. The pilot build always includes example.org and example.net."
+                    : "GrokNola never records a meeting whose invite lists anyone at these domains or their subdomains, whatever the setting above.")
             }
 
             Section("Consent") {
-                Toggle("Confirm consent before every recording", isOn: $consentConfirmation)
-                Toggle("Don't ask for internal-only meetings", isOn: $skipInternalConsentConfirmation)
-                    .disabled(!consentConfirmation)
+                Toggle("Confirm consent before every recording", isOn: $consentConfirmation.pilotLocked(to: true))
+                    .disabled(PilotBuild.isOn)
+                Toggle("Don't ask for internal-only meetings", isOn: $skipInternalConsentConfirmation.pilotLocked(to: false))
+                    .disabled(!consentConfirmation || PilotBuild.isOn)
+                if PilotBuild.isOn { PilotLockedCaption() }
                 SettingsCaption("Start Notes first asks you to confirm that everyone knows you're taking AI notes and agreed where the law requires it. Internal-only means a calendar invite whose invitees are all in your company domains; a meeting with outside invitees, or without an invite, always asks.")
                 Toggle("Remind me to ask for consent when outside people are invited", isOn: $consentReminder)
                 TextField("Company email domains", text: $companyDomains, prompt: Text("example.com"))
@@ -67,7 +72,9 @@ struct PrivacySettingsPane: View {
 
             Section("Data") {
                 Button("Show data folder") { NSWorkspace.shared.open(state.store.root) }
-                SettingsCaption("Meetings are stored on this Mac. Audio, transcripts, notes, and call-window snapshots are sent to the xAI API to transcribe and write notes. When Google Drive export is on, notes are also copied to your Google Drive folder.")
+                SettingsCaption(Prefs.allowDriveExport
+                    ? "Meetings are stored on this Mac. Audio, transcripts, notes, and call-window snapshots are sent to the xAI API to transcribe and write notes. When Google Drive export is on, notes are also copied to your Google Drive folder."
+                    : "Meetings are stored on this Mac. Audio, transcripts, notes, and call-window snapshots are sent to the xAI API to transcribe and write notes. Copying to Google Drive is turned off.")
                 SettingsCaption("Meetings and recordings are encrypted with a key in your Keychain (vault_key). If that Keychain item is deleted, they cannot be opened again; use Export Transcript and Audio… to keep readable copies.")
             }
 

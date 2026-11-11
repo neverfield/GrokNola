@@ -65,35 +65,42 @@ enum Prefs {
         set { defaults.set(newValue, forKey: "othersMuted") }
     }
     static var inferNames: Bool { defaults.object(forKey: "inferNames") as? Bool ?? true }
-    /// Save snapshots of the call window and send them to xAI to name speakers. Off unless turned on.
-    static var useSnapshots: Bool { defaults.object(forKey: "useSnapshots") as? Bool ?? false }
-    /// Read the meeting app's "who is talking" labels through Accessibility. Off unless turned on.
-    static var useAccessibilitySpeakers: Bool { defaults.object(forKey: "useAccessibilitySpeakers") as? Bool ?? false }
+    /// Save snapshots of the call window and send them to xAI to name speakers. Off unless turned on; always off in a pilot build.
+    static var useSnapshots: Bool { !PilotBuild.isOn && (defaults.object(forKey: "useSnapshots") as? Bool ?? false) }
+    /// Read the meeting app's "who is talking" labels through Accessibility. Off unless turned on; always off in a pilot build.
+    static var useAccessibilitySpeakers: Bool {
+        !PilotBuild.isOn && (defaults.object(forKey: "useAccessibilitySpeakers") as? Bool ?? false)
+    }
     /// Put names on speakers while recording, not only after the meeting.
     static var liveSpeakerID: Bool { defaults.object(forKey: "liveSpeakerID") as? Bool ?? true }
     /// While recording, ask Grok about snapshots for a voice that stays unnamed, at most once a minute. Off unless turned on.
     static var liveSpeakerSnapshots: Bool { defaults.object(forKey: "liveSpeakerSnapshots") as? Bool ?? false }
     /// When a recording starts, remind you to ask for consent if invitees are outside your company.
     static var consentReminder: Bool { defaults.object(forKey: "consentReminder") as? Bool ?? true }
-    /// Before recording starts, ask you to confirm that everyone knows about the AI notes.
-    static var consentConfirmation: Bool { defaults.object(forKey: "consentConfirmation") as? Bool ?? true }
-    /// Skip that confirmation when every invitee is in your company domains.
+    /// Before recording starts, ask you to confirm that everyone knows about the AI notes. Always on in a pilot build.
+    static var consentConfirmation: Bool { PilotBuild.isOn || (defaults.object(forKey: "consentConfirmation") as? Bool ?? true) }
+    /// Skip that confirmation when every invitee is in your company domains. Never in a pilot build.
     static var skipInternalConsentConfirmation: Bool {
-        get { defaults.bool(forKey: "skipInternalConsentConfirmation") }
+        get { !PilotBuild.isOn && defaults.bool(forKey: "skipInternalConsentConfirmation") }
         set { defaults.set(newValue, forKey: "skipInternalConsentConfirmation") }
     }
     /// Your company's email domains, typed in Settings, such as "example.com, example.org".
     static var companyDomains: Set<String> { ConsentReminder.domains(in: defaults.string(forKey: "companyDomains")) }
-    /// Which meetings may be recorded. `.internalOnly` is the strictest setting.
+    /// Which meetings may be recorded. `.internalOnly` is the strictest setting, and a pilot build always uses it.
     static var recordingScope: RecordingScope {
-        defaults.string(forKey: "recordingScope").flatMap(RecordingScope.init(rawValue:)) ?? .warnExternal
+        if PilotBuild.isOn { return .internalOnly }
+        return defaults.string(forKey: "recordingScope").flatMap(RecordingScope.init(rawValue:)) ?? .warnExternal
     }
     /// Domains never recorded, subdomains included, whatever the scope. Edited in Settings as a list.
+    /// A pilot build always includes the defaults.
     static var blockedDomains: Set<String> {
         guard let list = defaults.string(forKey: "blockedDomains") else { return Set(RecordingPolicy.defaultBlockedDomains) }
-        return ConsentReminder.domains(in: list)
+        return ConsentReminder.domains(in: list).union(PilotBuild.isOn ? RecordingPolicy.defaultBlockedDomains : [])
     }
-    static var exportToGoogleDrive: Bool { defaults.object(forKey: "exportToGoogleDrive") as? Bool ?? false }
+    /// Policy switch for the Google Drive copy, set with `defaults write dev.local.groknotes allowDriveExport -bool false`.
+    /// Pilot builds turn it off. When off, Settings hides the Drive options and nothing is copied.
+    static var allowDriveExport: Bool { !PilotBuild.isOn && (defaults.object(forKey: "allowDriveExport") as? Bool ?? true) }
+    static var exportToGoogleDrive: Bool { allowDriveExport && (defaults.object(forKey: "exportToGoogleDrive") as? Bool ?? false) }
     static var googleDriveSubfolder: String? { nonEmpty(defaults.string(forKey: "googleDriveSubfolder")) }
     /// The Google Drive for desktop mount picked in Settings, such as `GoogleDrive-ana@example.com`. Nil chooses by account.
     static var googleDriveMount: String? { nonEmpty(defaults.string(forKey: "googleDriveMount")) }

@@ -90,6 +90,22 @@ struct SettingsCaption: View {
     }
 }
 
+/// "Set by the pilot build" under a setting that a pilot build locks.
+struct PilotLockedCaption: View {
+    var body: some View {
+        Label(PilotBuild.lockedCaption, systemImage: "lock.fill")
+            .font(.caption)
+            .foregroundStyle(GrokColors.inkMuted)
+    }
+}
+
+extension Binding where Value == Bool {
+    /// The stored value, or `value` fixed in a pilot build.
+    func pilotLocked(to value: Bool) -> Binding<Bool> {
+        PilotBuild.isOn ? .constant(value) : self
+    }
+}
+
 /// A menu of known values plus "Custom…", which shows a text field for any other value.
 struct PresetPicker: View {
     struct Option: Identifiable {
