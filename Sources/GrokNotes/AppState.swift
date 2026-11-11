@@ -136,6 +136,8 @@ final class AppState: ObservableObject {
     /// Deleted meetings, kept 30 days for Undo. Purges old ones when created at launch.
     let trash = MeetingTrash()
     private var session: RecordingSession?
+    /// True from Start Notes until recording begins or is cancelled, so a second start waits.
+    private var startingMeeting = false
     private var detectorTimer: Timer?
     private var saveTasks: [UUID: Task<Void, Never>] = [:]
     private var bannerTimers: [UUID: Task<Void, Never>] = [:]
@@ -367,13 +369,33 @@ final class AppState: ObservableObject {
     // MARK: Recording
 
     /// Starts recording. Pass an event, such as one picked on Home, to use its title and invitees.
+    /// Every Start Notes path (Home, the sidebar, the menu bar, the Meeting menu, and the notification) comes here,
+    /// so the consent confirmation cannot be bypassed.
     func startMeeting(event picked: CalendarEvent? = nil) async {
-        guard session == nil else { return }
+        guard session == nil, !startingMeeting else { return }
+        startingMeeting = true
+        defer { startingMeeting = false }
         clips.stop()
         guard let apiKey = XAIClient.storedAPIKey() else {
             showBanner("Add your xAI API key in Settings (Command-comma) first.", severity: .error, action: Self.openSettingsAction)
             return
         }
+
+        let event = picked ?? calendars.currentEvent(at: Date())
+        let ownDomains = event.map(ownDomains(for:)) ?? Prefs.companyDomains
+        let emails = event?.attendeeEmails ?? []
+        let externalDomains = ConsentReminder.externalDomains(emails, ownDomains: ownDomains)
+        let knownInternal = event != nil && ConsentReminder.isKnownInternalOnly(emails, ownDomains: ownDomains)
+        var consentConfirmedAt: Date?
+        if ConsentReminder.needsConfirmation(
+            enabled: Prefs.consentConfirmation,
+            skipInternalOnly: Prefs.skipInternalConsentConfirmation,
+            knownInternalOnly: knownInternal
+        ) {
+            guard confirmConsent(externalDomains: externalDomains, offerSkip: knownInternal) else { return }
+            consentConfirmedAt = Date()
+        }
+
         guard await MicCapture.requestPermission() else {
             showBanner(
                 "GrokNola needs microphone access. Turn it on in System Settings > Privacy & Security > Microphone.",
@@ -388,7 +410,6 @@ final class AppState: ObservableObject {
         let app = MeetingDetector.detect(micInUse: MeetingDetector.micInUse())
         notifiedDetection = app?.name ?? notifiedDetection
         notifications.clearMeetingDetected()
-        let event = picked ?? calendars.currentEvent(at: now)
         let myName = Prefs.myName
         var meeting = Meeting(
             title: event?.title ?? "\(app?.name ?? "Meeting") · \(now.formatted(date: .abbreviated, time: .shortened))",
@@ -397,7 +418,9 @@ final class AppState: ObservableObject {
         )
         meeting.appName = app?.name ?? event?.meetingAppName
         meeting.attendees = event?.attendeeNames ?? []
-        if let emails = event?.attendeeEmails, !emails.isEmpty { meeting.attendeeEmails = emails }
+        if !emails.isEmpty { meeting.attendeeEmails = emails }
+        meeting.consentConfirmedAt = consentConfirmedAt
+        meeting.externalDomains = externalDomains.isEmpty ? nil : externalDomains
         meetings.insert(meeting, at: 0)
         selectedID = meeting.id
 
@@ -522,7 +545,8 @@ final class AppState: ObservableObject {
         }
         save(meetingID)
         refreshPermissions()
-        if Prefs.consentReminder, let event, needsConsentReminder(event) {
+        // The confirmation already named the outside domains.
+        if consentConfirmedAt == nil, Prefs.consentReminder, !externalDomains.isEmpty {
             showBanner(ConsentReminder.message, severity: .warning)
         }
 
@@ -541,13 +565,31 @@ final class AppState: ObservableObject {
         Array(uniqueNames(attendees + [myName]).filter { $0.count <= maxKeytermLength }.prefix(maxKeyterms))
     }
 
-    /// Whether the event's invitees include someone outside your domains: those set in Settings, your own
-    /// address on the invite, and the signed-in Google account.
-    private func needsConsentReminder(_ event: CalendarEvent) -> Bool {
+    /// Your domains for this event: those set in Settings, your own address on the invite, and the signed-in
+    /// Google account.
+    private func ownDomains(for event: CalendarEvent) -> Set<String> {
         var own = Prefs.companyDomains
         let selfEmails = event.attendees.filter { $0.isSelf == true }.compactMap(\.email) + [calendars.googleAuth.email].compactMap { $0 }
         own.formUnion(selfEmails.compactMap(ConsentReminder.domain(of:)))
-        return ConsentReminder.hasExternalAttendees(event.attendeeEmails, ownDomains: own)
+        return own
+    }
+
+    /// Asks you to confirm consent before recording. True for Start Notes. "Don't ask again" is offered only
+    /// for a meeting known to be internal.
+    private func confirmConsent(externalDomains: [String], offerSkip: Bool) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = externalDomains.isEmpty ? .informational : .warning
+        alert.messageText = ConsentReminder.confirmationMessage
+        alert.informativeText = ConsentReminder.confirmationDetail(externalDomains: externalDomains)
+        alert.addButton(withTitle: "Start Notes")
+        alert.addButton(withTitle: "Cancel")
+        let canSkip = offerSkip && externalDomains.isEmpty
+        alert.showsSuppressionButton = canSkip
+        alert.suppressionButton?.title = "Don't ask again for internal-only meetings"
+        NSApp.activate(ignoringOtherApps: true)
+        let confirmed = alert.runModal() == .alertFirstButtonReturn
+        if confirmed, canSkip, alert.suppressionButton?.state == .on { Prefs.skipInternalConsentConfirmation = true }
+        return confirmed
     }
 
     func stopMeeting() async {

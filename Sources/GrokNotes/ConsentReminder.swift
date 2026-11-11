@@ -28,11 +28,47 @@ enum ConsentReminder {
         own.contains { domain == $0 || domain.hasSuffix("." + $0) }
     }
 
+    /// The domains of invitees who are people, not calendar rooms or groups.
+    static func personDomains(_ emails: [String]) -> [String] {
+        emails.compactMap(domain(of:)).filter { d in !nonPersonDomains.contains { d == $0 || d.hasSuffix("." + $0) } }
+    }
+
+    /// The distinct invitee domains outside `ownDomains`, sorted. With no known own domain, every invitee's
+    /// domain, since nobody can be confirmed as a colleague.
+    static func externalDomains(_ emails: [String], ownDomains: Set<String>) -> [String] {
+        let people = personDomains(emails)
+        let outside = ownDomains.isEmpty ? people : people.filter { !isOwn($0, own: ownDomains) }
+        return Array(Set(outside)).sorted()
+    }
+
     /// True when an invitee's email is outside `ownDomains`. With no known own domain, true when any invitee
-    /// has an email, since nobody can be confirmed as a colleague.
+    /// has an email.
     static func hasExternalAttendees(_ emails: [String], ownDomains: Set<String>) -> Bool {
-        let people = emails.compactMap(domain(of:)).filter { d in !nonPersonDomains.contains { d == $0 || d.hasSuffix("." + $0) } }
-        guard !ownDomains.isEmpty else { return !people.isEmpty }
-        return people.contains { !isOwn($0, own: ownDomains) }
+        !externalDomains(emails, ownDomains: ownDomains).isEmpty
+    }
+
+    /// True only when the invite lists at least one person and every one of them is in `ownDomains`.
+    /// A meeting without an invite, or without invitees, is never known to be internal.
+    static func isKnownInternalOnly(_ emails: [String], ownDomains: Set<String>) -> Bool {
+        !ownDomains.isEmpty && !personDomains(emails).isEmpty && !hasExternalAttendees(emails, ownDomains: ownDomains)
+    }
+
+    // MARK: Confirmation before recording
+
+    /// What you confirm before recording starts.
+    static let confirmationMessage = "Everyone in this meeting knows you're taking AI notes and agreed where the law requires it."
+
+    /// The line under the confirmation, naming outside domains when the invite has any.
+    static func confirmationDetail(externalDomains: [String]) -> String {
+        guard !externalDomains.isEmpty else { return "GrokNola starts recording when you click Start Notes." }
+        let shown = externalDomains.prefix(5).joined(separator: ", ")
+        let more = externalDomains.count > 5 ? " and \(externalDomains.count - 5) more" : ""
+        return "This invite includes people outside your company: \(shown)\(more)."
+    }
+
+    /// Whether recording waits for the confirmation. "Don't ask again" applies only to meetings known to be
+    /// internal, so outside invitees, or no invite at all, always ask while the setting is on.
+    static func needsConfirmation(enabled: Bool, skipInternalOnly: Bool, knownInternalOnly: Bool) -> Bool {
+        enabled && !(skipInternalOnly && knownInternalOnly)
     }
 }

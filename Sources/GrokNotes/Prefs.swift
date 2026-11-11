@@ -68,6 +68,13 @@ enum Prefs {
     static var liveSpeakerSnapshots: Bool { defaults.object(forKey: "liveSpeakerSnapshots") as? Bool ?? false }
     /// When a recording starts, remind you to ask for consent if invitees are outside your company.
     static var consentReminder: Bool { defaults.object(forKey: "consentReminder") as? Bool ?? true }
+    /// Before recording starts, ask you to confirm that everyone knows about the AI notes.
+    static var consentConfirmation: Bool { defaults.object(forKey: "consentConfirmation") as? Bool ?? true }
+    /// Skip that confirmation when every invitee is in your company domains.
+    static var skipInternalConsentConfirmation: Bool {
+        get { defaults.bool(forKey: "skipInternalConsentConfirmation") }
+        set { defaults.set(newValue, forKey: "skipInternalConsentConfirmation") }
+    }
     /// Your company's email domains, typed in Settings, such as "example.com, example.org".
     static var companyDomains: Set<String> { ConsentReminder.domains(in: defaults.string(forKey: "companyDomains")) }
     static var exportToGoogleDrive: Bool { defaults.object(forKey: "exportToGoogleDrive") as? Bool ?? false }

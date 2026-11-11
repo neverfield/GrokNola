@@ -6,13 +6,18 @@ struct PrivacySettingsPane: View {
     @AppStorage("audioRetentionDays") private var audioRetentionDays = 0
     @AppStorage("consentReminder") private var consentReminder = true
     @AppStorage("companyDomains") private var companyDomains = ""
+    @AppStorage("consentConfirmation") private var consentConfirmation = true
+    @AppStorage("skipInternalConsentConfirmation") private var skipInternalConsentConfirmation = false
 
     var body: some View {
         Form {
             Section("Consent") {
+                Toggle("Confirm consent before every recording", isOn: $consentConfirmation)
+                Toggle("Don't ask for internal-only meetings", isOn: $skipInternalConsentConfirmation)
+                    .disabled(!consentConfirmation)
+                SettingsCaption("Start Notes first asks you to confirm that everyone knows you're taking AI notes and agreed where the law requires it. Internal-only means a calendar invite whose invitees are all in your company domains; a meeting with outside invitees, or without an invite, always asks.")
                 Toggle("Remind me to ask for consent when outside people are invited", isOn: $consentReminder)
-                TextField("Company email domains", text: $companyDomains, prompt: Text("example.com, example.org"))
-                    .disabled(!consentReminder)
+                TextField("Company email domains", text: $companyDomains, prompt: Text("example.com"))
                 SettingsCaption("When a recording starts, GrokNola compares the invitees' email domains with these, your address on the invite, and your Google account. If it can't tell which domain is yours, it reminds you whenever the invite lists anyone.")
             }
 

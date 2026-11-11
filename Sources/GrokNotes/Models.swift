@@ -107,6 +107,10 @@ struct Meeting: Codable, Identifiable {
     var speakerAliases: [String: String]?
     /// When speakers were last merged or lines moved after Grok wrote the notes. Cleared when Grok writes notes.
     var speakersEditedAt: Date?
+    /// When you confirmed, before recording, that everyone knew about the AI notes. Nil when not asked.
+    var consentConfirmedAt: Date?
+    /// Invitee domains outside your company when recording started.
+    var externalDomains: [String]?
 }
 
 struct TalkStat: Hashable {
