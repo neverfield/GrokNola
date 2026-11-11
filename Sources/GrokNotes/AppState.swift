@@ -1093,7 +1093,7 @@ final class AppState: ObservableObject {
         }
 
         let recordings = [s.micWAV, s.systemWAV].compactMap { $0?.url }
-        if Prefs.keepAudio {
+        if Prefs.keepsAudio {
             Task.detached(priority: .utility) { Self.sealRecordings(recordings) }
         } else {
             recordings.forEach(Vault.remove)

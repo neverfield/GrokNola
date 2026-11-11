@@ -463,15 +463,15 @@ GrokNola talks to xAI and Google over TLS 1.2 or later, and keeps no web cache o
 
 Audio settings in **Settings > Privacy & Data**:
 
-- **Keep audio recordings after notes are written** (off by default). When off, the audio is deleted after the notes are written, and clips and the player are not available.
-- **Delete kept audio after**: **Never**, **7 days**, **30 days**, or **90 days**. Old recordings are removed when GrokNola opens. Notes and transcripts stay.
+- **Keep audio recordings after notes are written** (off by default). When off, the audio is deleted after the notes are written, and clips and the player are not available. Under legal hold the audio is kept and encrypted anyway.
+- **Delete kept audio after**: **Never**, **7 days**, **30 days**, or **90 days**. Old recordings are removed when GrokNola opens. Notes and transcripts stay. Not available under legal hold.
 
 ### Retention, legal hold, and export for Legal
 
 In **Settings > Privacy & Data > Retention and legal hold**:
 
 - **Delete meetings after**: **Never** (the default), **30 days**, **90 days**, **180 days**, or **365 days**. When GrokNola opens, meetings that started longer ago are deleted for good, with their transcript, notes, and audio. Pinned meetings are deleted too.
-- **Legal hold** (off by default). Turn it on when Legal asks you to preserve meetings. While it is on, nothing is deleted: meeting and audio retention are suspended, the trash is not emptied, Delete only moves a meeting to the trash, and **Forget person** is unavailable.
+- **Legal hold** (off by default). Turn it on when Legal asks you to preserve meetings. While it is on, nothing is deleted: the audio of meetings whose notes are written during the hold is kept even with **Keep audio** off, meeting and audio retention are suspended, the trash is not emptied, Delete only moves a meeting to the trash, and **Forget person** is unavailable. Audio deleted before the hold was turned on cannot be recovered.
 - **Export all for Legal…** asks for a folder, then writes `GrokNola Legal Export <date>` there. Each meeting, including those in the trash, gets a folder with `notes.md`, `transcript.txt`, `meeting.json`, and any kept audio. `manifest.json` lists each meeting's ID, title, start time, whether it was in the trash, and each file's name, size, and SHA-256 hash. The copies are not encrypted. Wait until nothing is recording or being processed.
 
 ### Forget a person

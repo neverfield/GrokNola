@@ -87,7 +87,7 @@ struct NotesTab: View {
                     onToggleCheckbox: processing ? nil : { state.toggleNotesCheckbox(meetingID, line: $0) },
                     quote: { state.transcriptQuote(meetingID, at: $0) }
                 )
-                if !playable, !Prefs.keepAudio, Citations.contains(enhanced) {
+                if !playable, !Prefs.keepsAudio, Citations.contains(enhanced) {
                     KeepAudioHint().padding(.top, GrokSpacing.sm)
                 }
             }

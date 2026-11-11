@@ -9,6 +9,12 @@ enum Retention {
         let cutoff = now.addingTimeInterval(-Double(days) * 86_400)
         return meetings.filter { $0.startedAt < cutoff }.map(\.id)
     }
+
+    /// Whether a meeting's recordings are sealed and kept after its notes are written. Legal hold keeps them
+    /// even when Keep audio is off.
+    static func shouldKeepAudio(keepAudio: Bool, legalHold: Bool) -> Bool {
+        keepAudio || legalHold
+    }
 }
 
 /// Writes plain copies of every meeting, including those in the trash, with a manifest of SHA-256 hashes,

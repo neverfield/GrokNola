@@ -49,7 +49,9 @@ struct PrivacySettingsPane: View {
                     Text("90 days").tag(90)
                 }
                 .disabled(legalHold)
-                SettingsCaption("Kept audio lets you play clips from citations and the transcript. Old recordings are removed when GrokNola opens.")
+                SettingsCaption(legalHold
+                    ? "Legal hold is on, so recordings are kept even with Keep audio off, and old recordings are not removed."
+                    : "Kept audio lets you play clips from citations and the transcript. Old recordings are removed when GrokNola opens.")
             }
 
             Section("Retention and legal hold") {
@@ -64,8 +66,8 @@ struct PrivacySettingsPane: View {
                 SettingsCaption("When GrokNola opens, meetings that started longer ago than this are deleted for good: transcript, notes, and audio. Pinned meetings are deleted too.")
                 Toggle("Legal hold", isOn: $legalHold)
                 SettingsCaption(legalHold
-                    ? "Legal hold is on. Nothing is deleted: meeting and audio retention are suspended, the trash is not emptied, and Delete only moves a meeting to the trash. Forget person is unavailable."
-                    : "Turn on when Legal asks you to preserve your meetings. It suspends every deletion until you turn it off.")
+                    ? "Legal hold is on. Nothing is deleted: new recordings are kept even with Keep audio off, meeting and audio retention are suspended, the trash is not emptied, and Delete only moves a meeting to the trash. Forget person is unavailable."
+                    : "Turn on when Legal asks you to preserve your meetings. It suspends every deletion, and keeps the audio of new recordings, until you turn it off.")
                 Button("Export all for Legal…") { state.exportAllForLegal() }
                 SettingsCaption("Writes readable copies of every meeting, including the trash, to a folder you choose: notes.md, transcript.txt, meeting.json, and any kept audio, with a manifest.json of SHA-256 hashes. The copies are not encrypted.")
             }

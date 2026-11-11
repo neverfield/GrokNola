@@ -39,6 +39,8 @@ enum Prefs {
     }
     /// While on, nothing is deleted: no retention, no trash purge, and a delete only moves to the trash.
     static var legalHold: Bool { defaults.bool(forKey: "legalHold") }
+    /// Keep recordings after the notes are written: Keep audio is on, or legal hold is.
+    static var keepsAudio: Bool { Retention.shouldKeepAudio(keepAudio: keepAudio, legalHold: legalHold) }
     /// Playback brings the microphone and system audio to the same speech level.
     static var balanceVoices: Bool {
         get { defaults.object(forKey: "balanceVoices") as? Bool ?? true }

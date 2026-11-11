@@ -26,6 +26,13 @@ final class RetentionTests: XCTestCase {
         XCTAssertEqual(Retention.expired([old], days: 30, legalHold: true, now: now), [])
     }
 
+    func testLegalHoldKeepsAudioEvenWithKeepAudioOff() {
+        XCTAssertFalse(Retention.shouldKeepAudio(keepAudio: false, legalHold: false))
+        XCTAssertTrue(Retention.shouldKeepAudio(keepAudio: true, legalHold: false))
+        XCTAssertTrue(Retention.shouldKeepAudio(keepAudio: false, legalHold: true))
+        XCTAssertTrue(Retention.shouldKeepAudio(keepAudio: true, legalHold: true))
+    }
+
     @MainActor
     func testTrashPurgeIsSuspendedUnderHold() throws {
         let root = try temp()
@@ -72,5 +79,21 @@ final class RetentionTests: XCTestCase {
         }
         let transcript = try String(contentsOf: folder.appendingPathComponent(entry.folder).appendingPathComponent(MeetingStore.transcriptFile), encoding: .utf8)
         XCTAssertTrue(transcript.contains("Ana: Hello"))
+    }
+
+    func testLegalExportIncludesKeptAudio() throws {
+        let store = MeetingStore(root: try temp())
+        let parent = try temp()
+        let held = meeting(daysAgo: 1, title: "Held")
+        let audio = Data(repeating: 7, count: 64)
+        try audio.write(to: store.directory(for: held.id).appendingPathComponent("mic.wav"))
+        let folder = try LegalExport.run([.init(store: store, meetings: [held], inTrash: false)], myName: "Ana", legalHold: true, to: parent, now: now)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let manifest = try decoder.decode(LegalExport.Manifest.self, from: Data(contentsOf: folder.appendingPathComponent(LegalExport.manifestFile)))
+        let entry = try XCTUnwrap(manifest.meetings.first)
+        let mic = try XCTUnwrap(entry.files.first { $0.name == "mic.wav" })
+        XCTAssertEqual(mic.bytes, audio.count)
+        XCTAssertEqual(try Data(contentsOf: folder.appendingPathComponent(entry.folder).appendingPathComponent("mic.wav")), audio)
     }
 }

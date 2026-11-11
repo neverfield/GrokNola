@@ -108,7 +108,8 @@ stops and does not poll while the recording is paused. Call-window titles live i
 - **Retention.** `Prefs.textRetentionDays` (Never by default; 30, 90, 180, 365) deletes meetings by `startedAt`
   at launch, next to the audio retention (`Retention` in `LegalExport.swift`).
 - **Legal hold.** `Prefs.legalHold` suspends every deletion: meeting and audio retention, `MeetingTrash.purge`,
-  and permanent deletes. Delete still moves a meeting to the trash, with a message; Forget person is refused.
+  and permanent deletes. Recordings are sealed and kept after the notes are written even with Keep audio off
+  (`Retention.shouldKeepAudio`). Delete still moves a meeting to the trash, with a message; Forget person is refused.
 - **Export all for Legal…** (Settings > Privacy & Data) writes every meeting, the trash included, as `notes.md`,
   `transcript.txt`, `meeting.json`, and kept audio, plus `manifest.json` with each meeting's id, title, `startedAt`,
   and each file's name, size, and SHA-256 (`LegalExport.swift`). The copies are plain text.
