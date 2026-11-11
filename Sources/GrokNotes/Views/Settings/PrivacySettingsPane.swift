@@ -9,6 +9,8 @@ struct PrivacySettingsPane: View {
     @AppStorage("consentConfirmation") private var consentConfirmation = true
     @AppStorage("skipInternalConsentConfirmation") private var skipInternalConsentConfirmation = false
 
+    @AppStorage("textRetentionDays") private var textRetentionDays = 0
+    @AppStorage("legalHold") private var legalHold = false
     @AppStorage("recordingScope") private var recordingScope = RecordingScope.warnExternal
     @AppStorage("blockedDomains") private var blockedDomains = RecordingPolicy.defaultBlockedDomains.joined(separator: ", ")
 
@@ -41,7 +43,26 @@ struct PrivacySettingsPane: View {
                     Text("30 days").tag(30)
                     Text("90 days").tag(90)
                 }
+                .disabled(legalHold)
                 SettingsCaption("Kept audio lets you play clips from citations and the transcript. Old recordings are removed when GrokNola opens.")
+            }
+
+            Section("Retention and legal hold") {
+                Picker("Delete meetings after", selection: $textRetentionDays) {
+                    Text("Never").tag(0)
+                    Text("30 days").tag(30)
+                    Text("90 days").tag(90)
+                    Text("180 days").tag(180)
+                    Text("365 days").tag(365)
+                }
+                .disabled(legalHold)
+                SettingsCaption("When GrokNola opens, meetings that started longer ago than this are deleted for good: transcript, notes, and audio. Pinned meetings are deleted too.")
+                Toggle("Legal hold", isOn: $legalHold)
+                SettingsCaption(legalHold
+                    ? "Legal hold is on. Nothing is deleted: meeting and audio retention are suspended, the trash is not emptied, and Delete only moves a meeting to the trash."
+                    : "Turn on when Legal asks you to preserve your meetings. It suspends every deletion until you turn it off.")
+                Button("Export all for Legal…") { state.exportAllForLegal() }
+                SettingsCaption("Writes readable copies of every meeting, including the trash, to a folder you choose: notes.md, transcript.txt, meeting.json, and any kept audio, with a manifest.json of SHA-256 hashes. The copies are not encrypted.")
             }
 
             Section("Data") {

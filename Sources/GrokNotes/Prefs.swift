@@ -32,6 +32,13 @@ enum Prefs {
         let days = defaults.integer(forKey: "audioRetentionDays")
         return days > 0 ? days : nil
     }
+    /// Days to keep meetings (transcript and notes), counted from when they started. Nil keeps them.
+    static var textRetentionDays: Int? {
+        let days = defaults.integer(forKey: "textRetentionDays")
+        return days > 0 ? days : nil
+    }
+    /// While on, nothing is deleted: no retention, no trash purge, and a delete only moves to the trash.
+    static var legalHold: Bool { defaults.bool(forKey: "legalHold") }
     /// Playback brings the microphone and system audio to the same speech level.
     static var balanceVoices: Bool {
         get { defaults.object(forKey: "balanceVoices") as? Bool ?? true }

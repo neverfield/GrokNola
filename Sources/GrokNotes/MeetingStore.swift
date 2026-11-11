@@ -7,11 +7,18 @@ struct MeetingStore {
     static let meetingFile = "meeting.json"
     static let notesFile = "notes.md"
 
+    static let transcriptFile = "transcript.txt"
+
     let root: URL
 
     init() {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        root = support.appendingPathComponent("GrokNotes/Meetings", isDirectory: true)
+        self.init(root: support.appendingPathComponent("GrokNotes/Meetings", isDirectory: true))
+    }
+
+    /// A store over another folder of meeting folders, such as the trash.
+    init(root: URL) {
+        self.root = root
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     }
 
@@ -100,8 +107,8 @@ struct MeetingStore {
     }
 
     /// Writes plain copies of a meeting into a new folder inside `parent`: `notes.md` with the transcript,
-    /// `meeting.json`, and any kept recordings. Returns the folder.
-    func export(_ meeting: Meeting, myName: String, to parent: URL) throws -> URL {
+    /// `meeting.json`, any kept recordings, and with `includeTranscript`, `transcript.txt`. Returns the folder.
+    func export(_ meeting: Meeting, myName: String, to parent: URL, includeTranscript: Bool = false) throws -> URL {
         let fm = FileManager.default
         let name = GoogleDriveExport.folderName(for: meeting)
         var folder = parent.appendingPathComponent(name, isDirectory: true)
@@ -113,6 +120,10 @@ struct MeetingStore {
         try fm.createDirectory(at: folder, withIntermediateDirectories: true)
         try meeting.markdown(myName: myName).write(to: folder.appendingPathComponent(Self.notesFile), atomically: true, encoding: .utf8)
         try Self.encode(meeting).write(to: folder.appendingPathComponent(Self.meetingFile), options: .atomic)
+        if includeTranscript {
+            let text = TranscriptText.text(meeting, myName: myName, chapters: meeting.chapters ?? [], scope: .all)
+            try text.write(to: folder.appendingPathComponent(Self.transcriptFile), atomically: true, encoding: .utf8)
+        }
         let dir = root.appendingPathComponent(meeting.id.uuidString, isDirectory: true)
         for file in ["mic.wav", "system.wav"] where Vault.exists(dir.appendingPathComponent(file)) {
             try Vault.read(dir.appendingPathComponent(file)).write(to: folder.appendingPathComponent(file))

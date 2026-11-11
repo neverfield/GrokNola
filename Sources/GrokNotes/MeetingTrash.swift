@@ -2,6 +2,7 @@ import SwiftUI
 
 /// Deleted meetings wait in ~/Library/Application Support/GrokNotes/Trash for 30 days so a delete can be undone.
 /// Each folder keeps its notes, transcript, and audio, plus a `.trashed-at` date for the purge at launch.
+/// Under legal hold nothing is purged, so trashed meetings stay until the hold is lifted.
 @MainActor
 final class MeetingTrash: ObservableObject {
     struct Notice: Identifiable, Equatable {
@@ -46,8 +47,9 @@ final class MeetingTrash: ObservableObject {
         try fm.moveItem(at: source, to: meetingsRoot.appendingPathComponent(id.uuidString, isDirectory: true))
     }
 
-    /// Removes meetings deleted more than `retentionDays` ago.
-    func purge(now: Date = Date()) {
+    /// Removes meetings deleted more than `retentionDays` ago. Does nothing under legal hold.
+    func purge(now: Date = Date(), legalHold: Bool = Prefs.legalHold) {
+        guard !legalHold else { return }
         let fm = FileManager.default
         let cutoff = now.addingTimeInterval(-Double(Self.retentionDays) * 86_400)
         let dirs = (try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []

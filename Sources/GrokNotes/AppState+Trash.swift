@@ -20,6 +20,9 @@ extension AppState {
         }
         undoManager?.setActionName("Delete Meeting")
         trash.show(.init(meetingID: id, title: m.title))
+        if Prefs.legalHold {
+            showBanner("Legal hold is on, so the meeting stays in the trash and is not deleted until the hold is lifted.", severity: .info)
+        }
     }
 
     /// Puts a trashed meeting back and opens it. Registers Redo.

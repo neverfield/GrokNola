@@ -149,6 +149,7 @@ final class AppState: ObservableObject {
     init() {
         clips = ClipPlayer(root: store.root)
         meetings = store.loadAll()
+        deleteExpiredMeetings()
         deleteExpiredAudio()
         MeetingStore.sealLeftovers(in: [store.root, trash.root])
         XAIClient.removeUploadLeftovers()
@@ -215,12 +216,17 @@ final class AppState: ObservableObject {
         save(meetingID)
     }
 
+    /// Deletes a meeting for good, without Undo. Under legal hold it moves to the trash instead.
     func delete(_ id: UUID) {
         guard id != recordingID else { return }
         if clips.loadedID == id { clips.stop() }
         meetings.removeAll { $0.id == id }
         processingStage[id] = nil
-        store.delete(id)
+        if Prefs.legalHold {
+            try? trash.move(id, from: store.root)
+        } else {
+            store.delete(id)
+        }
         clips.invalidate(id)
         if selectedID == id { selectedID = nil }
     }
@@ -1289,9 +1295,19 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// Removes kept recordings older than the retention set in Settings.
+    /// Deletes meetings, transcript and notes with any audio, that started before the text retention set in
+    /// Settings. Runs at launch, before anything records. Suspended under legal hold.
+    private func deleteExpiredMeetings() {
+        let expired = Set(Retention.expired(meetings, days: Prefs.textRetentionDays, legalHold: Prefs.legalHold))
+        guard !expired.isEmpty else { return }
+        for id in expired { store.delete(id) }
+        meetings.removeAll { expired.contains($0.id) }
+        NSLog("GrokNotes: deleted \(expired.count) meetings past the text retention")
+    }
+
+    /// Removes kept recordings older than the retention set in Settings. Suspended under legal hold.
     private func deleteExpiredAudio() {
-        guard let days = Prefs.audioRetentionDays else { return }
+        guard !Prefs.legalHold, let days = Prefs.audioRetentionDays else { return }
         let cutoff = Date().addingTimeInterval(-Double(days) * 86_400)
         for m in meetings where (m.endedAt ?? m.startedAt) < cutoff {
             let dir = store.root.appendingPathComponent(m.id.uuidString, isDirectory: true)
@@ -1444,6 +1460,44 @@ final class AppState: ObservableObject {
                 NSWorkspace.shared.activateFileViewerSelecting([folder])
             case .failure(let error):
                 showBanner("Could not export \"\(m.title)\": \(error.localizedDescription)", severity: .error)
+            }
+        }
+    }
+
+    /// Asks for a folder, then writes readable copies of every meeting, the trash included, with a manifest
+    /// of file hashes. Waits until nothing is recording or being processed, so every copy is complete.
+    func exportAllForLegal() {
+        guard recordingID == nil, processing.isEmpty else {
+            showBanner("Wait until recording and note writing finish, then export again.", severity: .warning)
+            return
+        }
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Export"
+        panel.message = "Choose where to save readable copies of every meeting and a manifest for Legal. The copies are not encrypted."
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let parent = panel.url else { return }
+        for id in saveTasks.keys { save(id) }
+        let trashStore = MeetingStore(root: trash.root)
+        let sources = [
+            LegalExport.Source(store: store, meetings: meetings, inTrash: false),
+            LegalExport.Source(store: trashStore, meetings: trashStore.loadAll(), inTrash: true),
+        ]
+        let count = sources.reduce(0) { $0 + $1.meetings.count }
+        let myName = Prefs.myName
+        let hold = Prefs.legalHold
+        Task {
+            let result = await Task.detached(priority: .userInitiated) {
+                Result { try LegalExport.run(sources, myName: myName, legalHold: hold, to: parent) }
+            }.value
+            switch result {
+            case .success(let folder):
+                showBanner("Exported \(count) meetings for Legal, with manifest.json.", severity: .info)
+                NSWorkspace.shared.activateFileViewerSelecting([folder.appendingPathComponent(LegalExport.manifestFile)])
+            case .failure(let error):
+                showBanner("Could not export for Legal: \(error.localizedDescription)", severity: .error)
             }
         }
     }
