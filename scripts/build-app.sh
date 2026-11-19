@@ -85,6 +85,14 @@ if [ "${GROKNOLA_PILOT:-0}" = 1 ]; then
   echo "Pilot build: Drive copy off, internal meetings only, snapshots and Accessibility speakers off, consent confirmation on, FileVault required."
 fi
 
+# GROKNOLA_BLOCKED_DOMAINS="a.com b.com" writes GNBlockedDomains: domains this build never records, whatever Settings say.
+if [ -n "${GROKNOLA_BLOCKED_DOMAINS:-}" ]; then
+  /usr/libexec/PlistBuddy -c "Add :GNBlockedDomains string $GROKNOLA_BLOCKED_DOMAINS" "$APP/Contents/Info.plist"
+  echo "Always blocked: $GROKNOLA_BLOCKED_DOMAINS"
+elif [ "${GROKNOLA_PILOT:-0}" = 1 ]; then
+  echo "warning: pilot build without GROKNOLA_BLOCKED_DOMAINS, so no domains are always blocked." >&2
+fi
+
 identity_hash() {
   awk -v name="\"$CERT_NAME\"" 'index($0, name) { print $2; exit }'
 }

@@ -55,7 +55,7 @@ When GrokNola finds the meeting app in a call (Zoom, Teams, Slack, Webex, FaceTi
 
 Every way to start (the sidebar, Home, **Up next**, the menu bar, **Meeting > Start Notes**, and the "call detected" notification) runs the same checks, in this order:
 
-1. **Blocked domains.** If the invite lists anyone at a domain in **Settings > Privacy & Data > Never record meetings with** (by default `example.org` and `example.net`, including subdomains such as `eng.example.org`), recording does not start and a message says "GrokNola doesn't record meetings with people at blocked domains." This applies whatever the other settings are.
+1. **Blocked domains.** If the invite lists anyone at a domain in **Settings > Privacy & Data > Never record meetings with** (including subdomains, such as `eng.example.org` for `example.org`, plus any domains your build always blocks), recording does not start and a message says "GrokNola doesn't record meetings with people at blocked domains." This applies whatever the other settings are.
 2. **Which meetings to record** (**Settings > Privacy & Data > Record**):
    - **Internal meetings only** (the strictest setting): recording does not start when the invite lists anyone outside your company domains. Without an invite, or with no invitees, you must confirm consent first.
    - **Any meeting, confirm when outside people are invited** (the default): outside invitees always bring up the consent confirmation, even when it is turned off.
@@ -480,7 +480,9 @@ In **Settings > Privacy & Data > Retention and legal hold**:
 
 ### Pilot builds
 
-A pilot build is made with `GROKNOLA_PILOT=1 ./scripts/build-app.sh`. It turns off the Google Drive copy, records internal meetings only, keeps snapshots and **Read who is talking from the meeting app** off, always asks for the consent confirmation, always blocks `example.org` and `example.net`, and does not record unless FileVault is on. In Settings these switches are disabled and say "Set by the pilot build."
+A pilot build is made with `GROKNOLA_PILOT=1 ./scripts/build-app.sh`. It turns off the Google Drive copy, records internal meetings only, keeps snapshots and **Read who is talking from the meeting app** off, always asks for the consent confirmation, and does not record unless FileVault is on. In Settings these switches are disabled and say "Set by the pilot build."
+
+Any build can also block domains for good with `GROKNOLA_BLOCKED_DOMAINS="example.org example.net" ./scripts/build-app.sh`. Settings lists them under **Never record meetings with**, and they apply on top of the domains you type there.
 
 ## Models and language
 

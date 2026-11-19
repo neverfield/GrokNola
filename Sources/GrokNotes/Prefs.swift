@@ -93,11 +93,10 @@ enum Prefs {
         if PilotBuild.isOn { return .internalOnly }
         return defaults.string(forKey: "recordingScope").flatMap(RecordingScope.init(rawValue:)) ?? .warnExternal
     }
-    /// Domains never recorded, subdomains included, whatever the scope. Edited in Settings as a list.
-    /// A pilot build always includes the defaults.
+    /// Domains never recorded, subdomains included, whatever the scope. Edited in Settings as a list, plus any set at
+    /// build time.
     static var blockedDomains: Set<String> {
-        guard let list = defaults.string(forKey: "blockedDomains") else { return Set(RecordingPolicy.defaultBlockedDomains) }
-        return ConsentReminder.domains(in: list).union(PilotBuild.isOn ? RecordingPolicy.defaultBlockedDomains : [])
+        ConsentReminder.domains(in: defaults.string(forKey: "blockedDomains")).union(RecordingPolicy.buildBlockedDomains)
     }
     /// Policy switch for the Google Drive copy, set with `defaults write dev.local.groknotes allowDriveExport -bool false`.
     /// Pilot builds turn it off. When off, Settings hides the Drive options and nothing is copied.

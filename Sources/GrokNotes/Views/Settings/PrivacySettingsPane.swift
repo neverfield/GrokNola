@@ -11,7 +11,7 @@ struct PrivacySettingsPane: View {
     @AppStorage("textRetentionDays") private var textRetentionDays = 0
     @AppStorage("legalHold") private var legalHold = false
     @AppStorage("recordingScope") private var recordingScope = RecordingScope.warnExternal
-    @AppStorage("blockedDomains") private var blockedDomains = RecordingPolicy.defaultBlockedDomains.joined(separator: ", ")
+    @AppStorage("blockedDomains") private var blockedDomains = ""
 
     var body: some View {
         Form {
@@ -23,9 +23,9 @@ struct PrivacySettingsPane: View {
                 if PilotBuild.isOn { PilotLockedCaption() }
                 SettingsCaption("Internal meetings only refuses to start when the invite lists anyone outside your company domains, and asks for the consent confirmation when there is no invite. Pilot builds always use it.")
                 TextField("Never record meetings with", text: $blockedDomains, prompt: Text("example.org, example.net"))
-                SettingsCaption(PilotBuild.isOn
-                    ? "GrokNola never records a meeting whose invite lists anyone at these domains or their subdomains. The pilot build always includes example.org and example.net."
-                    : "GrokNola never records a meeting whose invite lists anyone at these domains or their subdomains, whatever the setting above.")
+                SettingsCaption(RecordingPolicy.buildBlockedDomains.isEmpty
+                    ? "GrokNola never records a meeting whose invite lists anyone at these domains or their subdomains, whatever the setting above."
+                    : "GrokNola never records a meeting whose invite lists anyone at these domains or their subdomains, whatever the setting above. This build always blocks \(RecordingPolicy.buildBlockedDomains.sorted().joined(separator: ", ")).")
             }
 
             Section("Consent") {

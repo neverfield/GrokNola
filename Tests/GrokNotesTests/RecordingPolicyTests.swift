@@ -3,7 +3,14 @@ import XCTest
 
 final class RecordingPolicyTests: XCTestCase {
     private let own: Set<String> = ["example.com"]
-    private let blocked = Set(RecordingPolicy.defaultBlockedDomains)
+    private let blocked: Set<String> = ["example.org", "example.net"]
+
+    func testBuildBlockedDomainsReadInfoPlistAndEnvironment() {
+        let info: [String: Any] = [RecordingPolicy.buildInfoKey: "example.org, @Example.net"]
+        XCTAssertEqual(RecordingPolicy.buildBlocked(info: info, environment: [:]), ["example.org", "example.net"])
+        XCTAssertEqual(RecordingPolicy.buildBlocked(info: nil, environment: ["GROKNOLA_BLOCKED_DOMAINS": "a.example b.example"]), ["a.example", "b.example"])
+        XCTAssertEqual(RecordingPolicy.buildBlocked(info: nil, environment: [:]), [])
+    }
 
     func testBlockedDomainsMatchSubdomainsOnly() {
         let emails = ["ana@example.com", "bo@Example.org", "cy@eng.example.net", "dee@notexample.org"]

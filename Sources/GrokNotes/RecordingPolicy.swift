@@ -22,7 +22,9 @@ enum RecordingScope: String, CaseIterable, Identifiable {
 
 /// Decides whether a recording may start. Blocked domains are refused whatever the scope.
 enum RecordingPolicy {
-    static let defaultBlockedDomains = ["example.org", "example.net"]
+    static let buildInfoKey = "GNBlockedDomains"
+    /// Domains set at build time with `GROKNOLA_BLOCKED_DOMAINS`, which Settings can't remove.
+    static let buildBlockedDomains = buildBlocked(info: Bundle.main.infoDictionary, environment: ProcessInfo.processInfo.environment)
     static let blockedMessage = "GrokNola doesn't record meetings with people at blocked domains."
 
     enum Decision: Equatable {
@@ -30,6 +32,11 @@ enum RecordingPolicy {
         /// Start only after the consent confirmation, even when that setting is off.
         case requireConfirmation
         case refuse(String)
+    }
+
+    /// Domains from `GNBlockedDomains` in Info.plist, written by `build-app.sh`, or `GROKNOLA_BLOCKED_DOMAINS` for `swift run`.
+    static func buildBlocked(info: [String: Any]?, environment: [String: String]) -> Set<String> {
+        ConsentReminder.domains(in: info?[buildInfoKey] as? String).union(ConsentReminder.domains(in: environment["GROKNOLA_BLOCKED_DOMAINS"]))
     }
 
     /// The distinct invitee domains on the blocked list or under one of its domains, sorted.

@@ -90,8 +90,8 @@ stops and does not poll while the recording is paused. Call-window titles live i
   processes (`SCContentFilter(display:including:exceptingWindows:)` in `Audio/SystemAudioCapture.swift`).
   Without one, it is all audio except GrokNola's, and the log says so.
 - **Before recording.** Every Start Notes path goes through `AppState.startMeeting`, which checks, in order:
-  - **Blocked domains.** Invitees at `Prefs.blockedDomains` (default `example.org`, `example.net`, subdomains
-    included) always refuse recording: "GrokNola doesn't record meetings with people at blocked
+  - **Blocked domains.** Invitees at `Prefs.blockedDomains` (empty by default, subdomains included, plus any set
+    at build time) always refuse recording: "GrokNola doesn't record meetings with people at blocked
     domains." (`RecordingPolicy.swift`)
   - **Recording scope.** `Prefs.recordingScope` is `.warnExternal` by default: outside invitees force the consent
     confirmation. `.internalOnly`, the strictest setting, refuses any outside invitee and requires the confirmation when
@@ -138,14 +138,17 @@ stops and does not poll while the recording is paused. Call-window titles live i
 To make a pilot build:
 
 ```bash
-GROKNOLA_PILOT=1 ./scripts/build-app.sh
+GROKNOLA_PILOT=1 GROKNOLA_BLOCKED_DOMAINS="example.org example.net" ./scripts/build-app.sh
 ```
 
 The script writes `GNPilotBuild` = true into the signed `Info.plist`. The app then turns off the Drive copy, uses
-`.internalOnly`, always blocks `example.org` and `example.net`, keeps snapshots and Accessibility speaker reading off,
-forces the consent confirmation on every recording, and refuses to record without FileVault (`PilotBuild.swift`).
-Settings shows those switches disabled with "Set by the pilot build." `GROKNOLA_PILOT=1 swift run` previews the same
-locks; neither the key nor the variable can turn them off.
+`.internalOnly`, keeps snapshots and Accessibility speaker reading off, forces the consent confirmation on every
+recording, and refuses to record without FileVault (`PilotBuild.swift`). Settings shows those switches disabled
+with "Set by the pilot build." `GROKNOLA_PILOT=1 swift run` previews the same locks; neither the key nor the
+variable can turn them off.
+
+`GROKNOLA_BLOCKED_DOMAINS` (any build) writes `GNBlockedDomains`, domains the build always blocks on top of the
+Settings list. The script warns when a pilot build has none.
 
 ## Calendar
 
