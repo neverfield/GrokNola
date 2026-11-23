@@ -4,6 +4,10 @@ import SwiftUI
 struct GrokNotesApp: App {
     @StateObject private var state = AppState()
 
+    init() {
+        SettingsMigration.run()
+    }
+
     var body: some Scene {
         Window("GrokNola", id: "main") {
             ContentView()

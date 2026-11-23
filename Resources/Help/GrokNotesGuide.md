@@ -77,7 +77,7 @@ When the calendar invite lists people outside your company and you did not just 
 
 Every few seconds, the app checks for a call in Zoom, Microsoft Teams, Slack (huddles), Webex, FaceTime, or Google Meet in a browser (Chrome, Safari, Arc, Edge, Brave, Firefox, Vivaldi). When it finds one, the menu bar icon changes and the menu offers **Start Notes · <App>**. Detection never starts recording by itself.
 
-The first time a call is detected, macOS asks whether GrokNola may send notifications. If you allow it, a notification "<App> call detected — Start notes for this call?" appears once per call; click **Start Notes** on it to begin. If you deny it, nothing else changes. To turn this notification off, run `defaults write dev.local.groknotes notifyOnMeetingDetected -bool false` and relaunch.
+The first time a call is detected, macOS asks whether GrokNola may send notifications. If you allow it, a notification "<App> call detected — Start notes for this call?" appears once per call; click **Start Notes** on it to begin. If you deny it, nothing else changes. To turn this notification off, run `defaults write com.neverfield.groknola notifyOnMeetingDetected -bool false` and relaunch.
 
 - Google Meet is found from the browser tab title, which needs **Screen & System Audio Recording**.
 - With that permission, Zoom and Slack count only when a call window is open ("Zoom Meeting", "Huddle"). Otherwise an app counts while another app is using the microphone.
