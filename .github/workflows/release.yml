@@ -52,7 +52,9 @@ jobs:
         env:
           P12_BASE64: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
           P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+          TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
         run: |
+          [[ "$TEAM_ID" =~ ^[A-Z0-9]{10}$ ]] || { echo "::error::Set the APPLE_TEAM_ID variable in the release environment."; exit 1; }
           umask 077
           KC="$RUNNER_TEMP/signing.keychain-db"
           KC_PASSWORD="$(openssl rand -base64 32)"
@@ -61,14 +63,34 @@ jobs:
           security create-keychain -p "$KC_PASSWORD" "$KC"
           security set-keychain-settings -lut 1800 "$KC"
           security unlock-keychain -p "$KC_PASSWORD" "$KC"
-          security import "$RUNNER_TEMP/cert.p12" -k "$KC" -f pkcs12 -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security import "$RUNNER_TEMP/cert.p12" -k "$KC" -f pkcs12 -P "$P12_PASSWORD" -T /usr/bin/codesign \
+            || { echo "::error::Could not open the .p12. Check DEVELOPER_ID_P12_BASE64 and DEVELOPER_ID_P12_PASSWORD."; exit 1; }
           rm -f "$RUNNER_TEMP/cert.p12"
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KC_PASSWORD" "$KC" >/dev/null
           security list-keychains -d user -s "$KC"
-          IDENTITY="$(security find-identity -v -p codesigning "$KC" | awk '/"Developer ID Application: /{ print $2; exit }')"
-          [ -n "$IDENTITY" ] || { echo "::error::The certificate has no Developer ID Application identity."; exit 1; }
+          FOUND="$(security find-identity -v -p codesigning "$KC" | grep '"Developer ID Application: ' | head -1)"
+          IDENTITY="$(awk '{ print $2 }' <<<"$FOUND")"
+          [ -n "$IDENTITY" ] || { echo "::error::The .p12 has no valid Developer ID Application identity with its private key."; exit 1; }
+          [[ "$FOUND" == *"($TEAM_ID)\""* ]] || { echo "::error::The certificate is not for team $TEAM_ID."; exit 1; }
           echo "SIGN_KEYCHAIN=$KC" >> "$GITHUB_ENV"
           echo "CODESIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
+      - name: Check the notary key
+        env:
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_API_KEY_P8 }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+        run: |
+          umask 077
+          KEY="$RUNNER_TEMP/notary.p8"
+          trap 'rm -f "$KEY"' EXIT
+          [[ "$NOTARY_KEY_ID" =~ ^[A-Z0-9]{10}$ ]] || { echo "::error::NOTARY_API_KEY_ID should be 10 letters and digits."; exit 1; }
+          [[ "$NOTARY_ISSUER_ID" =~ ^[0-9A-Fa-f]{8}(-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}$ ]] \
+            || { echo "::error::NOTARY_API_ISSUER_ID should be a UUID (the Issuer ID in App Store Connect)."; exit 1; }
+          [[ "$NOTARY_KEY_P8" == "-----BEGIN PRIVATE KEY-----"* ]] || { echo "::error::NOTARY_API_KEY_P8 is not the contents of a .p8 file."; exit 1; }
+          printf %s "$NOTARY_KEY_P8" > "$KEY"
+          xcrun notarytool history --key "$KEY" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" >/dev/null \
+            || { echo "::error::App Store Connect rejected the notary key, key ID, or issuer ID."; exit 1; }
 
       - name: Build and sign
         env:

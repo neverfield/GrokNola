@@ -15,8 +15,8 @@ ENTITLEMENTS="Resources/GrokNola.entitlements"
 APP="build/GrokNola.app"
 
 # GROKNOLA_RELEASE=1 makes a public release: it needs GROKNOLA_VERSION (X.Y.Z), GROKNOLA_BUILD_NUMBER,
-# GROKNOLA_TEAM_ID, a Developer ID CODESIGN_IDENTITY, and the Google OAuth client, refuses pilot settings
-# (anyone can read a release's Info.plist), timestamps the signature, and checks it afterwards.
+# GROKNOLA_TEAM_ID, and a Developer ID CODESIGN_IDENTITY, refuses pilot settings (anyone can read a release's
+# Info.plist), timestamps the signature, and checks it afterwards.
 RELEASE="${GROKNOLA_RELEASE:-0}"
 fail() { echo "error: $*" >&2; exit 1; }
 if [ -n "${GROKNOLA_VERSION:-}" ] && ! [[ "$GROKNOLA_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -94,8 +94,6 @@ if [ -n "$GOOGLE_CLIENT_ID" ] && [ -n "$GOOGLE_CLIENT_SECRET" ]; then
   /usr/libexec/PlistBuddy -c "Add :GNGoogleClientID string $GOOGLE_CLIENT_ID" "$APP/Contents/Info.plist"
   /usr/libexec/PlistBuddy -c "Add :GNGoogleClientSecret string $GOOGLE_CLIENT_SECRET" "$APP/Contents/Info.plist"
   echo "Google sign-in is configured."
-elif [ "$RELEASE" = 1 ]; then
-  fail "a release needs GROKNOLA_GOOGLE_CLIENT_ID and GROKNOLA_GOOGLE_CLIENT_SECRET."
 else
   echo "warning: no Google OAuth client set, so Google Calendar sign-in is off in this build." >&2
   echo "warning: Set GROKNOLA_GOOGLE_CLIENT_ID and GROKNOLA_GOOGLE_CLIENT_SECRET, or put them in scripts/google-oauth.env." >&2

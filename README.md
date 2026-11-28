@@ -75,12 +75,16 @@ Approve the run in the repository's Actions tab. The workflow refuses tags that 
    gh secret set NOTARY_API_KEY_P8 --env release < AuthKey_KEYID.p8
    gh secret set NOTARY_API_KEY_ID --env release
    gh secret set NOTARY_API_ISSUER_ID --env release
-   gh secret set GROKNOLA_GOOGLE_CLIENT_ID --env release
-   gh secret set GROKNOLA_GOOGLE_CLIENT_SECRET --env release
    gh variable set APPLE_TEAM_ID --env release --body YOURTEAMID
    ```
 
    Then delete the `.p12` and `.p8` files from Downloads.
+4. Optional: to turn on Google Calendar sign-in in releases, also set `GROKNOLA_GOOGLE_CLIENT_ID` and
+   `GROKNOLA_GOOGLE_CLIENT_SECRET` the same way. Without them, releases ship with Google sign-in off, and the
+   calendar comes from Apple Calendar.
+
+The release job checks the certificate password, team, and notary key before it builds, so wrong values fail
+in seconds with a message that names the secret.
 
 ### Verify a download
 
