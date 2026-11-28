@@ -110,6 +110,17 @@ GrokNola uses `grok-voice-transcribe-2.0` for transcription and `grok-4.7` for n
 
 GrokNola needs macOS 14 or later on an Apple silicon Mac.
 
+### Verify a download
+
+Each release lists a SHA-256 checksum, and GitHub records where the zip was built. To check a download, run these
+in the folder that holds it, with the release's version number:
+
+```bash
+shasum -a 256 -c GrokNola-X.Y.Z.zip.sha256
+gh attestation verify GrokNola-X.Y.Z.zip --repo neverfield/GrokNola
+spctl --assess --type execute --verbose GrokNola.app   # expect "source=Notarized Developer ID"
+```
+
 The rest of this README is the reference for using and building GrokNola. The in-app guide covers every feature step
 by step. Press Command-? to open it.
 
@@ -409,80 +420,6 @@ not used for content.
   waveform. Use the mark sparingly: the sidebar wordmark, empty states, Home, and live states.
 - **Speakers** take earthy colors in speaking order (slate, terracotta, plum, teal, ochre, indigo,
   clay); you are sage. Chapters use a quieter ramp of the same family.
-
-## Releases
-
-Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml`. It runs the tests, then waits for a reviewer to
-approve the `release` environment, which holds every signing secret. After approval it builds with
-`GROKNOLA_RELEASE=1`, signs with the Developer ID certificate in a temporary keychain (deleted right after),
-notarizes and staples, publishes `GrokNola-X.Y.Z.zip` with its SHA-256, and records a build provenance
-attestation. Releases are immutable, so published files can't be replaced.
-
-Release mode in `scripts/build-app.sh` refuses pilot settings, because anyone can read a release's `Info.plist`.
-Make pilot builds locally. It also fails unless the signature is Developer ID, from `APPLE_TEAM_ID`, with the
-Hardened Runtime, a secure timestamp, and exactly the entitlements in `Resources/GrokNola.entitlements`.
-
-### Cut a release
-
-Merge to `main` through a pull request, then:
-
-```bash
-git switch main && git pull
-git tag v0.2.0 && git push origin v0.2.0
-```
-
-Approve the run in the repository's Actions tab. The workflow refuses tags that aren't on `main`.
-
-### One-time setup
-
-1. In the Apple Developer portal, create a **Developer ID Application** certificate. Export it from Keychain
-   Access as a `.p12` with a long random password, and keep a copy in your password manager.
-2. In App Store Connect > Users and Access > Integrations, create a team API key with the **Developer** role and
-   download the `.p8`.
-3. Store them in the `release` environment. `gh secret set` without `--body` prompts, so values stay out of shell
-   history:
-
-   ```bash
-   base64 -i DeveloperID.p12 | gh secret set DEVELOPER_ID_P12_BASE64 --env release
-   gh secret set DEVELOPER_ID_P12_PASSWORD --env release
-   gh secret set NOTARY_API_KEY_P8 --env release < AuthKey_KEYID.p8
-   gh secret set NOTARY_API_KEY_ID --env release
-   gh secret set NOTARY_API_ISSUER_ID --env release
-   gh variable set APPLE_TEAM_ID --env release --body YOURTEAMID
-   ```
-
-   Then delete the `.p12` and `.p8` files from Downloads.
-4. Optional: to turn on Google Calendar sign-in in releases, also set `GROKNOLA_GOOGLE_CLIENT_ID` and
-   `GROKNOLA_GOOGLE_CLIENT_SECRET` the same way. Without them, releases ship with Google sign-in off, and the
-   calendar comes from Apple Calendar.
-
-The release job checks the certificate password, team, and notary key before it builds, so wrong values fail
-in seconds with a message that names the secret.
-
-### Verify a download
-
-```bash
-shasum -a 256 -c GrokNola-0.2.0.zip.sha256
-gh attestation verify GrokNola-0.2.0.zip --repo neverfield/GrokNola
-spctl --assess --type execute --verbose GrokNola.app   # expect "source=Notarized Developer ID"
-```
-
-### Moving from a local build
-
-Releases use the bundle ID `com.neverfield.groknola`. The first launch copies settings from the old
-`dev.local.groknotes` domain. Keychain items keep the old service name, but macOS asks once whether the newly
-signed app may read them. Choose **Always Allow**. Denying the `vault_key` prompt leaves sealed meetings
-unreadable until you allow it. Microphone, Screen & System Audio Recording, Accessibility, and Calendar need
-granting once more.
-
-### If a signing secret leaks
-
-1. Revoke the Developer ID certificate in the Apple Developer portal. Gatekeeper then rejects apps signed with
-   it, so also ship a release signed with a new certificate.
-2. Revoke the App Store Connect API key.
-3. Replace the `release` environment secrets, and review recent runs in the Actions tab.
-
-The Developer ID certificate expires after 5 years. Renew it a few months early.
 
 ## Screenshots
 
