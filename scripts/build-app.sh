@@ -14,6 +14,25 @@ SIGN_KC="$HOME/Library/Keychains/groknola-signing.keychain-db"
 ENTITLEMENTS="Resources/GrokNola.entitlements"
 APP="build/GrokNola.app"
 
+# GROKNOLA_RELEASE=1 makes a public release: it needs GROKNOLA_VERSION (X.Y.Z), GROKNOLA_BUILD_NUMBER,
+# GROKNOLA_TEAM_ID, and a Developer ID CODESIGN_IDENTITY, refuses pilot settings (anyone can read a release's
+# Info.plist), timestamps the signature, and checks it afterwards.
+RELEASE="${GROKNOLA_RELEASE:-0}"
+fail() { echo "error: $*" >&2; exit 1; }
+if [ -n "${GROKNOLA_VERSION:-}" ] && ! [[ "$GROKNOLA_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  fail "GROKNOLA_VERSION must look like 1.2.3."
+fi
+if [ -n "${GROKNOLA_BUILD_NUMBER:-}" ] && ! [[ "$GROKNOLA_BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+  fail "GROKNOLA_BUILD_NUMBER must be a whole number."
+fi
+if [ "$RELEASE" = 1 ]; then
+  [ "${GROKNOLA_PILOT:-0}" != 1 ] && [ -z "${GROKNOLA_BLOCKED_DOMAINS:-}" ] \
+    || fail "a release can't be a pilot build or set GROKNOLA_BLOCKED_DOMAINS."
+  [ -n "${GROKNOLA_VERSION:-}" ] && [ -n "${GROKNOLA_BUILD_NUMBER:-}" ] || fail "set GROKNOLA_VERSION and GROKNOLA_BUILD_NUMBER."
+  [[ "${GROKNOLA_TEAM_ID:-}" =~ ^[A-Z0-9]{10}$ ]] || fail "set GROKNOLA_TEAM_ID to the 10-character Apple team ID."
+  [ -n "${CODESIGN_IDENTITY:-}" ] && [ "$CODESIGN_IDENTITY" != "-" ] || fail "set CODESIGN_IDENTITY to a Developer ID Application identity."
+fi
+
 # The macOS 26 window style appears only in apps built with the macOS 26 SDK.
 SDK_VERSION="$(xcrun --show-sdk-version 2>/dev/null || echo unknown)"
 SDK_MAJOR="${SDK_VERSION%%.*}"
@@ -28,6 +47,8 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/GrokNotes" "$APP/Contents/MacOS/GrokNotes"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+[ -z "${GROKNOLA_VERSION:-}" ] || /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $GROKNOLA_VERSION" "$APP/Contents/Info.plist"
+[ -z "${GROKNOLA_BUILD_NUMBER:-}" ] || /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GROKNOLA_BUILD_NUMBER" "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp -R Resources/Help "$APP/Contents/Resources/Help"
 
@@ -64,7 +85,7 @@ read_oauth_value() {
   if [ -n "${!name:-}" ]; then
     printf '%s' "${!name}"
   elif [ -f "$file" ]; then
-    sed -n "s/^[[:space:]]*$name[[:space:]]*=[[:space:]]*//p" "$file" | head -1 | sed -e 's/^["'\'']//' -e 's/["'\'']$//' -e 's/[[:space:]]*$//'
+    sed -n "s/^[[:space:]]*${name}[[:space:]]*=[[:space:]]*//p" "$file" | head -1 | sed -e 's/^["'\'']//' -e 's/["'\'']$//' -e 's/[[:space:]]*$//'
   fi
 }
 GOOGLE_CLIENT_ID="$(read_oauth_value GROKNOLA_GOOGLE_CLIENT_ID)"
@@ -148,7 +169,22 @@ if [ -z "$IDENTITY" ]; then
   echo "warning: ad-hoc signing. Run scripts/create-signing-cert.sh to keep permissions across rebuilds." >&2
 fi
 
-codesign --force --options runtime --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$APP"
+SIGN_FLAGS=(--force --options runtime --entitlements "$ENTITLEMENTS")
+[ "$RELEASE" = 1 ] && SIGN_FLAGS+=(--timestamp)
+codesign "${SIGN_FLAGS[@]}" --sign "$IDENTITY" "$APP"
 close_signing_keychain
+
+if [ "$RELEASE" = 1 ]; then
+  codesign --verify --strict --verbose=2 "$APP"
+  DETAILS="$(codesign -dvvv "$APP" 2>&1)"
+  grep -q '^Authority=Developer ID Application: ' <<<"$DETAILS" || fail "not signed with a Developer ID Application certificate."
+  grep -qx "TeamIdentifier=$GROKNOLA_TEAM_ID" <<<"$DETAILS" || fail "signed by another team than $GROKNOLA_TEAM_ID."
+  grep -Eq 'flags=0x[0-9a-f]+\([^)]*runtime' <<<"$DETAILS" || fail "the Hardened Runtime is off."
+  grep -q '^Timestamp=' <<<"$DETAILS" || fail "the signature has no secure timestamp."
+  diff <(plutil -convert json -o - "$ENTITLEMENTS") \
+    <(codesign -d --entitlements - --xml "$APP" 2>/dev/null | plutil -convert json -o - -) >/dev/null \
+    || fail "the signed entitlements differ from $ENTITLEMENTS."
+  echo "Release signature checked: Developer ID, team $GROKNOLA_TEAM_ID, Hardened Runtime, timestamp, entitlements."
+fi
 
 echo "Built $APP"

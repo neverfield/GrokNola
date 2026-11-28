@@ -1,0 +1,152 @@
+name: Release
+
+# Builds, signs, notarizes, and publishes GrokNola when a vX.Y.Z tag is pushed.
+# Signing secrets live only in the "release" environment, which waits for a reviewer.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: macos-26
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run tests
+        run: swift test
+
+  release:
+    needs: test
+    runs-on: macos-26
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      TAG: ${{ github.ref_name }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check the tag
+        run: |
+          [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]] || { echo "::error::Release tags look like v1.2.3, not $TAG."; exit 1; }
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "::error::$TAG is not on main."; exit 1; }
+          echo "VERSION=${BASH_REMATCH[1]}" >> "$GITHUB_ENV"
+
+      - name: Import the signing certificate
+        env:
+          P12_BASE64: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+          TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: |
+          [[ "$TEAM_ID" =~ ^[A-Z0-9]{10}$ ]] || { echo "::error::Set the APPLE_TEAM_ID variable in the release environment."; exit 1; }
+          umask 077
+          KC="$RUNNER_TEMP/signing.keychain-db"
+          KC_PASSWORD="$(openssl rand -base64 32)"
+          echo "::add-mask::$KC_PASSWORD"
+          printf %s "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KC_PASSWORD" "$KC"
+          security set-keychain-settings -lut 1800 "$KC"
+          security unlock-keychain -p "$KC_PASSWORD" "$KC"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KC" -f pkcs12 -P "$P12_PASSWORD" -T /usr/bin/codesign \
+            || { echo "::error::Could not open the .p12. Check DEVELOPER_ID_P12_BASE64 and DEVELOPER_ID_P12_PASSWORD."; exit 1; }
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KC_PASSWORD" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC"
+          FOUND="$(security find-identity -v -p codesigning "$KC" | grep '"Developer ID Application: ' | head -1)"
+          IDENTITY="$(awk '{ print $2 }' <<<"$FOUND")"
+          [ -n "$IDENTITY" ] || { echo "::error::The .p12 has no valid Developer ID Application identity with its private key."; exit 1; }
+          [[ "$FOUND" == *"($TEAM_ID)\""* ]] || { echo "::error::The certificate is not for team $TEAM_ID."; exit 1; }
+          echo "SIGN_KEYCHAIN=$KC" >> "$GITHUB_ENV"
+          echo "CODESIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
+      - name: Check the notary key
+        env:
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_API_KEY_P8 }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+        run: |
+          umask 077
+          KEY="$RUNNER_TEMP/notary.p8"
+          trap 'rm -f "$KEY"' EXIT
+          [[ "$NOTARY_KEY_ID" =~ ^[A-Z0-9]{10}$ ]] || { echo "::error::NOTARY_API_KEY_ID should be 10 letters and digits."; exit 1; }
+          [[ "$NOTARY_ISSUER_ID" =~ ^[0-9A-Fa-f]{8}(-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}$ ]] \
+            || { echo "::error::NOTARY_API_ISSUER_ID should be a UUID (the Issuer ID in App Store Connect)."; exit 1; }
+          [[ "$NOTARY_KEY_P8" == "-----BEGIN PRIVATE KEY-----"* ]] || { echo "::error::NOTARY_API_KEY_P8 is not the contents of a .p8 file."; exit 1; }
+          printf %s "$NOTARY_KEY_P8" > "$KEY"
+          xcrun notarytool history --key "$KEY" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" >/dev/null \
+            || { echo "::error::App Store Connect rejected the notary key, key ID, or issuer ID."; exit 1; }
+
+      - name: Build and sign
+        env:
+          GROKNOLA_RELEASE: "1"
+          GROKNOLA_BUILD_NUMBER: ${{ github.run_number }}
+          GROKNOLA_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          GROKNOLA_GOOGLE_CLIENT_ID: ${{ secrets.GROKNOLA_GOOGLE_CLIENT_ID }}
+          GROKNOLA_GOOGLE_CLIENT_SECRET: ${{ secrets.GROKNOLA_GOOGLE_CLIENT_SECRET }}
+        run: GROKNOLA_VERSION="$VERSION" ./scripts/build-app.sh
+
+      - name: Remove the signing keychain
+        if: always()
+        run: |
+          if [ -n "${SIGN_KEYCHAIN:-}" ]; then security delete-keychain "$SIGN_KEYCHAIN"; fi
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+      - name: Notarize and staple
+        env:
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_API_KEY_P8 }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+        run: |
+          umask 077
+          KEY="$RUNNER_TEMP/notary.p8"
+          trap 'rm -f "$KEY"' EXIT
+          printf %s "$NOTARY_KEY_P8" > "$KEY"
+          AUTH=(--key "$KEY" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID")
+          ditto -c -k --keepParent build/GrokNola.app "$RUNNER_TEMP/notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" "${AUTH[@]}" --wait --timeout 30m --output-format json \
+            > "$RUNNER_TEMP/notary.json" || true
+          STATUS="$(plutil -extract status raw -o - "$RUNNER_TEMP/notary.json" 2>/dev/null || echo unknown)"
+          if [ "$STATUS" != Accepted ]; then
+            echo "::error::Notarization status: $STATUS"
+            ID="$(plutil -extract id raw -o - "$RUNNER_TEMP/notary.json" 2>/dev/null || true)"
+            if [ -n "$ID" ]; then xcrun notarytool log "$ID" "${AUTH[@]}"; fi
+            exit 1
+          fi
+          xcrun stapler staple build/GrokNola.app
+          xcrun stapler validate build/GrokNola.app
+          spctl --assess --type execute --verbose=4 build/GrokNola.app
+
+      - name: Package
+        run: |
+          ZIP="GrokNola-$VERSION.zip"
+          ditto -c -k --keepParent build/GrokNola.app "$ZIP"
+          shasum -a 256 "$ZIP" > "$ZIP.sha256"
+          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ env.ZIP }}
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$TAG" "$ZIP" "$ZIP.sha256" --verify-tag --draft --title "GrokNola $VERSION" --generate-notes
+          gh release edit "$TAG" --draft=false

@@ -98,7 +98,7 @@ enum Prefs {
     static var blockedDomains: Set<String> {
         ConsentReminder.domains(in: defaults.string(forKey: "blockedDomains")).union(RecordingPolicy.buildBlockedDomains)
     }
-    /// Policy switch for the Google Drive copy, set with `defaults write dev.local.groknotes allowDriveExport -bool false`.
+    /// Policy switch for the Google Drive copy, set with `defaults write com.neverfield.groknola allowDriveExport -bool false`.
     /// Pilot builds turn it off. When off, Settings hides the Drive options and nothing is copied.
     static var allowDriveExport: Bool { !PilotBuild.isOn && (defaults.object(forKey: "allowDriveExport") as? Bool ?? true) }
     static var exportToGoogleDrive: Bool { allowDriveExport && (defaults.object(forKey: "exportToGoogleDrive") as? Bool ?? false) }

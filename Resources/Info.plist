@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>GrokNotes</string>
 	<key>CFBundleIdentifier</key>
-	<string>dev.local.groknotes</string>
+	<string>com.neverfield.groknola</string>
 	<key>CFBundleName</key>
 	<string>GrokNola</string>
 	<key>CFBundleDisplayName</key>

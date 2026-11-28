@@ -2,6 +2,7 @@ import Foundation
 import Security
 
 enum Keychain {
+    /// The bundle ID before com.neverfield.groknola. Kept: the API key, Google sign-in, and vault key live under it.
     private static let service = "dev.local.groknotes"
 
     static func get(_ account: String) -> String? {
