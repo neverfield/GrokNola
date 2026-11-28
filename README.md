@@ -1,10 +1,154 @@
 # GrokNola
 
-GrokNola is a Granola-style meeting notepad for macOS that runs entirely on the xAI API.
-No bot joins the call. It listens to your microphone and your Mac's audio,
-transcribes live with `grok-voice-transcribe-2.0`, and writes notes with `grok-4.7`.
+GrokNola is a Granola-style meeting notepad for macOS that runs entirely on the xAI API. No bot joins your call.
+It listens to your microphone and your Mac's call audio and transcribes as people talk, with
+`grok-voice-transcribe-2.0`. When the call ends, it uses `grok-4.7` to turn your rough notes and the transcript
+into clean notes, with named speakers, action items, and timestamps that link back to what was said.
 
-## Build and run
+- **No bot in the meeting.** It works with Zoom, Teams, Google Meet, Slack huddles, Webex, and FaceTime by
+  listening on your Mac.
+- **Your notes stay the backbone.** Grok keeps every point you typed, in your order, and adds specifics from the
+  transcript.
+- **Every point is cited.** Bullets end with timestamps such as **5:17**. Click one to see that moment in the
+  transcript, or to hear it if you keep the audio.
+- **Ask across meetings.** One chat (Command-K) answers from all your notes and transcripts, and links to the
+  meetings it used.
+- **Private by default.** Meetings are encrypted on your Mac, and audio and text go only to `api.x.ai`. A consent
+  check runs before every recording.
+
+You use your own xAI API key. GrokNola shows what each meeting costs.
+
+## Install
+
+1. Download `GrokNola-X.Y.Z.zip` from [Releases](https://github.com/neverfield/GrokNola/releases), unzip it, and
+   move **GrokNola** to Applications. Releases are signed and notarized by Apple; to check one, see
+   [Verify a download](#verify-a-download).
+2. Open GrokNola, open Settings (Command-comma), and paste your xAI API key. It is stored in the Keychain.
+3. Grant **Microphone** and **Screen & System Audio Recording** when asked, then relaunch GrokNola.
+   **Calendar** is optional. It gives meetings their titles and invitees.
+
+GrokNola needs macOS 14 or later on an Apple silicon Mac. To build it yourself, see
+[Build from source](#build-from-source).
+
+## A walkthrough
+
+Everything in this example is made up: the people, the company, and the call.
+
+### Before the call
+
+Your calendar has **Northwind onboarding kickoff** at 10:00 on Zoom. You're meeting Dana Reyes
+(`dana@northwind.example`), the customer, and Yemi Adeyemi, a colleague. At 9:58, Home lists it under **Up next**,
+with **Join** and **Start notes**.
+
+Click **Join** to open Zoom, then click **Start notes**. Dana's domain is outside your company domains, so GrokNola
+asks first. The dialog says "Everyone in this meeting knows you're taking AI notes and agreed where the law requires
+it." and names `northwind.example`. Click **Start Notes** to begin.
+
+### During the call
+
+Type rough notes as you talk. They don't need to be tidy:
+
+```text
+go-live date?
+SSO - they use okta
+import from old tool, ~40k records
+dana owns rollout, training for 12 ppl
+```
+
+The transcript fills in as people speak. Under the notepad, the **Live** strip shows the latest line from each side:
+
+```text
+Dana Reyes   We'd like to be live before the end of March, ideally the week of the 17th.
+You          That works if we have the import file two weeks ahead.
+```
+
+Level meters in the bottom bar show that both your mic and the call audio are arriving.
+
+### After the call
+
+Click **Stop & Write Notes** (Shift-Command-R). The Notes tab shows each step as it runs: **Transcribing full
+recording**, **Naming speakers**, **Writing notes**, and **Tagging**. Dana's name comes from the invite and from
+her introducing herself on the call. Then the notes appear. With the **General meeting** template, they read:
+
+```markdown
+# Northwind onboarding kickoff
+
+## Summary
+Kickoff to plan Northwind's rollout. The team agreed to go live the week of March 17, provided the
+import file arrives by March 3. Single sign-on and training were planned. Archived records are undecided.
+
+## Key points by topic
+### Timeline
+- Northwind wants to go live the week of March 17 [03:12]
+- The date holds only if the import file arrives two weeks ahead [03:40] [04:05]
+
+### Single sign-on
+- Northwind uses Okta, and SSO must be on before training starts [06:18]
+
+### Data import
+- About 40,000 records move from their current tool as a CSV export [08:51] [09:30]
+- Custom fields need checking before the import [10:02]
+
+### Training
+- Dana owns the rollout and needs training for 12 people [12:44]
+
+## Decisions
+- Go-live is the week of March 17 [14:20]
+- Training runs as two sessions of six people [15:02]
+
+## Action items
+- [ ] Dana Reyes: send the import file, by March 3 [04:05]
+- [ ] Yemi Adeyemi: send the Okta SSO setup guide, by Friday [06:55]
+- [ ] You: book the two training sessions [15:10]
+
+## Open questions
+- Whether archived records need importing too [11:37]
+```
+
+In the app, the timestamps show as pills. **3:12** opens the transcript where Dana gave the date. If you keep the
+audio, the pill reads **▶ 3:12** and plays that moment. Each line of your rough notes is still there, now with
+the details from the call. Check off an action item when it's done, or click **Edit** to fix a line. GrokNola also
+tags the meeting, for example **Onboarding**.
+
+Beside the notes, the **call summary** shows the length of the call, each speaker's share of the talking (for
+example Dana 46%, You 31%, Yemi 23%), and chapters such as **Timeline** at 2:50 and **Data import** at 8:30.
+Click a chapter to jump to it.
+
+### The transcript
+
+The **Transcript** tab (Command-2) shows who said what, split into chapters. **Copy Transcript** gives you text like:
+
+```text
+## Timeline (02:50–06:05)
+[03:12] Dana Reyes: We'd like to be live before the end of March, ideally the week of the 17th.
+[03:40] You: That works if we have the import file two weeks ahead.
+[04:05] Dana Reyes: I can get it to you by March 3.
+```
+
+If a name is wrong, click it and type the right one. GrokNola remembers the correction for later meetings.
+
+### Ask
+
+Use the meeting's **Ask** tab (Command-3) for this meeting alone, for example "Draft a short follow-up email to Dana
+with the dates we agreed." Use **Ask Grok** (Command-K) to ask across every meeting:
+
+> **You:** What did Northwind commit to, and by when?
+>
+> **Grok:** Dana Reyes will send the import file by March 3, and Northwind plans to go live the week of March 17.
+> Source: *Northwind onboarding kickoff*
+
+Click the source to open the meeting. Ask Grok also answers questions about GrokNola itself, such as "Why is system
+audio off?"
+
+### Afterwards
+
+The meeting stays on your Mac, encrypted. By default the audio is deleted once the notes are written; turn on
+**Keep audio recordings after notes are written** in Settings to keep it for playback. Each meeting's header shows
+what it cost, and **Usage & Cost** (Shift-Command-U) shows the totals.
+
+The rest of this README is the full reference. The in-app guide (Command-?) covers the same features step by step.
+
+## Build from source
 
 ```bash
 ./scripts/build-app.sh
@@ -36,80 +180,6 @@ Google Calendar sign-in needs an OAuth client, which the build reads from the en
 The app icon is `Resources/AppIcon.icns`, built from `Resources/AppIcon-master.png` (shaped by `scripts/shape-icon.swift`; other concepts in `Resources/icon-options/`).
 
 `Resources/Assets.xcassets` holds the amber `AccentColor` that native controls use. The build compiles it with `actool`, which needs Xcode's first-launch setup once per Mac (`sudo xcodebuild -runFirstLaunch`); without it the build warns and falls back to the system accent.
-
-## Releases
-
-Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml`. It runs the tests, then waits for a reviewer to
-approve the `release` environment, which holds every signing secret. After approval it builds with
-`GROKNOLA_RELEASE=1`, signs with the Developer ID certificate in a temporary keychain (deleted right after),
-notarizes and staples, publishes `GrokNola-X.Y.Z.zip` with its SHA-256, and records a build provenance
-attestation. Releases are immutable, so published files can't be replaced.
-
-Release mode in `scripts/build-app.sh` refuses pilot settings, because anyone can read a release's `Info.plist`.
-Make pilot builds locally. It also fails unless the signature is Developer ID, from `APPLE_TEAM_ID`, with the
-Hardened Runtime, a secure timestamp, and exactly the entitlements in `Resources/GrokNola.entitlements`.
-
-### Cut a release
-
-Merge to `main` through a pull request, then:
-
-```bash
-git switch main && git pull
-git tag v0.2.0 && git push origin v0.2.0
-```
-
-Approve the run in the repository's Actions tab. The workflow refuses tags that aren't on `main`.
-
-### One-time setup
-
-1. In the Apple Developer portal, create a **Developer ID Application** certificate. Export it from Keychain
-   Access as a `.p12` with a long random password, and keep a copy in your password manager.
-2. In App Store Connect > Users and Access > Integrations, create a team API key with the **Developer** role and
-   download the `.p8`.
-3. Store them in the `release` environment. `gh secret set` without `--body` prompts, so values stay out of shell
-   history:
-
-   ```bash
-   base64 -i DeveloperID.p12 | gh secret set DEVELOPER_ID_P12_BASE64 --env release
-   gh secret set DEVELOPER_ID_P12_PASSWORD --env release
-   gh secret set NOTARY_API_KEY_P8 --env release < AuthKey_KEYID.p8
-   gh secret set NOTARY_API_KEY_ID --env release
-   gh secret set NOTARY_API_ISSUER_ID --env release
-   gh variable set APPLE_TEAM_ID --env release --body YOURTEAMID
-   ```
-
-   Then delete the `.p12` and `.p8` files from Downloads.
-4. Optional: to turn on Google Calendar sign-in in releases, also set `GROKNOLA_GOOGLE_CLIENT_ID` and
-   `GROKNOLA_GOOGLE_CLIENT_SECRET` the same way. Without them, releases ship with Google sign-in off, and the
-   calendar comes from Apple Calendar.
-
-The release job checks the certificate password, team, and notary key before it builds, so wrong values fail
-in seconds with a message that names the secret.
-
-### Verify a download
-
-```bash
-shasum -a 256 -c GrokNola-0.2.0.zip.sha256
-gh attestation verify GrokNola-0.2.0.zip --repo neverfield/GrokNola
-spctl --assess --type execute --verbose GrokNola.app   # expect "source=Notarized Developer ID"
-```
-
-### Moving from a local build
-
-Releases use the bundle ID `com.neverfield.groknola`. The first launch copies settings from the old
-`dev.local.groknotes` domain. Keychain items keep the old service name, but macOS asks once whether the newly
-signed app may read them. Choose **Always Allow**. Denying the `vault_key` prompt leaves sealed meetings
-unreadable until you allow it. Microphone, Screen & System Audio Recording, Accessibility, and Calendar need
-granting once more.
-
-### If a signing secret leaks
-
-1. Revoke the Developer ID certificate in the Apple Developer portal. Gatekeeper then rejects apps signed with
-   it, so also ship a release signed with a new certificate.
-2. Revoke the App Store Connect API key.
-3. Replace the `release` environment secrets, and review recent runs in the Actions tab.
-
-The Developer ID certificate expires after 5 years. Renew it a few months early.
 
 ## Use
 
@@ -374,3 +444,77 @@ not used for content.
   waveform. Use the mark sparingly: the sidebar wordmark, empty states, Home, and live states.
 - **Speakers** take earthy colors in speaking order (slate, terracotta, plum, teal, ochre, indigo,
   clay); you are sage. Chapters use a quieter ramp of the same family.
+
+## Releases
+
+Pushing a `vX.Y.Z` tag runs `.github/workflows/release.yml`. It runs the tests, then waits for a reviewer to
+approve the `release` environment, which holds every signing secret. After approval it builds with
+`GROKNOLA_RELEASE=1`, signs with the Developer ID certificate in a temporary keychain (deleted right after),
+notarizes and staples, publishes `GrokNola-X.Y.Z.zip` with its SHA-256, and records a build provenance
+attestation. Releases are immutable, so published files can't be replaced.
+
+Release mode in `scripts/build-app.sh` refuses pilot settings, because anyone can read a release's `Info.plist`.
+Make pilot builds locally. It also fails unless the signature is Developer ID, from `APPLE_TEAM_ID`, with the
+Hardened Runtime, a secure timestamp, and exactly the entitlements in `Resources/GrokNola.entitlements`.
+
+### Cut a release
+
+Merge to `main` through a pull request, then:
+
+```bash
+git switch main && git pull
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+Approve the run in the repository's Actions tab. The workflow refuses tags that aren't on `main`.
+
+### One-time setup
+
+1. In the Apple Developer portal, create a **Developer ID Application** certificate. Export it from Keychain
+   Access as a `.p12` with a long random password, and keep a copy in your password manager.
+2. In App Store Connect > Users and Access > Integrations, create a team API key with the **Developer** role and
+   download the `.p8`.
+3. Store them in the `release` environment. `gh secret set` without `--body` prompts, so values stay out of shell
+   history:
+
+   ```bash
+   base64 -i DeveloperID.p12 | gh secret set DEVELOPER_ID_P12_BASE64 --env release
+   gh secret set DEVELOPER_ID_P12_PASSWORD --env release
+   gh secret set NOTARY_API_KEY_P8 --env release < AuthKey_KEYID.p8
+   gh secret set NOTARY_API_KEY_ID --env release
+   gh secret set NOTARY_API_ISSUER_ID --env release
+   gh variable set APPLE_TEAM_ID --env release --body YOURTEAMID
+   ```
+
+   Then delete the `.p12` and `.p8` files from Downloads.
+4. Optional: to turn on Google Calendar sign-in in releases, also set `GROKNOLA_GOOGLE_CLIENT_ID` and
+   `GROKNOLA_GOOGLE_CLIENT_SECRET` the same way. Without them, releases ship with Google sign-in off, and the
+   calendar comes from Apple Calendar.
+
+The release job checks the certificate password, team, and notary key before it builds, so wrong values fail
+in seconds with a message that names the secret.
+
+### Verify a download
+
+```bash
+shasum -a 256 -c GrokNola-0.2.0.zip.sha256
+gh attestation verify GrokNola-0.2.0.zip --repo neverfield/GrokNola
+spctl --assess --type execute --verbose GrokNola.app   # expect "source=Notarized Developer ID"
+```
+
+### Moving from a local build
+
+Releases use the bundle ID `com.neverfield.groknola`. The first launch copies settings from the old
+`dev.local.groknotes` domain. Keychain items keep the old service name, but macOS asks once whether the newly
+signed app may read them. Choose **Always Allow**. Denying the `vault_key` prompt leaves sealed meetings
+unreadable until you allow it. Microphone, Screen & System Audio Recording, Accessibility, and Calendar need
+granting once more.
+
+### If a signing secret leaks
+
+1. Revoke the Developer ID certificate in the Apple Developer portal. Gatekeeper then rejects apps signed with
+   it, so also ship a release signed with a new certificate.
+2. Revoke the App Store Connect API key.
+3. Replace the `release` environment secrets, and review recent runs in the Actions tab.
+
+The Developer ID certificate expires after 5 years. Renew it a few months early.
