@@ -47,6 +47,9 @@ final class CalendarHub: ObservableObject {
     var choice: CalendarChoice { Prefs.calendarSource }
 
     var active: Active {
+        #if GROKNOLA_DEMO
+        return .apple
+        #endif
         switch choice {
         case .none: return .none
         case .apple: return apple.isAuthorized ? .apple : .none
@@ -58,6 +61,9 @@ final class CalendarHub: ObservableObject {
     }
 
     private var source: CalendarSource? {
+        #if GROKNOLA_DEMO
+        return DemoMode.calendar
+        #endif
         switch active {
         case .google: return google.snapshot
         case .apple: return apple
@@ -142,8 +148,7 @@ final class CalendarHub: ObservableObject {
     /// Older versions read Google Calendar from a plain `calendar.json` that a Cursor agent wrote. It is no
     /// longer read, and any app could read or rewrite it, so it is removed.
     private static func removeLegacyFile() {
-        let file = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("GrokNotes/calendar.json")
+        let file = AppPaths.support.appendingPathComponent("calendar.json")
         try? FileManager.default.removeItem(at: file)
     }
 }

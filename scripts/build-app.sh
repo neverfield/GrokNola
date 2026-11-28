@@ -33,6 +33,16 @@ if [ "$RELEASE" = 1 ]; then
   [ -n "${CODESIGN_IDENTITY:-}" ] && [ "$CODESIGN_IDENTITY" != "-" ] || fail "set CODESIGN_IDENTITY to a Developer ID Application identity."
 fi
 
+# GROKNOLA_DEMO=1 builds build/demo/GrokNola.app for scripts/take-screenshots.sh: made-up meetings in a temp folder,
+# an in-memory Keychain, and the bundle ID com.neverfield.groknola.demo, so it never touches real data or settings.
+DEMO="${GROKNOLA_DEMO:-0}"
+SWIFT_FLAGS=()
+if [ "$DEMO" = 1 ]; then
+  [ "$RELEASE" != 1 ] || fail "a release can't be a demo build."
+  SWIFT_FLAGS=(-Xswiftc -DGROKNOLA_DEMO --scratch-path .build/demo)
+  APP="build/demo/GrokNola.app"
+fi
+
 # The macOS 26 window style appears only in apps built with the macOS 26 SDK.
 SDK_VERSION="$(xcrun --show-sdk-version 2>/dev/null || echo unknown)"
 SDK_MAJOR="${SDK_VERSION%%.*}"
@@ -40,8 +50,8 @@ if ! [[ "$SDK_MAJOR" =~ ^[0-9]+$ ]] || [ "$SDK_MAJOR" -lt 26 ]; then
   echo "warning: built with SDK $SDK_VERSION; on macOS 26 the window will use the older style. Use Xcode 26 or later." >&2
 fi
 
-swift build -c "$CONFIG"
-BIN_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
+swift build -c "$CONFIG" ${SWIFT_FLAGS[@]+"${SWIFT_FLAGS[@]}"}
+BIN_DIR="$(swift build -c "$CONFIG" ${SWIFT_FLAGS[@]+"${SWIFT_FLAGS[@]}"} --show-bin-path)"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -49,6 +59,7 @@ cp "$BIN_DIR/GrokNotes" "$APP/Contents/MacOS/GrokNotes"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 [ -z "${GROKNOLA_VERSION:-}" ] || /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $GROKNOLA_VERSION" "$APP/Contents/Info.plist"
 [ -z "${GROKNOLA_BUILD_NUMBER:-}" ] || /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GROKNOLA_BUILD_NUMBER" "$APP/Contents/Info.plist"
+[ "$DEMO" != 1 ] || /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.neverfield.groknola.demo" "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp -R Resources/Help "$APP/Contents/Resources/Help"
 
@@ -90,7 +101,9 @@ read_oauth_value() {
 }
 GOOGLE_CLIENT_ID="$(read_oauth_value GROKNOLA_GOOGLE_CLIENT_ID)"
 GOOGLE_CLIENT_SECRET="$(read_oauth_value GROKNOLA_GOOGLE_CLIENT_SECRET)"
-if [ -n "$GOOGLE_CLIENT_ID" ] && [ -n "$GOOGLE_CLIENT_SECRET" ]; then
+if [ "$DEMO" = 1 ]; then
+  echo "Demo build: no Google sign-in."
+elif [ -n "$GOOGLE_CLIENT_ID" ] && [ -n "$GOOGLE_CLIENT_SECRET" ]; then
   /usr/libexec/PlistBuddy -c "Add :GNGoogleClientID string $GOOGLE_CLIENT_ID" "$APP/Contents/Info.plist"
   /usr/libexec/PlistBuddy -c "Add :GNGoogleClientSecret string $GOOGLE_CLIENT_SECRET" "$APP/Contents/Info.plist"
   echo "Google sign-in is configured."
@@ -128,6 +141,7 @@ close_signing_keychain() {
 }
 
 IDENTITY="${CODESIGN_IDENTITY:-}"
+[ "$DEMO" != 1 ] || IDENTITY="-"
 if [ -z "$IDENTITY" ] && [ -f "$SIGN_KC" ]; then
   while IFS= read -r line; do
     line="$(echo "$line" | sed -e 's/^[[:space:]]*"//' -e 's/"[[:space:]]*$//')"

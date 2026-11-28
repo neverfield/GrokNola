@@ -12,8 +12,7 @@ struct MeetingStore {
     let root: URL
 
     init() {
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        self.init(root: support.appendingPathComponent("GrokNotes/Meetings", isDirectory: true))
+        self.init(root: AppPaths.support.appendingPathComponent("Meetings", isDirectory: true))
     }
 
     /// A store over another folder of meeting folders, such as the trash.

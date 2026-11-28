@@ -1,152 +1,117 @@
-# GrokNola
+<p align="center">
+  <img src="Resources/AppIcon.iconset/icon_256x256@2x.png" width="128" height="128" alt="GrokNola app icon">
+</p>
 
-GrokNola is a Granola-style meeting notepad for macOS that runs entirely on the xAI API. No bot joins your call.
-It listens to your microphone and your Mac's call audio and transcribes as people talk, with
-`grok-voice-transcribe-2.0`. When the call ends, it uses `grok-4.7` to turn your rough notes and the transcript
-into clean notes, with named speakers, action items, and timestamps that link back to what was said.
+<h1 align="center">GrokNola</h1>
 
-- **No bot in the meeting.** It works with Zoom, Teams, Google Meet, Slack huddles, Webex, and FaceTime by
-  listening on your Mac.
-- **Your notes stay the backbone.** Grok keeps every point you typed, in your order, and adds specifics from the
-  transcript.
-- **Every point is cited.** Bullets end with timestamps such as **5:17**. Click one to see that moment in the
-  transcript, or to hear it if you keep the audio.
-- **Ask across meetings.** One chat (Command-K) answers from all your notes and transcripts, and links to the
-  meetings it used.
-- **Private by default.** Meetings are encrypted on your Mac, and audio and text go only to `api.x.ai`. A consent
-  check runs before every recording.
+<p align="center">
+  <strong>AI meeting notes for your Mac. No bot joins the call.</strong><br>
+  Jot a few rough notes while you talk. When the call ends, GrokNola turns them and the conversation into clean
+  notes: who said what, what was decided, who owns what, and a timestamp behind every point.
+</p>
 
-You use your own xAI API key. GrokNola shows what each meeting costs.
+<p align="center">
+  <a href="https://github.com/neverfield/GrokNola/releases/latest"><strong>Download for macOS</strong></a>
+  &nbsp;·&nbsp;
+  <a href="#how-it-works">How it works</a>
+  &nbsp;·&nbsp;
+  <a href="#private-by-design">Privacy</a>
+</p>
 
-## Install
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/notes-dark.png">
+  <img src="docs/images/notes.png" alt="GrokNola showing finished notes for a customer kickoff call, with each speaker's share of the call and the topic chapters beside them">
+</picture>
 
-1. Download `GrokNola-X.Y.Z.zip` from [Releases](https://github.com/neverfield/GrokNola/releases), unzip it, and
-   move **GrokNola** to Applications. Releases are signed and notarized by Apple; to check one, see
-   [Verify a download](#verify-a-download).
-2. Open GrokNola, open Settings (Command-comma), and paste your xAI API key. It is stored in the Keychain.
-3. Grant **Microphone** and **Screen & System Audio Recording** when asked, then relaunch GrokNola.
-   **Calendar** is optional. It gives meetings their titles and invitees.
+<p align="center"><sub>Every person, company, and meeting in these screenshots is made up.</sub></p>
 
-GrokNola needs macOS 14 or later on an Apple silicon Mac. To build it yourself, see
-[Build from source](#build-from-source).
+## Your notes, finished for you
 
-## A walkthrough
-
-Everything in this example is made up: the people, the company, and the call.
-
-### Before the call
-
-Your calendar has **Northwind onboarding kickoff** at 10:00 on Zoom. You're meeting Dana Reyes
-(`dana@northwind.example`), the customer, and Yemi Adeyemi, a colleague. At 9:58, Home lists it under **Up next**,
-with **Join** and **Start notes**.
-
-Click **Join** to open Zoom, then click **Start notes**. Dana's domain is outside your company domains, so GrokNola
-asks first. The dialog says "Everyone in this meeting knows you're taking AI notes and agreed where the law requires
-it." and names `northwind.example`. Click **Start Notes** to begin.
-
-### During the call
-
-Type rough notes as you talk. They don't need to be tidy:
+Type what matters to you, in your own shorthand. GrokNola keeps every point you wrote, in your order, and fills in
+the specifics from the call: names, numbers, dates, and who owns what. In the kickoff above, these four lines were
+the whole of the notes taken during the call:
 
 ```text
 go-live date?
 SSO - they use okta
 import from old tool, ~40k records
-dana owns rollout, training for 12 ppl
+sam owns rollout, training for 12 ppl
 ```
 
-The transcript fills in as people speak. Under the notepad, the **Live** strip shows the latest line from each side:
+Pick a template for the kind of meeting (general, customer call, 1:1, standup, or brainstorm), or write your own.
+Beside the notes, the call summary shows how long the call ran, each person's share of the talking, and the topics
+it covered.
 
-```text
-Dana Reyes   We'd like to be live before the end of March, ideally the week of the 17th.
-You          That works if we have the import file two weeks ahead.
-```
+## Every point links to the moment it was said
 
-Level meters in the bottom bar show that both your mic and the call audio are arriving.
+<img src="docs/images/transcript.png" alt="The transcript of the kickoff call, split into chapters, with each line labeled by speaker name and time">
 
-### After the call
+Each bullet ends with timestamps. Click one to jump to that line in the transcript, which is split into chapters and
+labeled with real names. Names come from the calendar invite, from people introducing themselves, and from the
+meeting app. Keep the audio if you like, and the same click plays the moment.
 
-Click **Stop & Write Notes** (Shift-Command-R). The Notes tab shows each step as it runs: **Transcribing full
-recording**, **Naming speakers**, **Writing notes**, and **Tagging**. Dana's name comes from the invite and from
-her introducing herself on the call. Then the notes appear. With the **General meeting** template, they read:
+## Ask your meetings anything
 
-```markdown
-# Northwind onboarding kickoff
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/ask.png" alt="Ask Grok answering which customers asked about single sign-on, with links to the meetings it used"></td>
+    <td width="50%"><img src="docs/images/meeting-ask.png" alt="The Ask tab of one meeting, with a drafted follow-up email listing the agreed dates"></td>
+  </tr>
+  <tr>
+    <td><strong>Across every meeting.</strong> Ask Grok (Command-K) answers from all your notes and transcripts, and
+    links each answer to the meetings it came from.</td>
+    <td><strong>Inside one meeting.</strong> The Ask tab answers questions about that call and drafts the follow-up,
+    with the dates and owners already in it.</td>
+  </tr>
+</table>
 
-## Summary
-Kickoff to plan Northwind's rollout. The team agreed to go live the week of March 17, provided the
-import file arrives by March 3. Single sign-on and training were planned. Archived records are undecided.
+## Start each day ready
 
-## Key points by topic
-### Timeline
-- Northwind wants to go live the week of March 17 [03:12]
-- The date holds only if the import file arrives two weeks ahead [03:40] [04:05]
+<img src="docs/images/home.png" alt="Home, with the day's upcoming calls and the open action items from recent meetings">
 
-### Single sign-on
-- Northwind uses Okta, and SSO must be on before training starts [06:18]
+Home lists what's next on your calendar, with **Join** and **Start notes**, and collects every open action item from
+your recent meetings in one place. Check one off there, and the meeting's notes update too.
 
-### Data import
-- About 40,000 records move from their current tool as a CSV export [08:51] [09:30]
-- Custom fields need checking before the import [10:02]
+## Works with the apps you already use
 
-### Training
-- Dana owns the rollout and needs training for 12 people [12:44]
+There's no bot to invite and no plugin to install. GrokNola listens to your microphone and your Mac's call audio,
+so it works with Zoom, Microsoft Teams, Google Meet, Slack huddles, Webex, and FaceTime. It notices when a call
+starts and offers to take notes.
 
-## Decisions
-- Go-live is the week of March 17 [14:20]
-- Training runs as two sessions of six people [15:02]
+## Private by design
 
-## Action items
-- [ ] Dana Reyes: send the import file, by March 3 [04:05]
-- [ ] Yemi Adeyemi: send the Okta SSO setup guide, by Friday [06:55]
-- [ ] You: book the two training sessions [15:10]
+- **Your meetings stay on your Mac**, encrypted with a key kept in your Keychain.
+- **No GrokNola account or server.** Audio and text go only to the xAI API (`api.x.ai`), with your own API key.
+- **Audio isn't kept** once the notes are written, unless you turn that on.
+- **Consent comes first.** Before each recording, GrokNola asks you to confirm that everyone knows about the AI
+  notes. It can also refuse meetings with people outside your company, or with domains you block.
+- **You see the cost** of every meeting, and the totals by day, week, and month.
 
-## Open questions
-- Whether archived records need importing too [11:37]
-```
+## How it works
 
-In the app, the timestamps show as pills. **3:12** opens the transcript where Dana gave the date. If you keep the
-audio, the pill reads **▶ 3:12** and plays that moment. Each line of your rough notes is still there, now with
-the details from the call. Check off an action item when it's done, or click **Edit** to fix a line. GrokNola also
-tags the meeting, for example **Onboarding**.
+1. **Start.** When a call begins, click **Start notes** on Home or in the menu bar, or press Shift-Command-R.
+2. **Take rough notes.** Type as you talk. The transcript fills in live, and a **Live** strip shows the latest line
+   from each side.
+3. **Stop.** Click **Stop & Write Notes**. Grok transcribes the full recording again, names the speakers, writes the
+   notes, and tags the meeting.
+4. **Use them.** Check off action items, copy the notes as Markdown, ask follow-up questions, or share them.
 
-Beside the notes, the **call summary** shows the length of the call, each speaker's share of the talking (for
-example Dana 46%, You 31%, Yemi 23%), and chapters such as **Timeline** at 2:50 and **Data import** at 8:30.
-Click a chapter to jump to it.
+GrokNola uses `grok-voice-transcribe-2.0` for transcription and `grok-4.7` for notes and answers.
 
-### The transcript
+## Install
 
-The **Transcript** tab (Command-2) shows who said what, split into chapters. **Copy Transcript** gives you text like:
+1. Download `GrokNola-X.Y.Z.zip` from [Releases](https://github.com/neverfield/GrokNola/releases/latest), unzip it,
+   and move **GrokNola** to Applications. Releases are signed and notarized by Apple; to check one, see
+   [Verify a download](#verify-a-download).
+2. Open GrokNola, open Settings (Command-comma), and paste your [xAI API key](https://console.x.ai). It is stored
+   in the Keychain.
+3. Grant **Microphone** and **Screen & System Audio Recording** when asked, then relaunch GrokNola.
+   **Calendar** is optional. It gives meetings their titles and invitees.
 
-```text
-## Timeline (02:50–06:05)
-[03:12] Dana Reyes: We'd like to be live before the end of March, ideally the week of the 17th.
-[03:40] You: That works if we have the import file two weeks ahead.
-[04:05] Dana Reyes: I can get it to you by March 3.
-```
+GrokNola needs macOS 14 or later on an Apple silicon Mac.
 
-If a name is wrong, click it and type the right one. GrokNola remembers the correction for later meetings.
-
-### Ask
-
-Use the meeting's **Ask** tab (Command-3) for this meeting alone, for example "Draft a short follow-up email to Dana
-with the dates we agreed." Use **Ask Grok** (Command-K) to ask across every meeting:
-
-> **You:** What did Northwind commit to, and by when?
->
-> **Grok:** Dana Reyes will send the import file by March 3, and Northwind plans to go live the week of March 17.
-> Source: *Northwind onboarding kickoff*
-
-Click the source to open the meeting. Ask Grok also answers questions about GrokNola itself, such as "Why is system
-audio off?"
-
-### Afterwards
-
-The meeting stays on your Mac, encrypted. By default the audio is deleted once the notes are written; turn on
-**Keep audio recordings after notes are written** in Settings to keep it for playback. Each meeting's header shows
-what it cost, and **Usage & Cost** (Shift-Command-U) shows the totals.
-
-The rest of this README is the full reference. The in-app guide (Command-?) covers the same features step by step.
+The rest of this README is the reference for using and building GrokNola. The in-app guide (Command-?) covers every
+feature step by step.
 
 ## Build from source
 
@@ -518,3 +483,18 @@ granting once more.
 3. Replace the `release` environment secrets, and review recent runs in the Actions tab.
 
 The Developer ID certificate expires after 5 years. Renew it a few months early.
+
+## Screenshots
+
+The images in `docs/images` are the real app, running a demo build with made-up meetings:
+
+```bash
+./scripts/take-screenshots.sh         # every scene
+./scripts/take-screenshots.sh home    # one scene: home, notes, notes-dark, transcript, meeting-ask, or ask
+```
+
+A demo build (`GROKNOLA_DEMO=1 ./scripts/build-app.sh`, code in `Sources/GrokNotes/Demo/`) has its own bundle ID,
+`com.neverfield.groknola.demo`, a data folder in the temporary directory, an in-memory Keychain, and a made-up
+calendar. It never reads or writes your meetings, settings, or Keychain, and release builds refuse the flag.
+Home follows the clock, so capture it during the day. The app that runs the script needs Screen Recording
+permission.

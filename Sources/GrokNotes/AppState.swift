@@ -157,11 +157,13 @@ final class AppState: ObservableObject {
         Self.sealLibraryChat()
         libraryChat = Self.loadLibraryChat()
         refreshPermissions()
+        #if !GROKNOLA_DEMO
         notifications.app = self
         notifications.configure()
         detectorTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.detectMeeting() }
         }
+        #endif
     }
 
     // MARK: Lookup and edits
@@ -312,6 +314,10 @@ final class AppState: ObservableObject {
     // MARK: Permissions
 
     func refreshPermissions() {
+        #if GROKNOLA_DEMO
+        permissions = Permissions(microphone: true, systemAudio: true, accessibility: true, calendar: true, googleCalendar: false)
+        return
+        #endif
         permissions = Permissions(
             microphone: AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
             systemAudio: CGPreflightScreenCaptureAccess(),
@@ -1410,8 +1416,7 @@ final class AppState: ObservableObject {
     }
 
     private static var libraryChatURL: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("GrokNotes/library-chat.json")
+        AppPaths.support.appendingPathComponent("library-chat.json")
     }
 
     /// The chat quotes meetings, so it is sealed like them. An older plain file is read once and sealed by `seal`.

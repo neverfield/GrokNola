@@ -16,8 +16,7 @@ enum KnownPeople {
     private static let cache = Cache()
 
     private static var url: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("GrokNotes/known-people.json")
+        AppPaths.support.appendingPathComponent("known-people.json")
     }
 
     static var all: [String] {

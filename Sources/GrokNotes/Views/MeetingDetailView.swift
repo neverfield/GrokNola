@@ -25,7 +25,11 @@ struct MeetingDetailView: View {
     @EnvironmentObject private var state: AppState
     @Environment(\.undoManager) private var undoManager
     let meetingID: UUID
+    #if GROKNOLA_DEMO
+    @State private var tab: Tab = DemoMode.initialTab
+    #else
     @State private var tab: Tab = .notes
+    #endif
     @State private var showInspector = false
     @State private var editingNotes = false
     @State private var findRequested = false

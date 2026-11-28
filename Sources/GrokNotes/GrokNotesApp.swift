@@ -5,7 +5,11 @@ struct GrokNotesApp: App {
     @StateObject private var state = AppState()
 
     init() {
+        #if GROKNOLA_DEMO
+        DemoMode.prepare()
+        #else
         SettingsMigration.run()
+        #endif
     }
 
     var body: some Scene {
@@ -21,6 +25,9 @@ struct GrokNotesApp: App {
                 .environmentObject(state.recording.speakers)
                 .tint(GrokColors.accent)
                 .frame(minWidth: 900, minHeight: 600)
+                #if GROKNOLA_DEMO
+                .task { await DemoMode.show(state) }
+                #endif
         }
         .commands {
             CommandMenu("Meeting") {
