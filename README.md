@@ -7,7 +7,7 @@
 <p align="center">
   <strong>AI meeting notes for your Mac. No bot joins the call.</strong><br>
   Jot a few rough notes while you talk. When the call ends, GrokNola turns them and the conversation into clean
-  notes: who said what, what was decided, who owns what, and a timestamp behind every point.
+  notes: who said what, what was decided, who owns what, and a timestamp on every point.
 </p>
 
 <p align="center">
@@ -28,8 +28,8 @@
 ## Your notes, finished for you
 
 Type what matters to you, in your own shorthand. GrokNola keeps every point you wrote, in your order, and fills in
-the specifics from the call: names, numbers, dates, and who owns what. In the kickoff above, these four lines were
-the whole of the notes taken during the call:
+the specifics from the call: names, numbers, dates, and who owns what. In the kickoff above, you typed only these
+four lines during the call:
 
 ```text
 go-live date?
@@ -38,9 +38,9 @@ import from old tool, ~40k records
 sam owns rollout, training for 12 ppl
 ```
 
-Pick a template for the kind of meeting (general, customer call, 1:1, standup, or brainstorm), or write your own.
-Beside the notes, the call summary shows how long the call ran, each person's share of the talking, and the topics
-it covered.
+Pick a template for the kind of meeting: general, customer call, 1:1, standup, or brainstorm. You can also write
+your own. Beside the notes, the call summary shows how long the call ran, each person's share of the talking, and
+the chapters of the conversation.
 
 ## Every point links to the moment it was said
 
@@ -48,9 +48,9 @@ it covered.
 
 Each bullet ends with timestamps. Click one to jump to that line in the transcript, which is split into chapters and
 labeled with real names. Names come from the calendar invite, from people introducing themselves, and from the
-meeting app. Keep the audio if you like, and the same click plays the moment.
+meeting app. If you keep the audio, the same click plays that moment.
 
-## Ask your meetings anything
+## Ask about any meeting
 
 <table>
   <tr>
@@ -58,34 +58,34 @@ meeting app. Keep the audio if you like, and the same click plays the moment.
     <td width="50%"><img src="docs/images/meeting-ask.png" alt="The Ask tab of one meeting, with a drafted follow-up email listing the agreed dates"></td>
   </tr>
   <tr>
-    <td><strong>Across every meeting.</strong> Ask Grok (Command-K) answers from all your notes and transcripts, and
-    links each answer to the meetings it came from.</td>
-    <td><strong>Inside one meeting.</strong> The Ask tab answers questions about that call and drafts the follow-up,
-    with the dates and owners already in it.</td>
+    <td><strong>Across every meeting.</strong> Press Command-K to open Ask Grok. It answers from all your notes and
+    transcripts and links each answer to the meetings it used.</td>
+    <td><strong>Inside one meeting.</strong> The Ask tab answers questions about that meeting. It can also draft the
+    follow-up email, with the agreed dates and owners.</td>
   </tr>
 </table>
 
-## Start each day ready
+## See your day on Home
 
 <img src="docs/images/home.png" alt="Home, with the day's upcoming calls and the open action items from recent meetings">
 
-Home lists what's next on your calendar, with **Join** and **Start notes**, and collects every open action item from
-your recent meetings in one place. Check one off there, and the meeting's notes update too.
+Home lists the rest of today's calendar, each event with **Join** and **Start notes**. Below that, it lists every
+open action item from your recent meetings. Check one off there, and the meeting's notes update too.
 
 ## Works with the apps you already use
 
 There's no bot to invite and no plugin to install. GrokNola listens to your microphone and your Mac's call audio,
-so it works with Zoom, Microsoft Teams, Google Meet, Slack huddles, Webex, and FaceTime. It notices when a call
-starts and offers to take notes.
+so it works with Zoom, Microsoft Teams, Google Meet, Slack huddles, Webex, and FaceTime. When one of these apps
+starts a call, the menu bar icon changes and a notification offers **Start Notes**.
 
 ## Private by design
 
-- **Your meetings stay on your Mac**, encrypted with a key kept in your Keychain.
-- **No GrokNola account or server.** Audio and text go only to the xAI API (`api.x.ai`), with your own API key.
-- **Audio isn't kept** once the notes are written, unless you turn that on.
-- **Consent comes first.** Before each recording, GrokNola asks you to confirm that everyone knows about the AI
+- **Your meetings stay on your Mac**, encrypted with a key in your Keychain.
+- **No GrokNola account or server.** Audio and text go only to the xAI API at `api.x.ai`, with your own API key.
+- **GrokNola deletes the audio** once the notes are written, unless you turn on keeping it.
+- **A consent check runs before each recording.** GrokNola asks you to confirm that everyone knows about the AI
   notes. It can also refuse meetings with people outside your company, or with domains you block.
-- **You see the cost** of every meeting, and the totals by day, week, and month.
+- **You see the cost** of every meeting, and totals for today, the last 7 days, this month, and all time.
 
 ## How it works
 
@@ -101,17 +101,17 @@ GrokNola uses `grok-voice-transcribe-2.0` for transcription and `grok-4.7` for n
 ## Install
 
 1. Download `GrokNola-X.Y.Z.zip` from [Releases](https://github.com/neverfield/GrokNola/releases/latest), unzip it,
-   and move **GrokNola** to Applications. Releases are signed and notarized by Apple; to check one, see
-   [Verify a download](#verify-a-download).
-2. Open GrokNola, open Settings (Command-comma), and paste your [xAI API key](https://console.x.ai). It is stored
-   in the Keychain.
+   and move **GrokNola** to Applications. Each release has a Developer ID signature, and Apple notarizes it. To
+   check a download, see [Verify a download](#verify-a-download).
+2. Open GrokNola, press Command-comma to open Settings, and paste your [xAI API key](https://console.x.ai).
+   GrokNola stores it in your Keychain.
 3. Grant **Microphone** and **Screen & System Audio Recording** when asked, then relaunch GrokNola.
    **Calendar** is optional. It gives meetings their titles and invitees.
 
 GrokNola needs macOS 14 or later on an Apple silicon Mac.
 
-The rest of this README is the reference for using and building GrokNola. The in-app guide (Command-?) covers every
-feature step by step.
+The rest of this README is the reference for using and building GrokNola. The in-app guide covers every feature step
+by step. Press Command-? to open it.
 
 ## Build from source
 
@@ -486,15 +486,17 @@ The Developer ID certificate expires after 5 years. Renew it a few months early.
 
 ## Screenshots
 
-The images in `docs/images` are the real app, running a demo build with made-up meetings:
+The images in `docs/images` show the real app running a demo build with made-up meetings. To capture them again:
 
 ```bash
 ./scripts/take-screenshots.sh         # every scene
 ./scripts/take-screenshots.sh home    # one scene: home, notes, notes-dark, transcript, meeting-ask, or ask
 ```
 
-A demo build (`GROKNOLA_DEMO=1 ./scripts/build-app.sh`, code in `Sources/GrokNotes/Demo/`) has its own bundle ID,
-`com.neverfield.groknola.demo`, a data folder in the temporary directory, an in-memory Keychain, and a made-up
-calendar. It never reads or writes your meetings, settings, or Keychain, and release builds refuse the flag.
-Home follows the clock, so capture it during the day. The app that runs the script needs Screen Recording
+The script builds the demo app with `GROKNOLA_DEMO=1 ./scripts/build-app.sh`. The demo code is in
+`Sources/GrokNotes/Demo/`. A demo build uses the bundle ID `com.neverfield.groknola.demo`, keeps its data in the
+temporary folder, holds Keychain items in memory, and shows a made-up calendar. It never reads or writes your
+meetings, settings, or Keychain. Release builds refuse the flag.
+
+Home shows the current time, so capture it during the day. The app that runs the script needs Screen Recording
 permission.
