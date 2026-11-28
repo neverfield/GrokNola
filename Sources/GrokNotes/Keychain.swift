@@ -1,6 +1,7 @@
 import Foundation
 import Security
 
+#if !GROKNOLA_DEMO
 enum Keychain {
     /// The bundle ID before com.neverfield.groknola. Kept: the API key, Google sign-in, and vault key live under it.
     private static let service = "dev.local.groknotes"
@@ -77,3 +78,4 @@ enum Keychain {
         SecItemDelete(query as CFDictionary)
     }
 }
+#endif

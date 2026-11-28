@@ -141,8 +141,7 @@ final class TemplateCatalog: ObservableObject {
     private let url: URL
 
     init() {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("GrokNotes", isDirectory: true)
+        let dir = AppPaths.support
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         url = dir.appendingPathComponent("templates.json")
         if let data = try? Vault.read(url) {

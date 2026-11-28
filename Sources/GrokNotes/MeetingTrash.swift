@@ -20,8 +20,7 @@ final class MeetingTrash: ObservableObject {
     let root: URL
     private var dismissTask: Task<Void, Never>?
 
-    init(root: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("GrokNotes/Trash", isDirectory: true)) {
+    init(root: URL = AppPaths.support.appendingPathComponent("Trash", isDirectory: true)) {
         self.root = root
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         purge()
